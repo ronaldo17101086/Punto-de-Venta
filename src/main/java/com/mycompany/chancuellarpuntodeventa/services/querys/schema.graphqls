@@ -1,0 +1,11 @@
+
+type Query {
+    listarProductos: [Producto]
+}
+
+type Producto {
+    id: ID
+    sku: String
+    name: String
+    price: Float
+}
