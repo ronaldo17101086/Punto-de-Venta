@@ -81,88 +81,79 @@ public class productInterface extends JPanel {
             System.err.println("Error al cargar productos: " + e.getMessage());
         }
     }
-    
-private void importarDesdeExcel() {
-    JFileChooser fileChooser = new JFileChooser();
-    fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
-    int seleccion = fileChooser.showOpenDialog(this);
 
-    if (seleccion == JFileChooser.APPROVE_OPTION) {
-        File archivo = fileChooser.getSelectedFile();
-        try (FileInputStream fis = new FileInputStream(archivo); 
-             Workbook workbook = new XSSFWorkbook(fis)) {
+    private void importarDesdeExcel() {
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
+        int seleccion = fileChooser.showOpenDialog(this);
 
-            Sheet sheet = workbook.getSheetAt(0);
-            Iterator<Row> filas = sheet.iterator();
+        if (seleccion == JFileChooser.APPROVE_OPTION) {
+            File archivo = fileChooser.getSelectedFile();
+            try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
 
-            if (filas.hasNext()) {
-                filas.next(); // Saltar cabecera (SKU, DESCRIPCION, PRECIO)
-            }
-            
-            DataFormatter formatter = new DataFormatter();
-            int nuevos = 0;
-            int actualizados = 0;
+                Sheet sheet = workbook.getSheetAt(0);
+                Iterator<Row> filas = sheet.iterator();
 
-            while (filas.hasNext()) {
-                Row fila = filas.next();
-
-                // SEGÚN TU IMAGEN DE EXCEL:
-                // Columna A (0) = Parece ser un ID o SKU numérico
-                // Columna B (1) = Descripción (Coca Cola...)
-                // Columna C (2) = Precio (15)
-                String skuExcel = formatter.formatCellValue(fila.getCell(0));
-                String nombreExcel = formatter.formatCellValue(fila.getCell(1));
-                String precioExcel = formatter.formatCellValue(fila.getCell(2));
-
-                if (skuExcel != null && !skuExcel.trim().isEmpty()) {
-                    
-                    // 1. Intentamos buscar si ya existe para no duplicar
-                    Producto p = productoRepository.findBySku(skuExcel);
-                    
-                    if (p != null) {
-                        actualizados++;
-                    } else {
-                        // 2. Si es nuevo, lo creamos
-                        p = new Producto();
-                        p.setSku(skuExcel);
-                        // IMPORTANTE: Si te sigue dando el error del "Identifier", 
-                        // asegúrate que en Producto.java el ID tenga @GeneratedValue
-                        nuevos++;
-                    }
-
-                    p.setName(nombreExcel);
-
-                    // 3. Limpieza de precio para evitar que truene
-                    try {
-                        String limpio = precioExcel.replace(",", "").trim();
-                        p.setPrice(limpio.isEmpty() ? 0.0 : Double.parseDouble(limpio));
-                    } catch (Exception e) {
-                        p.setPrice(0.0);
-                    }
-
-                    // 4. Guardar en la base de datos
-                    productoRepository.save(p);
+                if (filas.hasNext()) {
+                    filas.next(); // Saltar cabecera (SKU, DESCRIPCION, PRECIO)
                 }
+
+                DataFormatter formatter = new DataFormatter();
+                int nuevos = 0;
+                int actualizados = 0;
+
+                while (filas.hasNext()) {
+                    Row fila = filas.next();
+
+                    // SEGÚN TU IMAGEN DE EXCEL:
+                    // Columna A (0) = Parece ser un ID o SKU numérico
+                    // Columna B (1) = Descripción (Coca Cola...)
+                    // Columna C (2) = Precio (15)
+                    String skuExcel = formatter.formatCellValue(fila.getCell(0));
+                    String nombreExcel = formatter.formatCellValue(fila.getCell(1));
+                    String precioExcel = formatter.formatCellValue(fila.getCell(2));
+
+                    if (skuExcel != null && !skuExcel.trim().isEmpty()) {
+
+                        // 1. Intentamos buscar si ya existe para no duplicar
+                        Producto p = productoRepository.findBySku(skuExcel);
+
+                        if (p != null) {
+                            actualizados++;
+                        } else {
+                            // 2. Si es nuevo, lo creamos
+                            p = new Producto();
+                            p.setSku(skuExcel);
+                            // IMPORTANTE: Si te sigue dando el error del "Identifier", 
+                            // asegúrate que en Producto.java el ID tenga @GeneratedValue
+                            nuevos++;
+                        }
+
+                        p.setName(nombreExcel);
+
+                        // 3. Limpieza de precio para evitar que truene
+                        try {
+                            String limpio = precioExcel.replace(",", "").trim();
+                            p.setPrice(limpio.isEmpty() ? 0.0 : Double.parseDouble(limpio));
+                        } catch (Exception e) {
+                            p.setPrice(0.0);
+                        }
+
+                        // 4. Guardar en la base de datos
+                        productoRepository.save(p);
+                    }
+                }
+
+                JOptionPane.showMessageDialog(this, "¡Por fin quedó!\nNuevos: " + nuevos + "\nActualizados: " + actualizados);
+                cargarProductosCompletos();
+
+            } catch (Exception e) {
+                // Esto te dirá exactamente qué columna o dato está fallando
+                JOptionPane.showMessageDialog(this, "Error en el proceso: " + e.getMessage());
+                e.printStackTrace();
             }
-
-            JOptionPane.showMessageDialog(this, "¡Por fin quedó!\nNuevos: " + nuevos + "\nActualizados: " + actualizados);
-            cargarProductosCompletos();
-
-        } catch (Exception e) {
-            // Esto te dirá exactamente qué columna o dato está fallando
-            JOptionPane.showMessageDialog(this, "Error en el proceso: " + e.getMessage());
-            e.printStackTrace();
         }
     }
-}
-    
-    
-    
-    
-    
-    
-    
-    
 
     private void actualizarLista(List<ProductDTO> productos) {
         listModel.clear();

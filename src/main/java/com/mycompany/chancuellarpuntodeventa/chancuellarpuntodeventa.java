@@ -8,6 +8,9 @@ import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan; // Importante
 import java.awt.EventQueue;
 
+
+
+
 @SpringBootApplication
 @ComponentScan(basePackages = {"com.mycompany.chancuellarpuntodeventa", "Conexion"})
 @ComponentScan(basePackages = {"com.mycompany.chancuellarpuntodeventa", "ventas"})

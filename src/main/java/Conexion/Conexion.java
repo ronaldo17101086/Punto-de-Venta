@@ -9,7 +9,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 
-@Configuration // <--- Esto le dice a Spring que use esta configuración
+@Configuration 
 public class Conexion {
 
     private static final String URL_SERVIDOR = "jdbc:mysql://localhost:3306/?serverTimezone=UTC";
