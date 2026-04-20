@@ -8,7 +8,6 @@ import java.awt.FlowLayout;
 import java.awt.Font;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
-import com.mycompany.chancuellarpuntodeventa.chancuellarpuntodeventa;
 import java.awt.*;
 import java.awt.event.*;
 import javax.swing.*;
@@ -35,6 +34,7 @@ public class dashboard extends JFrame {
     private boolean menuVisible = true;
 
     public dashboard() {
+        // Constructor vacío
     }
 
     @jakarta.annotation.PostConstruct
@@ -43,6 +43,11 @@ public class dashboard extends JFrame {
     }
 
     private void initUI() {
+        // ===== CONFIGURACIÓN INICIAL DE LA VENTANA =====
+        // IMPORTANTE: No llamar a setVisible(true) aquí
+        setTitle("Dashboard - " + companyName);
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        
         // ===== BARRA SUPERIOR =====
         JPanel topBar = new JPanel(new BorderLayout());
         topBar.setPreferredSize(new Dimension(0, 40));
@@ -52,7 +57,6 @@ public class dashboard extends JFrame {
         JPanel leftPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 5));
         leftPanel.setBackground(new Color(30, 30, 30));
 
-        // Botón de menú hamburguesa
         JButton menuToggle = new JButton("☰");
         menuToggle.setFocusPainted(false);
         menuToggle.setBorderPainted(false);
@@ -60,15 +64,12 @@ public class dashboard extends JFrame {
         menuToggle.setBackground(new Color(30, 30, 30));
         menuToggle.setFont(new Font("Segoe UI", Font.BOLD, 18));
         menuToggle.setPreferredSize(new Dimension(50, 30));
-
         leftPanel.add(menuToggle);
 
-        // Etiqueta "Punto de Venta"
         JLabel leftLabel = new JLabel("Punto de Venta");
         leftLabel.setFont(new Font("Segoe UI", Font.BOLD, 14));
         leftLabel.setForeground(Color.WHITE);
         leftPanel.add(leftLabel);
-
         topBar.add(leftPanel, BorderLayout.WEST);
 
         // ===== CENTRO: "CHANCUELLAR" =====
@@ -77,12 +78,10 @@ public class dashboard extends JFrame {
         centerLabel.setForeground(Color.WHITE);
         topBar.add(centerLabel, BorderLayout.CENTER);
 
-        // ===== DERECHA: BOTONES DE VENTANA =====
+        // ===== DERECHA: BOTONES =====
         JPanel buttons = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 5));
         buttons.setBackground(new Color(30, 30, 30));
-
         topBar.add(buttons, BorderLayout.EAST);
-
         add(topBar, BorderLayout.NORTH);
 
         // ===== CONTENEDOR PRINCIPAL =====
@@ -96,7 +95,7 @@ public class dashboard extends JFrame {
         sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
-        // ---- BOTONES DEL MENU ----
+        // BOTONES DEL MENU
         addMenuButton("Ventas", "ventas");
         addMenuButton("Cotizaciones", "cotizaciones");
         addMenuButton("Compras", "compras");
@@ -109,16 +108,14 @@ public class dashboard extends JFrame {
         addMenuButton("Configuraciones", "configuraciones");
         addMenuButton("Suscripción ", "suscripción");
 
-        // ===== PANEL DE CONTENIDO (PANTALLAS) =====
+        // ===== PANEL DE CONTENIDO =====
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
         contentPanel.setBackground(Color.WHITE);
         mainContainer.add(contentPanel, BorderLayout.CENTER);
 
-        // PANTALLAS
         contentPanel.add(ventasPanel, "ventas");
         contentPanel.add(productosPanel, "productos");
-
         contentPanel.add(createScreen("COTIZACIONES"), "cotizaciones");
         contentPanel.add(createScreen("COMPRAS"), "compras");
         contentPanel.add(createScreen("CLIENTES"), "clientes");
@@ -129,20 +126,14 @@ public class dashboard extends JFrame {
         contentPanel.add(createScreen("CONFIGURACIONES"), "configuraciones");
         contentPanel.add(createScreen("SUSCRIPCION"), "suscripción");
 
-        // ===== EVENTO HAMBURGUESA =====
         menuToggle.addActionListener(e -> toggleMenu());
 
-        // ===== MOVER VENTANA =====
+        // MOVER VENTANA
         final Point[] mouseDownCompCoords = {null};
         topBar.addMouseListener(new MouseAdapter() {
             public void mousePressed(MouseEvent e) {
                 if (fullscreen) {
-                    device.setFullScreenWindow(null);
-                    dispose();
-                    setResizable(true);
-                    setBounds(100, 100, 1200, 700);
-                    setVisible(true);
-                    fullscreen = false;
+                    toggleMaximize(); // Salir de pantalla completa para mover
                 }
                 mouseDownCompCoords[0] = e.getPoint();
             }
@@ -156,16 +147,16 @@ public class dashboard extends JFrame {
             }
         });
 
-        // ESC para salir
+        // ESC para cerrar
         getRootPane().registerKeyboardAction(e -> System.exit(0),
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0),
                 JComponent.WHEN_IN_FOCUSED_WINDOW);
 
-        // abrir maximizada REAL
-        SwingUtilities.invokeLater(() -> toggleMaximize());
+        // ELIMINADO: SwingUtilities.invokeLater(() -> toggleMaximize());
+        // En su lugar, simplemente preparamos la ventana
+        setExtendedState(JFrame.MAXIMIZED_BOTH); 
     }
 
-// ---- METODO PARA CREAR BOTONES DEL MENU ----
     private void addMenuButton(String name, String card) {
         JButton btn = new JButton(name);
         btn.setFocusPainted(false);
@@ -176,62 +167,39 @@ public class dashboard extends JFrame {
         btn.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         btn.addActionListener(e -> cardLayout.show(contentPanel, card));
         sideMenu.add(btn);
-        sideMenu.add(Box.createRigidArea(new Dimension(0, 5))); // espacio entre botones
+        sideMenu.add(Box.createRigidArea(new Dimension(0, 5)));
     }
 
-// ---- METODO PARA MOSTRAR/OCULTAR EL MENU ----
     private void toggleMenu() {
         sideMenu.setVisible(!sideMenu.isVisible());
     }
 
-    // ===== MAXIMIZADO REAL =====
     private GraphicsDevice device = GraphicsEnvironment
             .getLocalGraphicsEnvironment()
             .getDefaultScreenDevice();
 
     private boolean fullscreen = false;
 
-    private void toggleMaximize() {
+    // Método corregido para no forzar visibilidad si no es necesario
+    public void toggleMaximize() {
         if (!fullscreen) {
             dispose();
-            setVisible(false);
+            setUndecorated(true);
             setResizable(false);
             device.setFullScreenWindow(this);
-            setVisible(true);
         } else {
             device.setFullScreenWindow(null);
             dispose();
-            setVisible(false);
+            setUndecorated(false);
             setResizable(true);
             setBounds(100, 100, 1200, 700);
-            setVisible(true);
+            setLocationRelativeTo(null);
         }
         fullscreen = !fullscreen;
-    }
-
-    private JButton createWindowButton(String text, Color normal, Color hover) {
-        JButton btn = new JButton(text);
-        btn.setFocusPainted(false);
-        btn.setBorderPainted(false);
-        btn.setContentAreaFilled(false);
-        btn.setOpaque(true);
-        btn.setForeground(Color.WHITE);
-        btn.setBackground(normal);
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btn.setPreferredSize(new Dimension(45, 30));
-        btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) {
-                btn.setBackground(hover);
-            }
-
-            public void mouseExited(MouseEvent e) {
-                btn.setBackground(normal);
-            }
-        });
-
-        return btn;
+        // Solo mostramos si ya era visible previamente
+        if (this.isDisplayable()) {
+            setVisible(true);
+        }
     }
 
     private JPanel createScreen(String text) {
@@ -241,29 +209,4 @@ public class dashboard extends JFrame {
         panel.add(label);
         return panel;
     }
-
-    private JButton createMenuButton(String text, String panel) {
-        JButton btn = new JButton(text);
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 50));
-        btn.setFocusPainted(false);
-        btn.setForeground(Color.WHITE);
-        btn.setBackground(new Color(45, 45, 45));
-        btn.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 10));
-        btn.setHorizontalAlignment(SwingConstants.LEFT);
-
-        btn.addActionListener(e -> cardLayout.show(contentPanel, panel));
-
-        btn.addMouseListener(new MouseAdapter() {
-            public void mouseEntered(MouseEvent e) {
-                btn.setBackground(new Color(70, 70, 70));
-            }
-
-            public void mouseExited(MouseEvent e) {
-                btn.setBackground(new Color(45, 45, 45));
-            }
-        });
-
-        return btn;
-    }
-
 }

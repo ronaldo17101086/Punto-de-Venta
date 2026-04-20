@@ -3,6 +3,7 @@ package com.mycompany.chancuellarpuntodeventa.login;
 import com.formdev.flatlaf.FlatClientProperties;
 import com.mycompany.chancuellarpuntodeventa.services.dashboard.dashboard;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import javax.swing.*;
 import java.awt.*;
@@ -11,118 +12,118 @@ import java.awt.*;
 public class LoginInterface extends JFrame {
 
     @Autowired
-    private dashboard mainDashboard;
-
+    private ApplicationContext context;
     private JTextField usernameField;
     private JPasswordField passwordField;
 
     public LoginInterface() {
-        // Configuración de la ventana principal
-        setTitle("SICAR X v1.5.10");
+        setTitle("Punto de Venta Chancuellar");
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setSize(1000, 600);
+        setExtendedState(JFrame.MAXIMIZED_BOTH);
+        setMinimumSize(new Dimension(1200, 700));
         setLocationRelativeTo(null);
-        setLayout(new GridLayout(1, 2));
-
-        initLeftPanel();
-        initRightPanel();
+        setLayout(new BorderLayout());
+        JPanel mainSplitPanel = new JPanel(new GridLayout(1, 2));
+        initLeftPanel(mainSplitPanel);
+        initRightPanel(mainSplitPanel);
+        add(mainSplitPanel, BorderLayout.CENTER);
     }
 
-    private void initLeftPanel() {
-        JPanel leftPanel = new JPanel(new BorderLayout());
-        leftPanel.setBackground(new Color(0, 82, 175)); // Azul SICAR
+    private void initLeftPanel(JPanel container) {
+        // Creamos un panel personalizado que dibuja la imagen de fondo
+        JPanel leftPanel = new JPanel() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                java.net.URL imgURL = getClass().getResource("/images/logo.jpg");
+                if (imgURL != null) {
+                    Image imagenFondo = new ImageIcon(imgURL).getImage();
+                    // Esto dibuja la imagen cubriendo TODO el panel izquierdo
+                    g.drawImage(imagenFondo, 0, 0, getWidth(), getHeight(), this);
+                } else {
+                    // Fondo de respaldo por si no carga la imagen
+                    g.setColor(new Color(15, 70, 15));
+                    g.fillRect(0, 0, getWidth(), getHeight());
+                }
+            }
+        };
 
-        // Logo y texto central
-        JLabel mainLogo = new JLabel("<html><div style='text-align: center;'>SICARX<br><font size='5'>Hunab Ku</font></div></html>", SwingConstants.CENTER);
-        mainLogo.setForeground(Color.WHITE);
-        mainLogo.setFont(new Font("SansSerif", Font.BOLD, 35));
-
-        leftPanel.add(mainLogo, BorderLayout.CENTER);
-        add(leftPanel);
+        container.add(leftPanel);
     }
 
-    private void initRightPanel() {
+    private void initRightPanel(JPanel container) {
         JPanel rightPanel = new JPanel(new GridBagLayout());
         rightPanel.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.HORIZONTAL;
-        gbc.insets = new Insets(10, 60, 10, 60);
+        gbc.insets = new Insets(10, 100, 10, 100);
         gbc.gridx = 0;
 
-        // 1. Logo Texto
-        JLabel logoLabel = new JLabel("SICARX", SwingConstants.CENTER);
-        logoLabel.setFont(new Font("SansSerif", Font.BOLD, 45));
-        logoLabel.setForeground(new Color(50, 50, 50));
+        JLabel mainTitle = new JLabel("Chancuellar", SwingConstants.CENTER);
+        mainTitle.setFont(new Font("Serif", Font.BOLD, 70));
+        mainTitle.setForeground(new Color(40, 40, 40));
         gbc.gridy = 0;
-        gbc.insets = new Insets(0, 60, 30, 60);
-        rightPanel.add(logoLabel, gbc);
+        gbc.insets = new Insets(0, 100, 60, 100);
+        rightPanel.add(mainTitle, gbc);
 
-        // 2. Campo de Usuario
-        gbc.insets = new Insets(5, 60, 5, 60);
+        gbc.insets = new Insets(10, 100, 5, 100);
         JLabel userLabel = new JLabel("Usuario / Correo");
-        userLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        userLabel.setFont(new Font("SansSerif", Font.PLAIN, 18));
         gbc.gridy = 1;
         rightPanel.add(userLabel, gbc);
 
         usernameField = new JTextField();
         usernameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "admin");
+        usernameField.setFont(new Font("SansSerif", Font.PLAIN, 20));
         gbc.gridy = 2;
         rightPanel.add(usernameField, gbc);
 
-        // 3. Campo de Contraseña
+        gbc.insets = new Insets(20, 100, 5, 100);
         JLabel passLabel = new JLabel("Contraseña");
-        passLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        passLabel.setFont(new Font("SansSerif", Font.PLAIN, 18));
         gbc.gridy = 3;
         rightPanel.add(passLabel, gbc);
 
         passwordField = new JPasswordField();
         passwordField.putClientProperty(FlatClientProperties.STYLE, "showRevealButton:true");
         passwordField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "admin");
+        passwordField.setFont(new Font("SansSerif", Font.PLAIN, 20));
         gbc.gridy = 4;
         rightPanel.add(passwordField, gbc);
 
-        // 4. Botón Ingresar
         JButton loginButton = new JButton("INGRESAR");
         loginButton.setBackground(new Color(0, 90, 180));
         loginButton.setForeground(Color.WHITE);
-        loginButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+        loginButton.setFont(new Font("SansSerif", Font.BOLD, 22));
         loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginButton.putClientProperty(FlatClientProperties.STYLE, "arc:10");
+        loginButton.putClientProperty(FlatClientProperties.STYLE, "arc:20");
 
         gbc.gridy = 5;
-        gbc.ipady = 15;
-        gbc.insets = new Insets(20, 60, 10, 60);
+        gbc.ipady = 30;
+        gbc.insets = new Insets(50, 100, 20, 100);
         rightPanel.add(loginButton, gbc);
 
-        // Lógica de acceso
         loginButton.addActionListener(e -> {
-            String userValue = usernameField.getText();
-            String passValue = new String(passwordField.getPassword());
-
-            if (userValue.equals("admin") && passValue.equals("admin")) {
+            if (usernameField.getText().equals("admin") && new String(passwordField.getPassword()).equals("admin")) {
                 this.dispose();
-                mainDashboard.setVisible(true);
+                context.getBean(dashboard.class).setVisible(true);
             } else {
-                JOptionPane.showMessageDialog(this,
-                        "Acceso denegado: Usuario o contraseña inválidos.",
-                        "Error de Login",
-                        JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(this, "Acceso denegado", "Error", JOptionPane.ERROR_MESSAGE);
             }
         });
 
-        // 5. Botón Crear Cuenta
         JButton registerButton = new JButton("CREAR CUENTA");
         registerButton.setBackground(new Color(40, 167, 69));
         registerButton.setForeground(Color.WHITE);
-        registerButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+        registerButton.setFont(new Font("SansSerif", Font.BOLD, 22));
         registerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        registerButton.putClientProperty(FlatClientProperties.STYLE, "arc:10");
+        registerButton.putClientProperty(FlatClientProperties.STYLE, "arc:20");
 
         gbc.gridy = 6;
-        gbc.ipady = 15;
-        gbc.insets = new Insets(0, 60, 10, 60);
+        gbc.ipady = 30;
+        gbc.insets = new Insets(0, 100, 20, 100);
         rightPanel.add(registerButton, gbc);
 
-        add(rightPanel);
+        container.add(rightPanel);
     }
 }

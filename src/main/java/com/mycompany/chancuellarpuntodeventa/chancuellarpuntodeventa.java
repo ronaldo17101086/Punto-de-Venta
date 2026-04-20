@@ -6,14 +6,10 @@ import com.mycompany.chancuellarpuntodeventa.services.dashboard.dashboard;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
-import org.springframework.context.annotation.ComponentScan; // Importante
+import org.springframework.context.annotation.ComponentScan;
 import java.awt.EventQueue;
 
-
 @SpringBootApplication
-//@ComponentScan(basePackages = {"com.mycompany.chancuellarpuntodeventa", "Conexion"})
-//@ComponentScan(basePackages = {"com.mycompany.chancuellarpuntodeventa", "ventas"})
-//@ComponentScan(basePackages = {"com.mycompany.chancuellarpuntodeventa", "producto"})
 @ComponentScan(basePackages = {
     "com.mycompany.chancuellarpuntodeventa",
     "com.mycompany.chancuellarpuntodeventa.login",
@@ -23,9 +19,9 @@ import java.awt.EventQueue;
 })
 public class chancuellarpuntodeventa {
 
-public static void main(String[] args) {
+    public static void main(String[] args) {
         FlatLightLaf.setup();
-        
+
         ConfigurableApplicationContext context = new SpringApplicationBuilder(chancuellarpuntodeventa.class)
                 .headless(false)
                 .run(args);
