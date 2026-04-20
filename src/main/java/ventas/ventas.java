@@ -232,26 +232,32 @@ public class ventas extends JPanel {
     }
 
     private void cargarProductosCompletos() {
+        // 1. Limpiamos la lista lógica
         listaProductos.clear();
+
+        // 2. Limpiamos el panel REAL que declaraste arriba
+        // En tu código se llama: panelCardsContenedor
+        if (panelCardsContenedor != null) {
+            panelCardsContenedor.removeAll();
+        }
 
         try {
             List<Producto> productosBD = productoRepository.findAll();
 
-            if (productosBD != null) {
-                for (Producto p : productosBD) {
-                    String nombre = (p.getName() != null) ? p.getName() : "Sin Nombre";
-                    String inicial = !nombre.isEmpty() ? nombre.substring(0, 1).toUpperCase() : "?";
+            for (Producto p : productosBD) {
+                // Creamos el objeto de datos
+                ProductoItem item = new ProductoItem(
+                        p.getSku(),
+                        p.getName() != null ? p.getName() : "Sin nombre",
+                        p.getPrice() != null ? p.getPrice().doubleValue() : 0.0,
+                        p.getImagePath()
+                );
 
-                    listaProductos.add(new ProductoItem(
-                            p.getSku(),
-                            nombre,
-                            p.getPrice(),
-                            inicial
-                    ));
-                }
+                // Lo guardamos en la lista para el buscador
+                listaProductos.add(item);
             }
 
-            Collections.sort(listaProductos, (p1, p2) -> p1.nombre.compareToIgnoreCase(p2.nombre));
+            // 3. Usamos tu función renderizarCards para que dibuje todo ordenado
             renderizarCards(listaProductos);
 
         } catch (Exception e) {
@@ -719,7 +725,19 @@ public class ventas extends JPanel {
         }
     }
 
-    private ImageIcon cargarImagen(String n, int w, int h, String t) {
+    private ImageIcon cargarImagen(String ruta, int w, int h, String t) {
+        // 1. SI TIENE IMAGEN: Intentar cargarla desde la ruta
+        if (ruta != null && !ruta.isEmpty()) {
+            java.io.File archivo = new java.io.File(ruta);
+            if (archivo.exists()) {
+                ImageIcon iconOriginal = new ImageIcon(ruta);
+                // Ajustamos la imagen al tamaño del contenedor (w, h)
+                Image imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                return new ImageIcon(imgEscalada);
+            }
+        }
+
+        // 2. SI NO TIENE IMAGEN (O NO EXISTE): Usar tu código original de la inicial
         BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bi.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -727,10 +745,14 @@ public class ventas extends JPanel {
         g.fillRoundRect(0, 0, w, h, 8, 8);
         g.setColor(new Color(110, 110, 110));
         g.setFont(new Font("Segoe UI", Font.BOLD, w / 2));
-        String s = t.substring(0, 1);
+
+        // Manejo de error si el nombre viene vacío para que no truene el substring
+        String s = (t != null && !t.isEmpty()) ? t.substring(0, 1).toUpperCase() : "?";
+
         FontMetrics fm = g.getFontMetrics();
         g.drawString(s, (w - fm.stringWidth(s)) / 2, (h + fm.getAscent() - fm.getDescent()) / 2);
         g.dispose();
+
         return new ImageIcon(bi);
     }
 

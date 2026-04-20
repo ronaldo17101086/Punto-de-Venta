@@ -1,28 +1,39 @@
-package com.mycompany.chancuellarpuntodeventa.services.dtos;
+package com.mycompany.chancuellarpuntodeventa.services;
 
-import jakarta.persistence.Column; // Importante agregar este
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
+import java.io.Serializable;
 
 @Entity
-@Table(name = "productos")
-public class Producto {
+@Table(name = "productos") // Nombre de tu tabla en MySQL
+public class ProductoService implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String sku;
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
     private Double price;
 
-    @Column(name = "image_path") // Coincide con el nombre de la columna en MySQL
-    private String imagePath;
+    @Column(name = "image_path")
+    private String imagePath; // Aquí se guarda la ruta de la foto
 
-    // --- GETTERS Y SETTERS ---
+    // --- CONSTRUCTORES ---
+    public ProductoService() {
+    }
+
+    public ProductoService(String sku, String name, Double price) {
+        this.sku = sku;
+        this.name = name;
+        this.price = price;
+    }
+
+    // --- GETTERS Y SETTERS (Esenciales para que repo.save funcione) ---
     public Long getId() {
         return id;
     }
@@ -55,12 +66,10 @@ public class Producto {
         this.price = price;
     }
 
-    // Nuevo Getter para la imagen
     public String getImagePath() {
         return imagePath;
     }
 
-    // Nuevo Setter para la imagen
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
     }

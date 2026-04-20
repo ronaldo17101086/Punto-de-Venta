@@ -1,4 +1,4 @@
-package producto;
+package productoFrom;
 
 import javax.swing.*;
 import javax.swing.border.*;

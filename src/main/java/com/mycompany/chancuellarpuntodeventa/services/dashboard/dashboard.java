@@ -13,7 +13,7 @@ import java.awt.event.*;
 import javax.swing.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import ventas.ventas;
-import producto.productInterface;
+import productoFrom.productInterface;
 
 @org.springframework.stereotype.Component
 public class dashboard extends JFrame {

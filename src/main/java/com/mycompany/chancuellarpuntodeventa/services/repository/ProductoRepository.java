@@ -7,7 +7,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
-// Cambia la línea por esta en el Repositorio:
 
     Producto findBySku(String sku);
 }

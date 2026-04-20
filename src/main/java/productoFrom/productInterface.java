@@ -1,4 +1,4 @@
-package producto;
+package productoFrom;
 
 // 1. Clases de tu proyecto
 import com.mycompany.chancuellarpuntodeventa.services.dtos.Producto;
@@ -26,8 +26,9 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.stereotype.Component;
 
-@org.springframework.stereotype.Component
+@Component
 public class productInterface extends JPanel {
 
     @org.springframework.beans.factory.annotation.Autowired
@@ -67,12 +68,14 @@ public class productInterface extends JPanel {
         try {
             List<Producto> productosBD = productoRepository.findAll();
             for (Producto p : productosBD) {
+                // Ahora pasamos 6 parámetros para que coincida con el nuevo constructor
                 todosLosProductos.add(new ProductDTO(
                         p.getName() != null ? p.getName() : "Sin nombre",
                         p.getSku(),
                         p.getPrice() != null ? p.getPrice().doubleValue() : 0.0,
                         "Sin descripción",
-                        "GENERAL"
+                        "GENERAL",
+                        p.getImagePath() // <--- ESTE ES EL QUE FALTABA
                 ));
             }
             todosLosProductos.sort((p1, p2) -> p1.nombre.compareToIgnoreCase(p2.nombre));
@@ -245,6 +248,26 @@ public class productInterface extends JPanel {
         panelIconosEdit.add(crearBotonIcono("🗑", "Eliminar", null));
         panelIconosEdit.add(crearBotonIcono("📋", "Copiar", null));
 
+        panelIconosEdit.add(crearBotonIcono("📝", "Editar", e -> {
+            ProductDTO seleccionado = listaProductos.getSelectedValue();
+            if (seleccionado != null) {
+                // Obtenemos el JFrame principal (Dashboard)
+                JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
+
+                // Ocultamos el Dashboard para dar efecto de navegación
+                parentFrame.setVisible(false);
+
+                // Abrimos el diálogo de edición
+                EditarProductoDialog dialogo = new EditarProductoDialog(parentFrame, seleccionado, productoRepository);
+                dialogo.setVisible(true);
+
+                // Al cerrar el diálogo (por guardar o regresar), refrescamos datos
+                cargarProductosCompletos();
+            } else {
+                JOptionPane.showMessageDialog(this, "Seleccione un producto");
+            }
+        }));
+
         subBarra.add(lblDetalleTitulo, BorderLayout.WEST);
         subBarra.add(panelIconosEdit, BorderLayout.EAST);
 
@@ -359,11 +382,30 @@ public class productInterface extends JPanel {
         if (p == null) {
             return;
         }
+
         lblNombre.setText(p.nombre);
         lblCodigo.setText(p.codigo);
         lblPrecioPrincipal.setText(String.format("$%.2f", p.precio));
         lblCategoria.setText(p.categoria.toUpperCase());
         txtDescripcion.setText(p.descripcion);
+
+        // --- LÓGICA DE IMAGEN PARA EL DETALLE ---
+        if (p.imagePath != null && !p.imagePath.isEmpty()) {
+            File file = new File(p.imagePath);
+            if (file.exists()) {
+                ImageIcon icon = new ImageIcon(p.imagePath);
+                // Redimensionar la imagen para que encaje en el label (150x150)
+                Image img = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                lblImagen.setIcon(new ImageIcon(img));
+                lblImagen.setText(""); // Quitar el emoji si hay imagen
+            } else {
+                lblImagen.setIcon(null);
+                lblImagen.setText("☕"); // Default si no encuentra el archivo
+            }
+        } else {
+            lblImagen.setIcon(null);
+            lblImagen.setText("☕");
+        }
 
         panelListaPrecios.removeAll();
         panelListaPrecios.add(crearFilaPrecio("PRECIO 1", 0, p.precio / 1.16, p.precio));
@@ -401,44 +443,5 @@ public class productInterface extends JPanel {
         p.add(l1);
         p.add(l2);
         return p;
-    }
-}
-
-class ProductListRenderer extends JPanel implements ListCellRenderer<ProductDTO> {
-
-    private JLabel lblImg = new JLabel("IMG", SwingConstants.CENTER);
-    private JLabel lblNombre = new JLabel();
-    private JLabel lblCodigo = new JLabel();
-    private JLabel lblPrecio = new JLabel();
-
-    public ProductListRenderer() {
-        setLayout(new BorderLayout(15, 0));
-        setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
-        lblImg.setPreferredSize(new Dimension(50, 50));
-        lblImg.setOpaque(true);
-        lblImg.setBackground(new Color(240, 240, 240));
-
-        JPanel c = new JPanel(new GridLayout(2, 1));
-        c.setOpaque(false);
-        lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblCodigo.setForeground(Color.GRAY);
-        c.add(lblNombre);
-        c.add(lblCodigo);
-
-        lblPrecio.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        lblPrecio.setForeground(new Color(33, 37, 41));
-
-        add(lblImg, BorderLayout.WEST);
-        add(c, BorderLayout.CENTER);
-        add(lblPrecio, BorderLayout.EAST);
-    }
-
-    @Override
-    public Component getListCellRendererComponent(JList<? extends ProductDTO> list, ProductDTO value, int index, boolean isSelected, boolean cellHasFocus) {
-        lblNombre.setText(value.nombre);
-        lblCodigo.setText("PZA " + value.codigo);
-        lblPrecio.setText(String.format("$%.2f", value.precio));
-        setBackground(isSelected ? new Color(240, 245, 250) : Color.WHITE);
-        return this;
     }
 }

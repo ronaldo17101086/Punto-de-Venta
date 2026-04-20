@@ -15,6 +15,7 @@ import java.awt.EventQueue;
     "com.mycompany.chancuellarpuntodeventa.login",
     "Conexion",
     "ventas",
+    "productoFrom",
     "producto"
 })
 public class chancuellarpuntodeventa {
@@ -32,3 +33,4 @@ public class chancuellarpuntodeventa {
         });
     }
 }
+//                                     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
