@@ -40,7 +40,6 @@ public class dashboard extends JFrame {
     @jakarta.annotation.PostConstruct
     public void setup() {
         initUI();
-        setVisible(true);
     }
 
     private void initUI() {

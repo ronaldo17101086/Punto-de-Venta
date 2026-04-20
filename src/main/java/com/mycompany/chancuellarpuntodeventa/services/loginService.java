@@ -8,6 +8,6 @@ package com.mycompany.chancuellarpuntodeventa.services;
  *
  * @author ronal
  */
-public class login {
+public class loginService {
     
 }
