@@ -1,10 +1,11 @@
 package productoFrom;
 
+import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 
-class ProductListRenderer extends JPanel implements ListCellRenderer<ProductDTO> {
+class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO> {
 
     private JLabel lblNombre = new JLabel();
     private JLabel lblPrecio = new JLabel();
@@ -43,22 +44,22 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductDTO>
 
     @Override
     public java.awt.Component getListCellRendererComponent(
-            JList<? extends ProductDTO> list,
-            ProductDTO value,
+            JList<? extends ProductoDTO> list,
+            ProductoDTO value,
             int index,
             boolean isSelected,
             boolean cellHasFocus) {
 
         // 1. Seteamos los datos de texto
-        lblNombre.setText(value.nombre);
-        lblSku.setText("SKU: " + value.codigo);
-        lblPrecio.setText("$" + String.format("%.2f", value.precio));
+        lblNombre.setText(value.getName());
+        lblSku.setText("SKU: " + value.getSku());
+        lblPrecio.setText("$" + String.format("%.2f", value.getPrice()));
 
         // 2. Lógica para cargar la imagen en la lista
-        if (value.imagePath != null && !value.imagePath.isEmpty()) {
-            File file = new File(value.imagePath);
+        if (value.getImagePath() != null && !value.getImagePath().isEmpty()) {
+            File file = new File(value.getImagePath());
             if (file.exists()) {
-                ImageIcon icon = new ImageIcon(value.imagePath);
+                ImageIcon icon = new ImageIcon(value.getImagePath());
                 // Escalamos la imagen a 50x50 para la lista
                 Image img = icon.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
                 lblFoto.setIcon(new ImageIcon(img));

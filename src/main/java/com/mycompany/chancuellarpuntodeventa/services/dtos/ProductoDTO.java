@@ -9,7 +9,17 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "productos")
-public class Producto {
+public class ProductoDTO {
+
+    public ProductoDTO() {
+    }
+
+    public ProductoDTO(String sku, String name, Double price, String imagePath) {
+        this.sku = sku;
+        this.name = name;
+        this.price = price;
+        this.imagePath = imagePath;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,13 +33,6 @@ public class Producto {
     private String imagePath;
 
     // --- GETTERS Y SETTERS ---
-    public Long getId() {
-        return id;
-    }
-
-    public void setId(Long id) {
-        this.id = id;
-    }
 
     public String getSku() {
         return sku;

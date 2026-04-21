@@ -8,7 +8,7 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.io.File;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
-import com.mycompany.chancuellarpuntodeventa.services.dtos.Producto;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 
 public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para tener botones de ventana
 
@@ -16,19 +16,19 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
     private JLabel lblPreviewImagen;
     private String rutaImagen = "";
     private ProductoRepository repo;
-    private ProductDTO dto;
+    private ProductoDTO dto;
     private JFrame dashboardFrame;
 
     private final Color COLOR_HEADER = new Color(28, 78, 134);
     private final Color COLOR_GUARDAR = new Color(40, 167, 69);
     private final Color COLOR_REGRESAR_HOVER = new Color(40, 90, 150);
 
-    public EditarProductoDialog(JFrame parent, ProductDTO dto, ProductoRepository repo) {
+    public EditarProductoDialog(JFrame parent, ProductoDTO dto, ProductoRepository repo) {
         this.dashboardFrame = parent;
         this.dto = dto;
         this.repo = repo;
 
-        setTitle("Editar Producto - " + dto.nombre);
+        setTitle("Editar Producto - " + dto.getName());
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
 
         // Copiamos el tamaño exacto del dashboard para que no se sienta el cambio
@@ -94,10 +94,9 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
         container.add(Box.createVerticalStrut(30));
 
         // SECCIÓN DATOS
-        txtSku = crearCampoMaterial(dto.codigo, false);
-        txtNombre = crearCampoMaterial(dto.nombre, true);
-        txtDescripcion = crearCampoMaterial(dto.descripcion, true);
-        txtPrecio = crearCampoMaterial(String.valueOf(dto.precio), true);
+        txtSku = crearCampoMaterial(dto.getSku(), false);
+        txtNombre = crearCampoMaterial(dto.getName(), true);
+        txtPrecio = crearCampoMaterial(String.valueOf(dto.getPrice()), true);
 
         container.add(crearFila("CLAVE / SKU", txtSku));
         container.add(Box.createVerticalStrut(20));
@@ -125,8 +124,8 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
         add(btnGuardar, BorderLayout.SOUTH);
 
         // Al final del constructor, después de cargar los campos de texto:
-        if (dto.imagePath != null && !dto.imagePath.isEmpty()) {
-            this.rutaImagen = dto.imagePath;
+        if (dto.getImagePath() != null && !dto.getImagePath().isEmpty()) {
+            this.rutaImagen = dto.getImagePath();
             ImageIcon icon = new ImageIcon(new ImageIcon(rutaImagen).getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH));
             lblPreviewImagen.setIcon(icon);
             lblPreviewImagen.setText("");
@@ -226,7 +225,7 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
 
     private void guardar() {
         try {
-            Producto p = repo.findBySku(dto.codigo);
+            ProductoDTO p = repo.findBySku(dto.getSku());
             if (p != null) {
                 p.setName(txtNombre.getText());
                 p.setPrice(Double.parseDouble(txtPrecio.getText()));

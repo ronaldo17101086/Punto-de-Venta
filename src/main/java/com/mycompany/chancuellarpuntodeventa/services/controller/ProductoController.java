@@ -1,6 +1,6 @@
 package com.mycompany.chancuellarpuntodeventa.services.controller;
 
-import com.mycompany.chancuellarpuntodeventa.services.dtos.Producto;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
@@ -16,7 +16,7 @@ public class ProductoController {
     }
 
     @QueryMapping
-    public List<Producto> listarProductos() {
+    public List<ProductoDTO> listarProductos() {
         return repository.findAll();
     }
 }

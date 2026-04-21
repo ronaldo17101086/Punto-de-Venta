@@ -1,7 +1,7 @@
 package productoFrom;
 
 // 1. Clases de tu proyecto
-import com.mycompany.chancuellarpuntodeventa.services.dtos.Producto;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 
 // 2. Apache POI (Excel) - Asegúrate de borrar SheetCollate e importar estas
@@ -34,9 +34,9 @@ public class productInterface extends JPanel {
     @org.springframework.beans.factory.annotation.Autowired
     private ProductoRepository productoRepository;
 
-    private JList<ProductDTO> listaProductos;
-    private DefaultListModel<ProductDTO> listModel;
-    private List<ProductDTO> todosLosProductos;
+    private JList<ProductoDTO> listaProductos;
+    private DefaultListModel<ProductoDTO> listModel;
+    private List<ProductoDTO> todosLosProductos;
 
     private JLabel lblNombre, lblPrecioPrincipal, lblCodigo, lblCategoria, lblImagen;
     private JPanel panelListaPrecios;
@@ -66,19 +66,17 @@ public class productInterface extends JPanel {
         }
         todosLosProductos.clear();
         try {
-            List<Producto> productosBD = productoRepository.findAll();
-            for (Producto p : productosBD) {
+            List<ProductoDTO> productosBD = productoRepository.findAll();
+            for (ProductoDTO p : productosBD) {
                 // Ahora pasamos 6 parámetros para que coincida con el nuevo constructor
-                todosLosProductos.add(new ProductDTO(
+                todosLosProductos.add(new ProductoDTO(
                         p.getName() != null ? p.getName() : "Sin nombre",
                         p.getSku(),
                         p.getPrice() != null ? p.getPrice().doubleValue() : 0.0,
-                        "Sin descripción",
-                        "GENERAL",
                         p.getImagePath() // <--- ESTE ES EL QUE FALTABA
                 ));
             }
-            todosLosProductos.sort((p1, p2) -> p1.nombre.compareToIgnoreCase(p2.nombre));
+            todosLosProductos.sort((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()));
             actualizarLista(todosLosProductos);
         } catch (Exception e) {
             System.err.println("Error al cargar productos: " + e.getMessage());
@@ -119,13 +117,13 @@ public class productInterface extends JPanel {
                     if (skuExcel != null && !skuExcel.trim().isEmpty()) {
 
                         // 1. Intentamos buscar si ya existe para no duplicar
-                        Producto p = productoRepository.findBySku(skuExcel);
+                        ProductoDTO p = productoRepository.findBySku(skuExcel);
 
                         if (p != null) {
                             actualizados++;
                         } else {
                             // 2. Si es nuevo, lo creamos
-                            p = new Producto();
+                            p = new ProductoDTO();
                             p.setSku(skuExcel);
                             // IMPORTANTE: Si te sigue dando el error del "Identifier", 
                             // asegúrate que en Producto.java el ID tenga @GeneratedValue
@@ -158,17 +156,17 @@ public class productInterface extends JPanel {
         }
     }
 
-    private void actualizarLista(List<ProductDTO> productos) {
+    private void actualizarLista(List<ProductoDTO> productos) {
         listModel.clear();
-        for (ProductDTO p : productos) {
+        for (ProductoDTO p : productos) {
             listModel.addElement(p);
         }
     }
 
     private void filtrarProductos() {
         String query = txtBuscar.getText().toLowerCase();
-        List<ProductDTO> filtrados = todosLosProductos.stream()
-                .filter(p -> p.nombre.toLowerCase().contains(query) || p.codigo.contains(query))
+        List<ProductoDTO> filtrados = todosLosProductos.stream()
+                .filter(p -> p.getName().toLowerCase().contains(query) || p.getSku().contains(query))
                 .collect(Collectors.toList());
         actualizarLista(filtrados);
     }
@@ -249,7 +247,7 @@ public class productInterface extends JPanel {
         panelIconosEdit.add(crearBotonIcono("📋", "Copiar", null));
 
         panelIconosEdit.add(crearBotonIcono("📝", "Editar", e -> {
-            ProductDTO seleccionado = listaProductos.getSelectedValue();
+            ProductoDTO seleccionado = listaProductos.getSelectedValue();
             if (seleccionado != null) {
                 // Obtenemos el JFrame principal (Dashboard)
                 JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
@@ -378,22 +376,20 @@ public class productInterface extends JPanel {
         return b;
     }
 
-    private void mostrarDetalle(ProductDTO p) {
+    private void mostrarDetalle(ProductoDTO p) {
         if (p == null) {
             return;
         }
 
-        lblNombre.setText(p.nombre);
-        lblCodigo.setText(p.codigo);
-        lblPrecioPrincipal.setText(String.format("$%.2f", p.precio));
-        lblCategoria.setText(p.categoria.toUpperCase());
-        txtDescripcion.setText(p.descripcion);
+        lblNombre.setText(p.getName());
+        lblCodigo.setText(p.getSku());
+        lblPrecioPrincipal.setText(String.format("$%.2f", p.getPrice()));
 
         // --- LÓGICA DE IMAGEN PARA EL DETALLE ---
-        if (p.imagePath != null && !p.imagePath.isEmpty()) {
-            File file = new File(p.imagePath);
+        if (p.getImagePath() != null && !p.getImagePath().isEmpty()) {
+            File file = new File(p.getImagePath());
             if (file.exists()) {
-                ImageIcon icon = new ImageIcon(p.imagePath);
+                ImageIcon icon = new ImageIcon(p.getImagePath());
                 // Redimensionar la imagen para que encaje en el label (150x150)
                 Image img = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
                 lblImagen.setIcon(new ImageIcon(img));
@@ -408,7 +404,7 @@ public class productInterface extends JPanel {
         }
 
         panelListaPrecios.removeAll();
-        panelListaPrecios.add(crearFilaPrecio("PRECIO 1", 0, p.precio / 1.16, p.precio));
+        panelListaPrecios.add(crearFilaPrecio("PRECIO 1", 0, p.getPrice() / 1.16, p.getPrice()));
         panelListaPrecios.revalidate();
         panelListaPrecios.repaint();
     }
