@@ -9,6 +9,8 @@ import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 import javax.swing.text.*;
 import java.awt.*;
+import java.awt.datatransfer.Clipboard;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
@@ -231,6 +233,114 @@ public class ventas extends JPanel {
         add(contenedorPrincipal, BorderLayout.CENTER);
     }
 
+    class ToastNotification extends JDialog {
+
+        private int indiceImagenActual = 0; // Para controlar el carrusel al pasar el mouse
+
+        public ToastNotification(Window parent, String mensaje, ProductoDTO p) {
+            super(parent);
+            setUndecorated(true);
+            setLayout(new BorderLayout());
+            setBackground(new Color(0, 0, 0, 0));
+            setFocusableWindowState(false);
+            setAlwaysOnTop(true);
+
+            Color colorPrimario = new Color(0, 102, 255);
+            Color colorExito = new Color(40, 167, 69);
+
+            JPanel mainPanel = new JPanel(new BorderLayout(0, 0)) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                    g2.setColor(new Color(0, 0, 0, 40));
+                    g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 30, 30);
+                    g2.setColor(Color.WHITE);
+                    g2.fillRoundRect(3, 3, getWidth() - 10, getHeight() - 10, 30, 30);
+                    g2.setColor(colorPrimario);
+                    g2.fillRoundRect(3, 3, 12, getHeight() - 10, 30, 30);
+                    g2.fillRect(10, 3, 5, getHeight() - 10);
+                    g2.dispose();
+                }
+            };
+
+            // Cabecera
+            JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 15));
+            header.setOpaque(false);
+            JLabel lblCheck = new JLabel("🛒 " + mensaje);
+            lblCheck.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            lblCheck.setForeground(colorPrimario);
+            header.add(lblCheck);
+
+            // Cuerpo
+            JPanel body = new JPanel(new BorderLayout(15, 0));
+            body.setOpaque(false);
+            body.setBorder(BorderFactory.createEmptyBorder(0, 25, 20, 30));
+
+            // IMAGEN MÁS GRANDE (100x100)
+            JLabel lblFoto = new JLabel(cargarImagen(p.getImagePath(), 100, 100, p.getName()));
+            lblFoto.setBorder(BorderFactory.createLineBorder(new Color(240, 240, 240), 1, true));
+            lblFoto.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            // LÓGICA DE CAMBIO DE IMAGEN AL PASAR EL MOUSE (HOVER)
+            lblFoto.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                    // 1. Verificamos que el path no sea nulo ni esté vacío
+                    String pathCompleto = p.getImagePath();
+                    if (pathCompleto != null && !pathCompleto.isEmpty()) {
+
+                        // 2. Separamos las rutas por coma (ajusta el "," si usas otro separador como ";")
+                        String[] rutas = pathCompleto.split(",");
+
+                        // 3. Si hay más de una imagen, cambiamos a la siguiente
+                        if (rutas.length > 1) {
+                            indiceImagenActual = (indiceImagenActual + 1) % rutas.length;
+
+                            // .trim() por si hay espacios entre las comas (ej: "img1.jpg, img2.jpg")
+                            String nuevaRuta = rutas[indiceImagenActual].trim();
+
+                            // Actualizamos el icono
+                            lblFoto.setIcon(cargarImagen(nuevaRuta, 100, 100, p.getName()));
+                        }
+                    }
+                }
+            });
+
+            JPanel infoPanel = new JPanel(new GridLayout(2, 1, 0, 0));
+            infoPanel.setOpaque(false);
+
+            JLabel name = new JLabel(p.getName());
+            name.setFont(new Font("Segoe UI", Font.BOLD, 14));
+
+            JLabel price = new JLabel("$" + String.format("%.2f", p.getPrice()));
+            price.setFont(new Font("Segoe UI", Font.BOLD, 22)); // Precio más grande también
+            price.setForeground(colorExito);
+
+            infoPanel.add(name);
+            infoPanel.add(price);
+
+            body.add(lblFoto, BorderLayout.WEST);
+            body.add(infoPanel, BorderLayout.CENTER);
+
+            mainPanel.add(header, BorderLayout.NORTH);
+            mainPanel.add(body, BorderLayout.CENTER);
+            add(mainPanel);
+            pack();
+
+            // Ubicación
+            if (parent != null) {
+                int x = parent.getX() + parent.getWidth() - getWidth() - 20;
+                int y = parent.getY() + 150;
+                setLocation(x, y);
+            }
+
+            Timer timer = new Timer(4000, e -> dispose()); // Un segundo más para apreciar la imagen
+            timer.setRepeats(false);
+            timer.start();
+        }
+    }
+
     private void cargarProductosCompletos() {
         // 1. Limpiamos la lista lógica
         listaProductos.clear();
@@ -287,21 +397,34 @@ public class ventas extends JPanel {
     }
 
     public void agregarAlCarrito(ProductoDTO p) {
+        boolean existe = false;
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemCarritoVisual icv) {
                 if (icv.getProducto().getSku().equals(p.getSku())) {
                     icv.setCantidad(icv.getCantidad() + 1);
                     icv.requestFocusInWindow();
-                    return;
+                    existe = true;
+                    break;
                 }
             }
         }
-        ItemCarritoVisual nuevo = new ItemCarritoVisual(p);
-        panelCarritoContenedor.add(nuevo);
-        panelCarritoContenedor.revalidate();
-        panelCarritoContenedor.repaint();
-        nuevo.requestFocusInWindow();
+
+        if (!existe) {
+            ItemCarritoVisual nuevo = new ItemCarritoVisual(p);
+            panelCarritoContenedor.add(nuevo);
+            panelCarritoContenedor.revalidate();
+            panelCarritoContenedor.repaint();
+            nuevo.requestFocusInWindow();
+        }
+
         calcularTotales();
+
+        // --- AQUÍ SE MUESTRA EL DIÁLOGO ---
+        Window win = SwingUtilities.getWindowAncestor(this);
+        if (win != null) {
+            ToastNotification toast = new ToastNotification(win, "Agregado al Carrito", p);
+            toast.setVisible(true);
+        }
     }
 
     private void calcularTotales() {
@@ -723,110 +846,180 @@ public class ventas extends JPanel {
         return new ImageIcon(bi);
     }
 
-    /* ========== DIÁLOGO DE DETALLES DEL PRODUCTO CORREGIDO Y AUTÓNOMO ========== */
-    class DialogoDetalleProducto extends JDialog {
+
+    
+
+/* ========== DIÁLOGO DE DETALLES PREMIUM - ESTÁTICO E IMAGEN GRANDE ========== */
+class DialogoDetalleProducto extends JDialog {
+
+        private int indiceImagenActual = 0;
 
         public DialogoDetalleProducto(java.awt.Window parent, ProductoDTO p) {
-            super(parent, "Detalles: " + p.getName(), ModalityType.APPLICATION_MODAL);
+            super(parent, "Detalles del Producto", ModalityType.APPLICATION_MODAL);
+            setUndecorated(true);
             setLayout(new BorderLayout());
-            setSize(550, 480);
+
+            // Ventana amplia para la imagen de 350x350
+            setSize(800, 500);
             setLocationRelativeTo(parent);
-            setResizable(false);
+            setBackground(new Color(0, 0, 0, 0));
 
-            // Panel Principal con margen
-            JPanel mainPanel = new JPanel(new BorderLayout(25, 20));
-            mainPanel.setBackground(Color.WHITE);
-            mainPanel.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
+            // Panel Principal con Fondo White Smoke y Sombra
+            JPanel mainPanel = new JPanel(new BorderLayout(40, 0)) {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            // 1. Imagen Grande (Izquierda) - Ahora llama al método interno
-            JLabel lblImagen = new JLabel(cargarImagenInterna(p.getImagePath(), 220, 220, p.getName()));
-            lblImagen.setBorder(BorderFactory.createLineBorder(new Color(245, 245, 245), 2));
-            lblImagen.setAlignmentY(Component.TOP_ALIGNMENT);
-            mainPanel.add(lblImagen, BorderLayout.WEST);
+                    // Sombra
+                    g2.setColor(new Color(0, 0, 0, 30));
+                    g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 35, 35);
 
-            // 2. Información (Derecha)
+                    // Fondo
+                    g2.setColor(new Color(248, 249, 250));
+                    g2.fillRoundRect(0, 0, getWidth() - 5, getHeight() - 5, 35, 35);
+                    g2.dispose();
+                }
+            };
+            mainPanel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
+
+            // --- IZQUIERDA: IMAGEN GRANDE (350x350) ---
+            JPanel panelImagen = new JPanel(new BorderLayout());
+            panelImagen.setOpaque(false);
+
+            String[] rutas = (p.getImagePath() != null && !p.getImagePath().isEmpty())
+                    ? p.getImagePath().split(",")
+                    : new String[]{""};
+
+            JLabel lblImagen = new JLabel(cargarImagenInterna(rutas[0].trim(), 350, 350, p.getName()));
+            lblImagen.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            lblImagen.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createLineBorder(new Color(225, 225, 225), 1, true),
+                    BorderFactory.createEmptyBorder(8, 8, 8, 8)
+            ));
+
+            // Lógica Hover para cambio de imágenes
+            lblImagen.addMouseListener(new java.awt.event.MouseAdapter() {
+                @Override
+                public void mouseEntered(java.awt.event.MouseEvent evt) {
+                    if (rutas.length > 1) {
+                        indiceImagenActual = (indiceImagenActual + 1) % rutas.length;
+                        lblImagen.setIcon(cargarImagenInterna(rutas[indiceImagenActual].trim(), 350, 350, p.getName()));
+                    }
+                }
+            });
+
+            panelImagen.add(lblImagen, BorderLayout.NORTH);
+            mainPanel.add(panelImagen, BorderLayout.WEST);
+
+            // --- DERECHA: INFORMACIÓN APILADA ARRIBA ---
             JPanel pInfo = new JPanel();
             pInfo.setLayout(new BoxLayout(pInfo, BoxLayout.Y_AXIS));
             pInfo.setOpaque(false);
 
-            // SKU/Código
-            JLabel lblID = new JLabel("SKU: " + p.getSku());
-            lblID.setFont(new Font("Segoe UI", Font.BOLD, 12));
-            lblID.setForeground(new Color(100, 100, 100));
+            // 1. SKU + COPIAR
+            JPanel panelSKU = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+            panelSKU.setOpaque(false);
+            panelSKU.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-            // Nombre
-            JLabel lblNom = new JLabel("<html><body style='width: 180px;'>" + p.getName() + "</body></html>");
-            lblNom.setFont(new Font("Segoe UI", Font.BOLD, 24));
-            lblNom.setForeground(new Color(33, 37, 41));
+            JLabel lblSKU = new JLabel("  SKU: " + p.getSku() + "  ");
+            lblSKU.setOpaque(true);
+            lblSKU.setBackground(new Color(230, 240, 255));
+            lblSKU.setForeground(new Color(0, 102, 255));
+            lblSKU.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            lblSKU.setBorder(BorderFactory.createLineBorder(new Color(180, 200, 255), 1, true));
 
-            // Precio
+            JButton btnCopiar = new JButton("📋");
+            btnCopiar.setPreferredSize(new Dimension(40, 26));
+            btnCopiar.setFocusPainted(false);
+            btnCopiar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnCopiar.setBackground(Color.WHITE);
+            btnCopiar.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 1, new Color(180, 200, 255)));
+            btnCopiar.addActionListener(e -> {
+                StringSelection ss = new StringSelection(p.getSku());
+                Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
+                btnCopiar.setText("✅");
+                new Timer(1000, ev -> btnCopiar.setText("📋")).start();
+            });
+            panelSKU.add(lblSKU);
+            panelSKU.add(btnCopiar);
+
+            // 2. NOMBRE
+            JLabel lblNom = new JLabel("<html><body style='width: 300px;'>" + p.getName() + "</body></html>");
+            lblNom.setFont(new Font("Segoe UI", Font.BOLD, 28));
+            lblNom.setForeground(new Color(45, 52, 54));
+            lblNom.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            // 3. PRECIO
             JLabel lblPre = new JLabel("$" + String.format("%.2f", p.getPrice()) + " MXN");
-            lblPre.setFont(new Font("Segoe UI", Font.BOLD, 22));
+            lblPre.setFont(new Font("Segoe UI", Font.BOLD, 32));
             lblPre.setForeground(new Color(40, 167, 69));
+            lblPre.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-            // Descripción
-            JLabel lblDescTitulo = new JLabel("Descripción:");
-            lblDescTitulo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            // 4. DESCRIPCIÓN
+            JLabel lblDescT = new JLabel("DESCRIPCIÓN:");
+            lblDescT.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            lblDescT.setForeground(new Color(160, 160, 160));
+            lblDescT.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-            pInfo.add(lblID);
-            pInfo.add(Box.createVerticalStrut(8));
+            JTextArea txtDesc = new JTextArea("Sin descripción.");
+            txtDesc.setWrapStyleWord(true);
+            txtDesc.setLineWrap(true);
+            txtDesc.setEditable(false);
+            txtDesc.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            txtDesc.setOpaque(false);
+            txtDesc.setForeground(new Color(80, 80, 80));
+            txtDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+            pInfo.add(panelSKU);
+            pInfo.add(Box.createVerticalStrut(15));
             pInfo.add(lblNom);
             pInfo.add(Box.createVerticalStrut(10));
             pInfo.add(lblPre);
-            pInfo.add(Box.createVerticalStrut(15));
-            pInfo.add(Box.createVerticalStrut(15));
-            pInfo.add(lblDescTitulo);
-            pInfo.add(Box.createVerticalStrut(5));
+            pInfo.add(Box.createVerticalStrut(25));
+            pInfo.add(lblDescT);
+            pInfo.add(Box.createVerticalStrut(8));
+            pInfo.add(txtDesc);
+            pInfo.add(Box.createVerticalGlue()); // Empuja todo hacia arriba
 
             mainPanel.add(pInfo, BorderLayout.CENTER);
 
-            // 3. Panel Inferior con Botón Cerrar
-            JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-            panelInferior.setBackground(new Color(250, 250, 250));
-            panelInferior.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(230, 230, 230)));
-
-            JButton btnCerrar = new JButton("Cerrar Detalle");
-            btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            btnCerrar.setPreferredSize(new Dimension(130, 35));
-            btnCerrar.setFocusPainted(false);
-            btnCerrar.setBackground(new Color(220, 53, 69));
+            // --- BOTÓN INFERIOR ---
+            JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+            panelBoton.setOpaque(false);
+            JButton btnCerrar = new JButton("ENTENDIDO");
+            btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            btnCerrar.setPreferredSize(new Dimension(140, 40));
+            btnCerrar.setBackground(new Color(45, 52, 54));
             btnCerrar.setForeground(Color.WHITE);
+            btnCerrar.setFocusPainted(false);
             btnCerrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
             btnCerrar.addActionListener(e -> dispose());
-
-            panelInferior.add(btnCerrar);
+            panelBoton.add(btnCerrar);
 
             add(mainPanel, BorderLayout.CENTER);
-            add(panelInferior, BorderLayout.SOUTH);
+            add(panelBoton, BorderLayout.SOUTH);
         }
 
-        /**
-         * Método interno para cargar y escalar imágenes o generar una inicial
-         */
         private ImageIcon cargarImagenInterna(String ruta, int w, int h, String nombre) {
             if (ruta != null && !ruta.isEmpty()) {
                 java.io.File archivo = new java.io.File(ruta);
                 if (archivo.exists()) {
-                    ImageIcon iconOriginal = new ImageIcon(ruta);
-                    Image imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-                    return new ImageIcon(imgEscalada);
+                    return new ImageIcon(new ImageIcon(ruta).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH));
                 }
             }
-
-            // Generar imagen con inicial si no hay ruta válida
-            BufferedImage bi = new java.awt.image.BufferedImage(w, h, java.awt.image.BufferedImage.TYPE_INT_ARGB);
+            // Imagen por defecto si no existe el archivo
+            BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = bi.createGraphics();
             g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(230, 235, 240));
-            g.fillRoundRect(0, 0, w, h, 15, 15);
-            g.setColor(new Color(110, 110, 110));
-            g.setFont(new Font("Segoe UI", Font.BOLD, w / 2));
-
+            g.setColor(new Color(235, 238, 242));
+            g.fillRoundRect(0, 0, w, h, 30, 30);
+            g.setColor(new Color(170, 180, 190));
+            g.setFont(new Font("Segoe UI", Font.BOLD, 90)); // Letra más grande para el cuadro grande
             String letra = (nombre != null && !nombre.isEmpty()) ? nombre.substring(0, 1).toUpperCase() : "?";
             FontMetrics fm = g.getFontMetrics();
             g.drawString(letra, (w - fm.stringWidth(letra)) / 2, (h + fm.getAscent() - fm.getDescent()) / 2);
             g.dispose();
-
             return new ImageIcon(bi);
         }
     }
