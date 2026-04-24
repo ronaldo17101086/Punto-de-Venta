@@ -68,12 +68,16 @@ public class productInterface extends JPanel {
         try {
             List<ProductoDTO> productosBD = productoRepository.findAll();
             for (ProductoDTO p : productosBD) {
-                // Ahora pasamos 6 parámetros para que coincida con el nuevo constructor
+                // 1. Validamos el precio directamente como BigDecimal
+                java.math.BigDecimal precioSeguro = (p.getPrice() != null) ? p.getPrice() : java.math.BigDecimal.ZERO;
+
+                // 2. Creamos el objeto pasando el BigDecimal y el boolean de granel
                 todosLosProductos.add(new ProductoDTO(
-                        p.getName() != null ? p.getName() : "Sin nombre",
                         p.getSku(),
-                        p.getPrice() != null ? p.getPrice().doubleValue() : 0.0,
-                        p.getImagePath() // <--- ESTE ES EL QUE FALTABA
+                        p.getName() != null ? p.getName() : "Sin nombre",
+                        precioSeguro, // <-- BigDecimal puro
+                        p.getImagePath(),
+                        p.isGranel() // <-- El boolean que agregamos
                 ));
             }
             todosLosProductos.sort((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()));
@@ -134,10 +138,20 @@ public class productInterface extends JPanel {
 
                         // 3. Limpieza de precio para evitar que truene
                         try {
+                            // 1. Limpiamos el texto del Excel (quitamos comas y espacios)
                             String limpio = precioExcel.replace(",", "").trim();
-                            p.setPrice(limpio.isEmpty() ? 0.0 : Double.parseDouble(limpio));
+
+                            // 2. Si está vacío, ponemos ZERO, si no, creamos el BigDecimal desde el String
+                            if (limpio.isEmpty()) {
+                                p.setPrice(java.math.BigDecimal.ZERO);
+                            } else {
+                                p.setPrice(new java.math.BigDecimal(limpio));
+                            }
+
                         } catch (Exception e) {
-                            p.setPrice(0.0);
+                            // 3. Si el formato del Excel está mal (letras en lugar de números), ponemos ZERO
+                            p.setPrice(java.math.BigDecimal.ZERO);
+                            System.err.println("Error al convertir precio de Excel: " + precioExcel);
                         }
 
                         // 4. Guardar en la base de datos
@@ -404,12 +418,20 @@ public class productInterface extends JPanel {
         }
 
         panelListaPrecios.removeAll();
-        panelListaPrecios.add(crearFilaPrecio("PRECIO 1", 0, p.getPrice() / 1.16, p.getPrice()));
+        // Definimos el divisor del IVA como BigDecimal
+        java.math.BigDecimal divisorIVA = new java.math.BigDecimal("1.16");
+
+// Calculamos el precio sin IVA: p.getPrice() / 1.16
+// Usamos 2 decimales y redondeo HALF_UP (el estándar comercial)
+        java.math.BigDecimal precioSinIVA = p.getPrice().divide(divisorIVA, 2, java.math.RoundingMode.HALF_UP);
+
+// Agregamos a la fila usando BigDecimal puro
+        panelListaPrecios.add(crearFilaPrecio("PRECIO 1", BigDecimal.ZERO, precioSinIVA, p.getPrice()));
         panelListaPrecios.revalidate();
         panelListaPrecios.repaint();
     }
 
-    private JPanel crearFilaPrecio(String titulo, double desc, double sinImp, double conImp) {
+    private JPanel crearFilaPrecio(String titulo, BigDecimal desc, BigDecimal sinImp, BigDecimal conImp) {
         JPanel p = new JPanel(new BorderLayout());
         p.setBackground(new Color(252, 252, 252));
         p.setBorder(BorderFactory.createCompoundBorder(

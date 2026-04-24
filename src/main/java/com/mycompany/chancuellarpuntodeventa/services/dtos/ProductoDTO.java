@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 
 @Entity
 @Table(name = "productos")
@@ -14,11 +15,12 @@ public class ProductoDTO {
     public ProductoDTO() {
     }
 
-    public ProductoDTO(String sku, String name, Double price, String imagePath) {
+    public ProductoDTO(String sku, String name, BigDecimal price, String imagePath, boolean granel) {
         this.sku = sku;
         this.name = name;
         this.price = price;
         this.imagePath = imagePath;
+        this.granel = granel;
     }
 
     @Id
@@ -27,12 +29,24 @@ public class ProductoDTO {
 
     private String sku;
     private String name;
-    private Double price;
+    private BigDecimal price;
 
     @Column(name = "image_path") // Coincide con el nombre de la columna en MySQL
     private String imagePath;
 
+    // ESTE ES EL QUE FALTA:
+    @Column(name = "is_granel") // O como se llame en tu tabla
+    private boolean granel;
+
     // --- GETTERS Y SETTERS ---
+    // Importante: Por convención, los booleanos empiezan con "is"
+    public boolean isGranel() {
+        return granel;
+    }
+
+    public void setGranel(boolean granel) {
+        this.granel = granel;
+    }
 
     public String getSku() {
         return sku;
@@ -50,11 +64,11 @@ public class ProductoDTO {
         this.name = name;
     }
 
-    public Double getPrice() {
+    public java.math.BigDecimal getPrice() {
         return price;
     }
 
-    public void setPrice(Double price) {
+    public void setPrice(BigDecimal price) {
         this.price = price;
     }
 

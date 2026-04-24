@@ -1,14 +1,7 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
+
 package tools;
 
-/**
- *
- * @author ronal
- */
-public enum FormaPago {
+public enum FormaPagoDto {
     EFECTIVO("💵 Efectivo"),
     TARJETA("💳 Tarjeta"),
     TRANSFERENCIA("📲 Transferencia"),
@@ -19,7 +12,7 @@ public enum FormaPago {
 
     private final String nombre;
 
-    FormaPago(String nombre) {
+    FormaPagoDto(String nombre) {
         this.nombre = nombre;
     }
 

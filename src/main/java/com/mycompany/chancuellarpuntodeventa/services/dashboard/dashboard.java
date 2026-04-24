@@ -25,14 +25,15 @@ public class dashboard extends JFrame {
     private JPanel sideMenu;
     private JPanel contentPanel;
     private CardLayout cardLayout;
-    
-    // COLORES MODERNOS
-    private final Color COLOR_PRIMARIO = new Color(28, 35, 49);    
-    private final Color COLOR_BARRA_SUP = new Color(43, 52, 69);   
-    private final Color COLOR_ACCENTO = new Color(0, 153, 255);    
-    private final Color COLOR_LOGOUT = new Color(210, 45, 45);     
 
-    public dashboard() {}
+    // COLORES MODERNOS
+    private final Color COLOR_PRIMARIO = new Color(28, 35, 49);
+    private final Color COLOR_BARRA_SUP = new Color(43, 52, 69);
+    private final Color COLOR_ACCENTO = new Color(0, 153, 255);
+    private final Color COLOR_LOGOUT = new Color(210, 45, 45);
+
+    public dashboard() {
+    }
 
     @jakarta.annotation.PostConstruct
     public void setup() {
@@ -60,23 +61,23 @@ public class dashboard extends JFrame {
         // Espaciador Izquierdo (ajustado al nuevo ancho del botón derecho)
         JPanel leftSpacer = new JPanel();
         leftSpacer.setOpaque(false);
-        leftSpacer.setPreferredSize(new Dimension(220, 0)); 
+        leftSpacer.setPreferredSize(new Dimension(220, 0));
         topBar.add(leftSpacer, BorderLayout.WEST);
 
         // PANEL DERECHO: CERRAR SESIÓN (MÁS GRANDE)
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5)); // Menos margen vertical
         rightPanel.setOpaque(false);
-        rightPanel.setPreferredSize(new Dimension(220, 0)); 
-        
+        rightPanel.setPreferredSize(new Dimension(220, 0));
+
         JButton btnLogout = new JButton("CERRAR SESIÓN");
         btnLogout.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnLogout.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnLogout.setForeground(Color.WHITE);
         btnLogout.setBackground(COLOR_LOGOUT);
         // Botón con más "cuerpo" (Padding interno)
-        btnLogout.setMargin(new Insets(5, 20, 5, 20)); 
-        btnLogout.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0; focusWidth:0"); 
-        
+        btnLogout.setMargin(new Insets(5, 20, 5, 20));
+        btnLogout.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0; focusWidth:0");
+
         btnLogout.addActionListener(e -> logout());
         rightPanel.add(btnLogout);
         topBar.add(rightPanel, BorderLayout.EAST);
@@ -88,23 +89,30 @@ public class dashboard extends JFrame {
         add(mainContainer, BorderLayout.CENTER);
 
         // ===== MENÚ LATERAL =====
+        // ===== MENÚ LATERAL (MÁS DELGADO) =====
         sideMenu = new JPanel();
-        sideMenu.setPreferredSize(new Dimension(250, 0));
+// Cambiamos de 250 a 190. Esto libera 60 píxeles para tus productos.
+        sideMenu.setPreferredSize(new Dimension(190, 0));
         sideMenu.setBackground(COLOR_PRIMARIO);
         sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
-        sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+// Reducimos bordes internos para que el texto no se amontone
+        sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
+        mainContainer.add(sideMenu, BorderLayout.WEST);
+
+// Ajusta también el espaciador de la barra superior para que coincida con el menú
+        leftSpacer.setPreferredSize(new Dimension(190, 0));
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
         addMenuHeader("OPERACIONES");
         addMenuButton("\uD83D\uDED2 Ventas", "ventas");
         addMenuButton("\uD83D\uDCC4 Cotizaciones", "cotizaciones");
         addMenuButton("\uD83D\uDCE6 Productos", "productos");
-        
+
         addMenuHeader("GESTIÓN");
         addMenuButton("\uD83D\uDC65 Clientes", "clientes");
         addMenuButton("\uD83D\uDE9B Proveedores", "proveedores");
         addMenuButton("\uD83D\uDCB0 Compras", "compras");
-        
+
         addMenuHeader("SISTEMA");
         addMenuButton("\uD83D\uDCCA Reportes", "reportes");
         addMenuButton("\u2699\uFE0F Configuración", "configuraciones");
@@ -112,7 +120,7 @@ public class dashboard extends JFrame {
         // ===== PANEL DE CONTENIDO =====
         cardLayout = new CardLayout();
         contentPanel = new JPanel(cardLayout);
-        contentPanel.setBackground(new Color(235, 238, 242)); 
+        contentPanel.setBackground(new Color(235, 238, 242));
         mainContainer.add(contentPanel, BorderLayout.CENTER);
 
         contentPanel.add(ventasPanel, "ventas");
@@ -147,6 +155,7 @@ public class dashboard extends JFrame {
                 btn.setForeground(Color.WHITE);
                 btn.setBorder(BorderFactory.createMatteBorder(0, 4, 0, 0, COLOR_ACCENTO));
             }
+
             public void mouseExited(MouseEvent e) {
                 btn.setBackground(COLOR_PRIMARIO);
                 btn.setForeground(new Color(190, 200, 215));
@@ -160,9 +169,9 @@ public class dashboard extends JFrame {
     }
 
     private void logout() {
-        int confirm = JOptionPane.showConfirmDialog(this, 
-            "¿Seguro que desea cerrar sesión?", "Chancuellar", 
-            JOptionPane.YES_NO_OPTION);
+        int confirm = JOptionPane.showConfirmDialog(this,
+                "¿Seguro que desea cerrar sesión?", "Chancuellar",
+                JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             this.dispose();
             context.getBean(LoginInterface.class).setVisible(true);

@@ -8,6 +8,7 @@ import org.springframework.boot.builder.SpringApplicationBuilder;
 import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.ComponentScan;
 import java.awt.EventQueue;
+import javax.swing.UIManager;
 
 @SpringBootApplication
 @ComponentScan(basePackages = {
@@ -21,6 +22,16 @@ import java.awt.EventQueue;
 public class chancuellarpuntodeventa {
 
     public static void main(String[] args) {
+        com.formdev.flatlaf.FlatLightLaf.setup(); // Activa el motor premium
+        javax.swing.UIManager.put("Component.arc", 15); // Redondea TODO automáticamente
+        // Esto activa el motor de renderizado suave para toda la app
+        // Configuración global de suavizado y bordes premium
+        UIManager.put("Component.arc", 20);
+        UIManager.put("TextComponent.arc", 20);
+        UIManager.put("Button.arc", 20);
+        UIManager.put("ScrollBar.thumbArc", 999);
+        UIManager.put("ScrollBar.width", 8);
+        UIManager.put("Component.focusWidth", 1);
         FlatLightLaf.setup();
 
         ConfigurableApplicationContext context = new SpringApplicationBuilder(chancuellarpuntodeventa.class)

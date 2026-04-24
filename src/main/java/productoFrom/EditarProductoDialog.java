@@ -228,7 +228,21 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
             ProductoDTO p = repo.findBySku(dto.getSku());
             if (p != null) {
                 p.setName(txtNombre.getText());
-                p.setPrice(Double.parseDouble(txtPrecio.getText()));
+                try {
+                    // 1. Limpiamos el texto (quitamos espacios, comas y signos de pesos)
+                    String precioTexto = txtPrecio.getText().replace("$", "").replace(",", "").trim();
+
+                    if (precioTexto.isEmpty()) {
+                        p.setPrice(java.math.BigDecimal.ZERO);
+                    } else {
+                        // 2. Convertimos el String directamente a BigDecimal
+                        p.setPrice(new java.math.BigDecimal(precioTexto));
+                    }
+                } catch (NumberFormatException e) {
+                    // 3. Si el usuario escribió letras o algo inválido, ponemos cero o mandamos error
+                    p.setPrice(java.math.BigDecimal.ZERO);
+                    JOptionPane.showMessageDialog(this, "Precio inválido. Use solo números y punto decimal.");
+                }
 
                 // --- ESTA ES LA LÍNEA QUE FALTA ---
                 // Si la variable rutaImagen tiene algo (porque seleccionaste una foto), se guarda en la BD
