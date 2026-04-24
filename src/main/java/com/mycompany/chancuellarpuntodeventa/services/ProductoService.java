@@ -23,7 +23,6 @@ public class ProductoService implements Serializable {
     @Column(name = "image_path")
     private String imagePath; // Aquí se guarda la ruta de la foto
 
-    // --- CONSTRUCTORES ---
     public ProductoService() {
     }
 
@@ -33,7 +32,6 @@ public class ProductoService implements Serializable {
         this.price = price;
     }
 
-    // --- GETTERS Y SETTERS (Esenciales para que repo.save funcione) ---
     public Long getId() {
         return id;
     }

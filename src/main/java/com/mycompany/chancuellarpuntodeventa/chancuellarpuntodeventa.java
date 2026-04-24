@@ -24,8 +24,6 @@ public class chancuellarpuntodeventa {
     public static void main(String[] args) {
         com.formdev.flatlaf.FlatLightLaf.setup(); // Activa el motor premium
         javax.swing.UIManager.put("Component.arc", 15); // Redondea TODO automáticamente
-        // Esto activa el motor de renderizado suave para toda la app
-        // Configuración global de suavizado y bordes premium
         UIManager.put("Component.arc", 20);
         UIManager.put("TextComponent.arc", 20);
         UIManager.put("Button.arc", 20);

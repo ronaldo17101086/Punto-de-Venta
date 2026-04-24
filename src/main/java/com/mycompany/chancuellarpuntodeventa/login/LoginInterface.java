@@ -30,7 +30,6 @@ public class LoginInterface extends JFrame {
     }
 
     private void initLeftPanel(JPanel container) {
-        // Creamos un panel personalizado que dibuja la imagen de fondo
         JPanel leftPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -38,16 +37,13 @@ public class LoginInterface extends JFrame {
                 java.net.URL imgURL = getClass().getResource("/images/logo.jpg");
                 if (imgURL != null) {
                     Image imagenFondo = new ImageIcon(imgURL).getImage();
-                    // Esto dibuja la imagen cubriendo TODO el panel izquierdo
                     g.drawImage(imagenFondo, 0, 0, getWidth(), getHeight(), this);
                 } else {
-                    // Fondo de respaldo por si no carga la imagen
                     g.setColor(new Color(15, 70, 15));
                     g.fillRect(0, 0, getWidth(), getHeight());
                 }
             }
         };
-
         container.add(leftPanel);
     }
 

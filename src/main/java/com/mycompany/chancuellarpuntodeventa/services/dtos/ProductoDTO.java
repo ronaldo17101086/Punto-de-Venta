@@ -1,6 +1,6 @@
 package com.mycompany.chancuellarpuntodeventa.services.dtos;
 
-import jakarta.persistence.Column; // Importante agregar este
+import jakarta.persistence.Column; 
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -34,12 +34,9 @@ public class ProductoDTO {
     @Column(name = "image_path") // Coincide con el nombre de la columna en MySQL
     private String imagePath;
 
-    // ESTE ES EL QUE FALTA:
     @Column(name = "is_granel") // O como se llame en tu tabla
     private boolean granel;
 
-    // --- GETTERS Y SETTERS ---
-    // Importante: Por convención, los booleanos empiezan con "is"
     public boolean isGranel() {
         return granel;
     }
@@ -72,12 +69,10 @@ public class ProductoDTO {
         this.price = price;
     }
 
-    // Nuevo Getter para la imagen
     public String getImagePath() {
         return imagePath;
     }
 
-    // Nuevo Setter para la imagen
     public void setImagePath(String imagePath) {
         this.imagePath = imagePath;
     }

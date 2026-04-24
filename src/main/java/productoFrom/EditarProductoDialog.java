@@ -10,7 +10,7 @@ import java.io.File;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 
-public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para tener botones de ventana
+public class EditarProductoDialog extends JFrame { 
 
     private JTextField txtNombre, txtSku, txtPrecio, txtDescripcion;
     private JLabel lblPreviewImagen;
@@ -229,33 +229,25 @@ public class EditarProductoDialog extends JFrame { // Cambiado a JFrame para ten
             if (p != null) {
                 p.setName(txtNombre.getText());
                 try {
-                    // 1. Limpiamos el texto (quitamos espacios, comas y signos de pesos)
                     String precioTexto = txtPrecio.getText().replace("$", "").replace(",", "").trim();
-
                     if (precioTexto.isEmpty()) {
                         p.setPrice(java.math.BigDecimal.ZERO);
                     } else {
-                        // 2. Convertimos el String directamente a BigDecimal
                         p.setPrice(new java.math.BigDecimal(precioTexto));
                     }
                 } catch (NumberFormatException e) {
-                    // 3. Si el usuario escribió letras o algo inválido, ponemos cero o mandamos error
                     p.setPrice(java.math.BigDecimal.ZERO);
                     JOptionPane.showMessageDialog(this, "Precio inválido. Use solo números y punto decimal.");
                 }
-
-                // --- ESTA ES LA LÍNEA QUE FALTA ---
-                // Si la variable rutaImagen tiene algo (porque seleccionaste una foto), se guarda en la BD
                 if (!rutaImagen.isEmpty()) {
                     p.setImagePath(rutaImagen);
                 }
-
                 repo.save(p);
                 JOptionPane.showMessageDialog(this, "✅ Producto guardado correctamente.");
                 regresar();
             }
         } catch (Exception e) {
-            e.printStackTrace(); // Esto te dirá en consola si hay un error real
+            e.printStackTrace(); 
             JOptionPane.showMessageDialog(this, "❌ Error al guardar.");
         }
     }

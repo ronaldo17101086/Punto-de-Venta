@@ -15,6 +15,7 @@ import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -55,7 +56,6 @@ public class ventas extends JPanel {
     private void init() {
         initComponentes();
         cargarProductosCompletos();
-
         this.addComponentListener(new ComponentAdapter() {
             @Override
             public void componentShown(ComponentEvent e) {
@@ -87,13 +87,7 @@ public class ventas extends JPanel {
         scrollCatalogo.setBorder(null);
         scrollCatalogo.getViewport().setBackground(bgMain);
         scrollCatalogo.getVerticalScrollBar().setUnitIncrement(35);
-
-// Bloqueamos el scroll horizontal
         scrollCatalogo.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-
-// --- AJUSTE DINÁMICO DE TAMAÑO ---
-// Este pequeño listener es vital: asegura que el panel de tarjetas 
-// siempre mida lo mismo que el ancho del scroll para que el GridLayout calcule bien los espacios.
         scrollCatalogo.addComponentListener(new java.awt.event.ComponentAdapter() {
             @Override
             public void componentResized(java.awt.event.ComponentEvent e) {
@@ -352,14 +346,14 @@ public class ventas extends JPanel {
 
             if (result == JOptionPane.OK_OPTION && !txtDinero.getText().isEmpty()) {
                 try {
-                    java.math.BigDecimal dinero = new java.math.BigDecimal(txtDinero.getText().replaceAll("[^0-9.]", ""));
-                    java.math.BigDecimal cantidad = dinero.divide(p.getPrice(), 3, java.math.RoundingMode.HALF_UP);
+                    BigDecimal dinero = new BigDecimal(txtDinero.getText().replaceAll("[^0-9.]", ""));
+                    BigDecimal cantidad = dinero.divide(p.getPrice(), 3, RoundingMode.HALF_UP);
                     agregarAlCarrito(p, cantidad);
                 } catch (Exception e) {
-                    /* Manejar error */ }
+                }
             }
         } else {
-            agregarAlCarrito(p, java.math.BigDecimal.ONE);
+            agregarAlCarrito(p, BigDecimal.ONE);
         }
     }
 
@@ -377,11 +371,9 @@ public class ventas extends JPanel {
             super(parent);
 
             // --- LÓGICA DE REEMPLAZO ---
-            // Si ya hay una notificación mostrándose, la cerramos de golpe
             if (instanciaActual != null && instanciaActual.isVisible()) {
                 instanciaActual.dispose();
             }
-            // Registramos esta nueva notificación como la actual
             instanciaActual = this;
 
             setUndecorated(true);
@@ -487,11 +479,11 @@ public class ventas extends JPanel {
             List<ProductoDTO> productosBD = productoRepository.findAll();
             for (ProductoDTO p : productosBD) {
                 // Obtenemos el precio directamente como BigDecimal
-                java.math.BigDecimal precioBD = p.getPrice();
+                BigDecimal precioBD = p.getPrice();
 
                 // Si por alguna razón el precio viene nulo de la base de datos, le ponemos CERO
                 if (precioBD == null) {
-                    precioBD = java.math.BigDecimal.ZERO;
+                    precioBD = BigDecimal.ZERO;
                 }
 
                 ProductoDTO item = new ProductoDTO(
@@ -534,22 +526,14 @@ public class ventas extends JPanel {
     }
 
 // Agregamos el parámetro BigDecimal cantidad
-    public void agregarAlCarrito(ProductoDTO p, java.math.BigDecimal cantidad) {
-
-        // Ya no inicializamos en 1 ni preguntamos isGranel aquí, 
-        // porque 'alSeleccionarProducto' ya nos mandó la cantidad correcta.
+    public void agregarAlCarrito(ProductoDTO p, BigDecimal cantidad) {
         boolean existe = false;
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemCarritoVisual icv) {
                 if (icv.getProducto().getSku().equals(p.getSku())) {
-                    // 1. Sumamos la cantidad que recibimos por parámetro
                     icv.setCantidad(icv.getCantidad().add(cantidad));
-
-                    // 2. IMPORTANTE: Notificar al componente que se actualice visualmente
-                    // (Esto hará que el subtotal de la fila se refresque)
                     icv.revalidate();
                     icv.repaint();
-
                     icv.requestFocusInWindow();
                     existe = true;
                     break;
@@ -559,9 +543,7 @@ public class ventas extends JPanel {
 
         if (!existe) {
             ItemCarritoVisual nuevo = new ItemCarritoVisual(p);
-            // Seteamos la cantidad recibida
             nuevo.setCantidad(cantidad);
-
             panelCarritoContenedor.add(nuevo);
             panelCarritoContenedor.revalidate();
             panelCarritoContenedor.repaint();
@@ -580,28 +562,18 @@ public class ventas extends JPanel {
     }
 
     private void calcularTotales() {
-        java.math.BigDecimal total = java.math.BigDecimal.ZERO;
+        BigDecimal total = BigDecimal.ZERO;
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemCarritoVisual icv) {
-                // Convertimos el precio a BigDecimal
                 BigDecimal precio = (icv.getProducto().getPrice());
-                // Obtenemos la cantidad (que ya es BigDecimal)
-                java.math.BigDecimal cantidad = icv.getCantidad();
-
-                // Multiplicamos y sumamos al total acumulado
-                java.math.BigDecimal importe = precio.multiply(cantidad);
+                BigDecimal cantidad = icv.getCantidad();
+                BigDecimal importe = precio.multiply(cantidad);
                 total = total.add(importe);
             }
         }
-
-        // 2. Cálculos de IVA (1.16)
-        java.math.BigDecimal divisorIVA = new java.math.BigDecimal("1.16");
-
-        // Subtotal = total / 1.16
-        java.math.BigDecimal subtotal = total.divide(divisorIVA, 2, java.math.RoundingMode.HALF_UP);
-
-        // IVA = total - subtotal
-        java.math.BigDecimal iva = total.subtract(subtotal);
+        BigDecimal divisorIVA = new BigDecimal("1.16");
+        BigDecimal subtotal = total.divide(divisorIVA, 2, RoundingMode.HALF_UP);
+        BigDecimal iva = total.subtract(subtotal);
 
         // 3. Pintamos en los labels (usamos doubleValue() solo para el formato del String)
         lblSubtotal.setText(String.format("$%.2f", subtotal.doubleValue()));
@@ -668,7 +640,7 @@ public class ventas extends JPanel {
         }
 
         if (encontrado != null) {
-            agregarAlCarrito(encontrado, java.math.BigDecimal.ONE);
+            agregarAlCarrito(encontrado, BigDecimal.ONE);
             txtBuscadorDirecto.setText(""); // Limpiar para el siguiente
             txtBuscadorDirecto.requestFocusInWindow();
         } else {
@@ -743,11 +715,9 @@ public class ventas extends JPanel {
                 @Override
                 public void mousePressed(MouseEvent e) {
                     requestFocusInWindow();
-                    // Llamamos al "cerebro" para que decida si pide dinero o agrega 1
                     alSeleccionarProducto(p);
                 }
             });
-            // ... (continúa el código original)
         }
     }
 
@@ -834,15 +804,15 @@ public class ventas extends JPanel {
             });
 
             btnMenos.addActionListener(e -> {
-                java.math.BigDecimal actual = getCantidad();
-                if (actual.compareTo(java.math.BigDecimal.ONE) > 0) {
-                    setCantidad(actual.subtract(java.math.BigDecimal.ONE));
+                BigDecimal actual = getCantidad();
+                if (actual.compareTo(BigDecimal.ONE) > 0) {
+                    setCantidad(actual.subtract(BigDecimal.ONE));
                 }
             });
 
             btnMas.addActionListener(e -> {
                 // Sumamos 1 usando .add()
-                setCantidad(getCantidad().add(java.math.BigDecimal.ONE));
+                setCantidad(getCantidad().add(BigDecimal.ONE));
             });
 
             InputMap im = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
@@ -945,21 +915,21 @@ public class ventas extends JPanel {
             add(pDer, BorderLayout.EAST);
         }
 
-        public void setCantidad(java.math.BigDecimal n) {
+        public void setCantidad(BigDecimal n) {
             if (n == null) {
-                n = java.math.BigDecimal.ZERO;
+                n = BigDecimal.ZERO;
             }
-            java.math.BigDecimal ajustado = n.setScale(3, java.math.RoundingMode.HALF_UP);
+            BigDecimal ajustado = n.setScale(3, RoundingMode.HALF_UP);
             txtCant.setText(ajustado.toPlainString());
             actualizarImporte();
         }
 
-        public java.math.BigDecimal getCantidad() {
+        public BigDecimal getCantidad() {
             try {
                 String t = txtCant.getText().trim();
-                return t.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(t);
+                return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
             } catch (Exception e) {
-                return java.math.BigDecimal.ZERO;
+                return BigDecimal.ZERO;
             }
         }
 
@@ -969,8 +939,8 @@ public class ventas extends JPanel {
 
         private void actualizarImporte() {
             BigDecimal precio = producto.getPrice();
-            java.math.BigDecimal cantidad = getCantidad();
-            java.math.BigDecimal total = precio.multiply(cantidad);
+            BigDecimal cantidad = getCantidad();
+            BigDecimal total = precio.multiply(cantidad);
             lblImporte.setText(String.format("$%.2f", total.doubleValue()));
         }
 

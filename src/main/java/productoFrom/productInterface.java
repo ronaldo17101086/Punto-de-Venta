@@ -22,6 +22,7 @@ import java.awt.event.ActionListener;
 import java.io.File;
 import java.io.FileInputStream;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
@@ -69,7 +70,7 @@ public class productInterface extends JPanel {
             List<ProductoDTO> productosBD = productoRepository.findAll();
             for (ProductoDTO p : productosBD) {
                 // 1. Validamos el precio directamente como BigDecimal
-                java.math.BigDecimal precioSeguro = (p.getPrice() != null) ? p.getPrice() : java.math.BigDecimal.ZERO;
+                BigDecimal precioSeguro = (p.getPrice() != null) ? p.getPrice() : BigDecimal.ZERO;
 
                 // 2. Creamos el objeto pasando el BigDecimal y el boolean de granel
                 todosLosProductos.add(new ProductoDTO(
@@ -100,7 +101,7 @@ public class productInterface extends JPanel {
                 Iterator<Row> filas = sheet.iterator();
 
                 if (filas.hasNext()) {
-                    filas.next(); // Saltar cabecera (SKU, DESCRIPCION, PRECIO)
+                    filas.next(); // Saltar encabezados
                 }
 
                 DataFormatter formatter = new DataFormatter();
@@ -110,60 +111,45 @@ public class productInterface extends JPanel {
                 while (filas.hasNext()) {
                     Row fila = filas.next();
 
-                    // SEGÚN TU IMAGEN DE EXCEL:
-                    // Columna A (0) = Parece ser un ID o SKU numérico
-                    // Columna B (1) = Descripción (Coca Cola...)
-                    // Columna C (2) = Precio (15)
+                    // 1. LEER COLUMNAS (Agregamos la columna 3 para el Granel)
                     String skuExcel = formatter.formatCellValue(fila.getCell(0));
                     String nombreExcel = formatter.formatCellValue(fila.getCell(1));
                     String precioExcel = formatter.formatCellValue(fila.getCell(2));
+                    String granelExcel = formatter.formatCellValue(fila.getCell(3)); // Columna D (s/n)
 
                     if (skuExcel != null && !skuExcel.trim().isEmpty()) {
-
-                        // 1. Intentamos buscar si ya existe para no duplicar
                         ProductoDTO p = productoRepository.findBySku(skuExcel);
-
                         if (p != null) {
                             actualizados++;
                         } else {
-                            // 2. Si es nuevo, lo creamos
                             p = new ProductoDTO();
                             p.setSku(skuExcel);
-                            // IMPORTANTE: Si te sigue dando el error del "Identifier", 
-                            // asegúrate que en Producto.java el ID tenga @GeneratedValue
                             nuevos++;
                         }
 
                         p.setName(nombreExcel);
 
-                        // 3. Limpieza de precio para evitar que truene
+                        // 2. LÓGICA PARA EL PRECIO
                         try {
-                            // 1. Limpiamos el texto del Excel (quitamos comas y espacios)
                             String limpio = precioExcel.replace(",", "").trim();
-
-                            // 2. Si está vacío, ponemos ZERO, si no, creamos el BigDecimal desde el String
-                            if (limpio.isEmpty()) {
-                                p.setPrice(java.math.BigDecimal.ZERO);
-                            } else {
-                                p.setPrice(new java.math.BigDecimal(limpio));
-                            }
-
+                            p.setPrice(limpio.isEmpty() ? BigDecimal.ZERO : new BigDecimal(limpio));
                         } catch (Exception e) {
-                            // 3. Si el formato del Excel está mal (letras en lugar de números), ponemos ZERO
-                            p.setPrice(java.math.BigDecimal.ZERO);
-                            System.err.println("Error al convertir precio de Excel: " + precioExcel);
+                            p.setPrice(BigDecimal.ZERO);
                         }
 
-                        // 4. Guardar en la base de datos
+                        // 3. LÓGICA PARA EL GRANEL (Lo que preguntaste)
+                        // Si en Excel dice 's' (o 'S'), es true (1 en DB). De lo contrario false (0).
+                        boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
+                        p.setGranel(esGranel);
+
                         productoRepository.save(p);
                     }
                 }
 
-                JOptionPane.showMessageDialog(this, "¡Por fin quedó!\nNuevos: " + nuevos + "\nActualizados: " + actualizados);
+                JOptionPane.showMessageDialog(this, "¡Catálogo actualizado!\nNuevos: " + nuevos + "\nActualizados: " + actualizados);
                 cargarProductosCompletos();
 
             } catch (Exception e) {
-                // Esto te dirá exactamente qué columna o dato está fallando
                 JOptionPane.showMessageDialog(this, "Error en el proceso: " + e.getMessage());
                 e.printStackTrace();
             }
@@ -404,13 +390,12 @@ public class productInterface extends JPanel {
             File file = new File(p.getImagePath());
             if (file.exists()) {
                 ImageIcon icon = new ImageIcon(p.getImagePath());
-                // Redimensionar la imagen para que encaje en el label (150x150)
                 Image img = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
                 lblImagen.setIcon(new ImageIcon(img));
-                lblImagen.setText(""); // Quitar el emoji si hay imagen
+                lblImagen.setText("");
             } else {
                 lblImagen.setIcon(null);
-                lblImagen.setText("☕"); // Default si no encuentra el archivo
+                lblImagen.setText("☕");
             }
         } else {
             lblImagen.setIcon(null);
@@ -418,14 +403,8 @@ public class productInterface extends JPanel {
         }
 
         panelListaPrecios.removeAll();
-        // Definimos el divisor del IVA como BigDecimal
-        java.math.BigDecimal divisorIVA = new java.math.BigDecimal("1.16");
-
-// Calculamos el precio sin IVA: p.getPrice() / 1.16
-// Usamos 2 decimales y redondeo HALF_UP (el estándar comercial)
-        java.math.BigDecimal precioSinIVA = p.getPrice().divide(divisorIVA, 2, java.math.RoundingMode.HALF_UP);
-
-// Agregamos a la fila usando BigDecimal puro
+        BigDecimal divisorIVA = new BigDecimal("1.16");
+        BigDecimal precioSinIVA = p.getPrice().divide(divisorIVA, 2, RoundingMode.HALF_UP);
         panelListaPrecios.add(crearFilaPrecio("PRECIO 1", BigDecimal.ZERO, precioSinIVA, p.getPrice()));
         panelListaPrecios.revalidate();
         panelListaPrecios.repaint();

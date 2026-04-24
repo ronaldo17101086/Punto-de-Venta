@@ -17,7 +17,7 @@ public class Conexion {
     private static final String USER = "root";
     private static final String PASSWORD = "root";
 
-    @Bean // <--- Esto soluciona el error "Failed to determine a suitable driver class"
+    @Bean 
     public DataSource dataSource() {
         crearBaseDeDatosSiNoExiste();
         DriverManagerDataSource dataSource = new DriverManagerDataSource();

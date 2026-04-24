@@ -71,7 +71,6 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
             setIconDefault();
         }
 
-        // Colores de selección
         if (isSelected) {
             setBackground(new Color(232, 240, 254));
             lblNombre.setForeground(new Color(28, 78, 134));

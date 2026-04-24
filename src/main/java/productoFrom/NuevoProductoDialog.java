@@ -1,10 +1,7 @@
 package productoFrom;
 
 import javax.swing.*;
-import javax.swing.border.*;
 import java.awt.*;
-import java.util.ArrayList;
-import java.util.List;
 
 public class NuevoProductoDialog extends JDialog {
 
@@ -39,7 +36,9 @@ public class NuevoProductoDialog extends JDialog {
         JPanel panelImagenes = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 10));
         panelImagenes.setOpaque(false);
         panelImagenes.add(crearCuadroImagen(true));
-        for(int i=0; i<4; i++) panelImagenes.add(crearCuadroImagen(false));
+        for (int i = 0; i < 4; i++) {
+            panelImagenes.add(crearCuadroImagen(false));
+        }
         panelContenido.add(panelImagenes);
         panelContenido.add(Box.createVerticalStrut(20));
 
@@ -47,7 +46,7 @@ public class NuevoProductoDialog extends JDialog {
         panelContenido.add(crearCampoEstilizado("Clave *", "7501259289444", true));
         panelContenido.add(crearCampoEstilizado("Nombre de producto *", "", false));
         panelContenido.add(crearCampoEstilizado("Características", "", false));
-        
+
         JPanel panelDoble = new JPanel(new GridLayout(1, 2, 20, 0));
         panelDoble.setOpaque(false);
         panelDoble.add(crearSelectorEstilizado("Departamento *", "UNDEFINED"));
@@ -83,7 +82,7 @@ public class NuevoProductoDialog extends JDialog {
         btnAgregarPrecio.setFocusPainted(false);
         btnAgregarPrecio.setAlignmentX(Component.LEFT_ALIGNMENT);
         btnAgregarPrecio.addActionListener(e -> agregarNuevoPrecio());
-        
+
         panelContenido.add(btnAgregarPrecio);
 
         // Agregamos el primer precio por defecto
@@ -110,11 +109,11 @@ public class NuevoProductoDialog extends JDialog {
             JPanel cardPrecio = crearCardPrecio(contadorPrecios);
             panelPreciosContenedor.add(cardPrecio);
             panelPreciosContenedor.add(Box.createVerticalStrut(15));
-            
+
             if (contadorPrecios == MAX_PRECIOS) {
                 btnAgregarPrecio.setEnabled(false);
             }
-            
+
             panelPreciosContenedor.revalidate();
             panelPreciosContenedor.repaint();
         }
@@ -211,7 +210,9 @@ public class NuevoProductoDialog extends JDialog {
         txt.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         p.add(lbl, BorderLayout.NORTH);
         p.add(txt, BorderLayout.CENTER);
-        if(conIconoBusqueda) p.add(new JLabel("🔍 "), BorderLayout.EAST);
+        if (conIconoBusqueda) {
+            p.add(new JLabel("🔍 "), BorderLayout.EAST);
+        }
         p.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
         return p;
     }
@@ -238,7 +239,7 @@ public class NuevoProductoDialog extends JDialog {
         p.setOpaque(false);
         p.setMaximumSize(new Dimension(1000, 50));
         p.add(new JLabel(texto), BorderLayout.WEST);
-        JLabel lblSwitch = new JLabel(activo ? "🔵" : "⚪"); 
+        JLabel lblSwitch = new JLabel(activo ? "🔵" : "⚪");
         p.add(lblSwitch, BorderLayout.EAST);
         p.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)));
         return p;

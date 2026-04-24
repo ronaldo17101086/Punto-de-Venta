@@ -26,7 +26,6 @@ public class dashboard extends JFrame {
     private JPanel contentPanel;
     private CardLayout cardLayout;
 
-    // COLORES MODERNOS
     private final Color COLOR_PRIMARIO = new Color(28, 35, 49);
     private final Color COLOR_BARRA_SUP = new Color(43, 52, 69);
     private final Color COLOR_ACCENTO = new Color(0, 153, 255);
@@ -49,12 +48,12 @@ public class dashboard extends JFrame {
 
         // ===== BARRA SUPERIOR (MÁS DELGADA) =====
         JPanel topBar = new JPanel(new BorderLayout());
-        topBar.setPreferredSize(new Dimension(0, 45)); // Reducida de 65 a 45
+        topBar.setPreferredSize(new Dimension(0, 45));
         topBar.setBackground(COLOR_BARRA_SUP);
 
         // TITULO CENTRADO
         JLabel lblTitle = new JLabel("CHANCUELLAR", SwingConstants.CENTER);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16)); // Fuente un poco más pequeña para la barra delgada
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(Color.WHITE);
         topBar.add(lblTitle, BorderLayout.CENTER);
 
@@ -65,7 +64,7 @@ public class dashboard extends JFrame {
         topBar.add(leftSpacer, BorderLayout.WEST);
 
         // PANEL DERECHO: CERRAR SESIÓN (MÁS GRANDE)
-        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5)); // Menos margen vertical
+        JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         rightPanel.setOpaque(false);
         rightPanel.setPreferredSize(new Dimension(220, 0));
 
@@ -89,17 +88,13 @@ public class dashboard extends JFrame {
         add(mainContainer, BorderLayout.CENTER);
 
         // ===== MENÚ LATERAL =====
-        // ===== MENÚ LATERAL (MÁS DELGADO) =====
         sideMenu = new JPanel();
-// Cambiamos de 250 a 190. Esto libera 60 píxeles para tus productos.
         sideMenu.setPreferredSize(new Dimension(190, 0));
         sideMenu.setBackground(COLOR_PRIMARIO);
         sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
-// Reducimos bordes internos para que el texto no se amontone
         sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
-// Ajusta también el espaciador de la barra superior para que coincida con el menú
         leftSpacer.setPreferredSize(new Dimension(190, 0));
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
