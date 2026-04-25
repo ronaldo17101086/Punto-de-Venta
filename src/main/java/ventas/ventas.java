@@ -82,7 +82,7 @@ public class ventas extends JPanel {
 // --- LA CORRECCIÓN REAL ---
         JPanel wrapperCatalogo = new JPanel(new BorderLayout());
         wrapperCatalogo.setBackground(bgMain);
-        wrapperCatalogo.add(panelCardsContenedor, BorderLayout.NORTH); // Lo pega arriba
+        wrapperCatalogo.add(panelCardsContenedor, BorderLayout.NORTH);
         JScrollPane scrollCatalogo = new JScrollPane(wrapperCatalogo);
         scrollCatalogo.setBorder(null);
         scrollCatalogo.getViewport().setBackground(bgMain);
@@ -112,15 +112,58 @@ public class ventas extends JPanel {
             cargarProductosCompletos();
         });
 
-        // 2. Configura el buscador así:
+        // 1. Asegúrate de que txtBuscador ya esté instanciado
         txtBuscador = new tools.PlaceholderTextField("");
         txtBuscador.setPreferredSize(new Dimension(380, 45));
         txtBuscador.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        txtBuscador.putClientProperty("JTextField.placeholderText", " ¿Qué producto buscas hoy?...");
-        txtBuscador.putClientProperty("JTextField.leadingIcon", new FlatSearchIcon()); // Pone la lupa a la izquierda
-        txtBuscador.putClientProperty("JTextField.leadingIconGap", 10); // Espacio entre lupa y texto
+
+// 2. Botón de Limpieza Minimalista
+        JButton btnClear = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                int size = Math.min(getWidth(), getHeight()) - 10;
+                int x = (getWidth() - size) / 2;
+                int y = (getHeight() - size) / 2;
+
+                // Efecto Hover: Círculo sutil
+                if (getModel().isRollover()) {
+                    g2.setColor(new Color(240, 240, 240)); // Gris muy claro premium
+                    g2.fillOval(x, y, size, size);
+                }
+
+                // La "X" elegante y delgada
+                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                g2.setColor(new Color(150, 150, 150)); // Gris oscuro, no negro total para elegancia
+
+                int padding = size / 3;
+                g2.drawLine(x + padding, y + padding, x + size - padding, y + size - padding);
+                g2.drawLine(x + size - padding, y + padding, x + padding, y + size - padding);
+
+                g2.dispose();
+            }
+        };
+
+// Configuración del botón
+        btnClear.setPreferredSize(new Dimension(35, 35));
+        btnClear.setFocusable(false);
+        btnClear.setBorderPainted(false);
+        btnClear.setContentAreaFilled(false);
+        btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+// Acción de limpieza
+        btnClear.addActionListener(e -> {
+            txtBuscador.setText("");
+            txtBuscador.requestFocusInWindow();
+        });
+
+// 3. Integración en el TextField
+        txtBuscador.putClientProperty("JTextField.trailingComponent", btnClear);
+        txtBuscador.putClientProperty("JTextField.showClearButton", false); // Desactivamos la X de Windows
         txtBuscador.putClientProperty("JComponent.roundRect", true);
-        txtBuscador.setBackground(new Color(245, 247, 251));
+        txtBuscador.putClientProperty("JTextField.padding", new Insets(0, 12, 0, 8)); // Espaciado interno
 
         // --- DEFINICIÓN DE NUEVOS COLORES (MÁS BONITOS) ---
         Color emeraldBG = new Color(240, 253, 244);     // Fondo menta ultra suave
@@ -140,6 +183,29 @@ public class ventas extends JPanel {
         txtBuscadorDirecto.putClientProperty("JTextField.showClearButton", true);
         txtBuscadorDirecto.putClientProperty("JTextField.padding", new Insets(0, 10, 0, 10));
         txtBuscadorDirecto.addActionListener(e -> buscarYAgregarDirecto());
+
+        // 1. Definimos la acción que abre el pago (reutilizando el clic del botón)
+        Action finalizarVentaAction = new AbstractAction() {
+            @Override
+            public void actionPerformed(ActionEvent e) {
+                if (btnFinalizar.isEnabled()) {
+                    // Ejecuta el clic del botón verde
+                    btnFinalizar.doClick();
+                } else {
+                    // Feedback de error si el carrito está vacío
+                    txtBuscador.putClientProperty("JComponent.outline", "error");
+                    Timer timer = new Timer(500, ex -> txtBuscador.putClientProperty("JComponent.outline", null));
+                    timer.setRepeats(false);
+                    timer.start();
+                }
+            }
+        };
+
+// 2. Registramos la tecla ESCAPE a nivel de PANEL (para que funcione en toda la ventana de ventas)
+        this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "finalizarVenta"
+        );
+        this.getActionMap().put("finalizarVenta", finalizarVentaAction);
 
         gbc.insets = new Insets(0, 20, 0, 10);
         gbc.gridx = 0;
@@ -301,7 +367,8 @@ public class ventas extends JPanel {
             body.setBackground(COLOR_FONDO);
             body.setBorder(new EmptyBorder(40, 40, 40, 40));
             GridBagConstraints gbc = new GridBagConstraints();
-            gbc.fill = GridBagConstraints.BOTH;
+            gbc.fill = GridBagConstraints.HORIZONTAL; // Cambia BOTH por HORIZONTAL
+            gbc.anchor = GridBagConstraints.CENTER;   // Centra los elementos verticalmente
             gbc.weightx = 1.0;
 
             // Estilizamos los campos con un método dedicado
@@ -443,6 +510,7 @@ public class ventas extends JPanel {
     }
 
     class Notification extends JDialog {
+
         // --- CLAVE: Variable estática para rastrear la notificación activa ---
         private static Notification instanciaActual = null;
         private int indiceImagenActual = 0;
@@ -619,7 +687,7 @@ public class ventas extends JPanel {
         boolean existe = false;
 
         for (Component c : panelCarritoContenedor.getComponents()) {
-            if (c instanceof ItemCarritoVisual icv) {
+            if (c instanceof ItemProductoCarrito icv) {
                 if (icv.getProducto().getSku().equals(p.getSku())) {
                     BigDecimal nuevaCantidad = icv.getCantidad().add(cantidad);
                     icv.setCantidad(nuevaCantidad);
@@ -632,7 +700,7 @@ public class ventas extends JPanel {
         }
 
         if (!existe) {
-            ItemCarritoVisual nuevo = new ItemCarritoVisual(p);
+            ItemProductoCarrito nuevo = new ItemProductoCarrito(p);
             nuevo.setCantidad(cantidad);
             panelCarritoContenedor.add(nuevo, 0);
             panelCarritoContenedor.revalidate();
@@ -668,7 +736,7 @@ public class ventas extends JPanel {
 
         // 1. Recorremos el carrito y sumamos
         for (Component c : panelCarritoContenedor.getComponents()) {
-            if (c instanceof ItemCarritoVisual icv) {
+            if (c instanceof ItemProductoCarrito icv) {
                 BigDecimal precio = icv.getProducto().getPrice();
                 BigDecimal cantidad = icv.getCantidad();
 
@@ -721,7 +789,7 @@ public class ventas extends JPanel {
         List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
 
         for (Component c : panelCarritoContenedor.getComponents()) {
-            if (c instanceof ItemCarritoVisual icv) {
+            if (c instanceof ItemProductoCarrito icv) {
                 // Sustituimos: totalVentaActual += precio * cantidad;
                 totalVentaActual = totalVentaActual.add(
                         icv.getProducto().getPrice().multiply(icv.getCantidad())
@@ -857,51 +925,117 @@ public class ventas extends JPanel {
     }
 
     /* ========== ITEM CARRITO DINÁMICO MEJORADO ========== */
-    class ItemCarritoVisual extends JPanel {
+ /* ========== ITEM CARRITO DINÁMICO MEJORADO (VERSIÓN MAX-INFO) ========== */
+    class ItemProductoCarrito extends JPanel {
 
         private ProductoDTO producto;
         private JTextField txtCant;
         private JLabel lblImporte;
-        private BigDecimal cantidad; // Registro interno de la magnitud real (Kilos o Piezas)
+        private BigDecimal cantidad;
 
-        public ItemCarritoVisual(ProductoDTO p) {
+        public ItemProductoCarrito(ProductoDTO p) {
             this.producto = p;
-            this.cantidad = BigDecimal.ZERO; // Inicializamos en cero
+            this.cantidad = BigDecimal.ZERO;
 
-            setLayout(new BorderLayout(15, 5));
+            setLayout(new GridBagLayout());
             setBackground(Color.WHITE);
             setFocusable(true);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            // --- BORDES Y ESTILO ---
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
-                    BorderFactory.createEmptyBorder(10, 10, 10, 10)
+                    BorderFactory.createEmptyBorder(8, 10, 8, 10)
             ));
-            setMaximumSize(new Dimension(480, 85));
 
-            // --- COMPONENTES ---
-            txtCant = new JTextField("1");
-            txtCant.setPreferredSize(new Dimension(60, 25)); // Un poco más ancho por los decimales
-            txtCant.setHorizontalAlignment(JTextField.CENTER);
+            // FORZAMOS TAMAÑO UNIFORME: Evita que el scroll horizontal aparezca
+            setMinimumSize(new Dimension(450, 90));
+            setPreferredSize(new Dimension(460, 90));
+            setMaximumSize(new Dimension(500, 90));
 
-            lblImporte = new JLabel(String.format("$%.2f", p.getPrice()));
-            lblImporte.setFont(new Font("Segoe UI", Font.BOLD, 15));
-            lblImporte.setPreferredSize(new Dimension(95, 25));
-            lblImporte.setHorizontalAlignment(SwingConstants.RIGHT);
+            GridBagConstraints gbc = new GridBagConstraints();
+            gbc.fill = GridBagConstraints.BOTH;
+
+            // 1. COLUMNA BOTONES GESTIÓN (IZQUIERDA)
+            JPanel pGestion = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+            pGestion.setOpaque(false);
+
+            JButton btnEliminar = new JButton(crearIconoBasura());
+            JButton btnEditar = new JButton(crearIconoEditar());
+            estilizarBotonIcono(btnEliminar);
+            estilizarBotonIcono(btnEditar);
+
+            pGestion.add(btnEliminar);
+            pGestion.add(btnEditar);
+
+            gbc.gridx = 0;
+            gbc.weightx = 0;
+            gbc.fill = GridBagConstraints.NONE;
+            add(pGestion, gbc);
+
+            // 2. COLUMNA IMAGEN
+            JLabel lblImg = new JLabel(cargarImagen(p.getImagePath(), 50, 50, p.getName()));
+            gbc.gridx = 1;
+            gbc.insets = new Insets(0, 5, 0, 10);
+            add(lblImg, gbc);
+
+            // 3. COLUMNA INFO (NOMBRE MULTILÍNEA PREMIUM)
+            // Usamos GridLayout para apilar Nombre y Precio Unitario
+            JPanel pInfo = new JPanel(new GridLayout(2, 1, 0, 2));
+            pInfo.setOpaque(false);
+
+            // TRUCO PREMIUM: HTML con ancho fijo para obligar al salto de línea
+            String nombreFormateado = "<html><body style='width: 140px;'>" + p.getName() + "</body></html>";
+            JLabel lblNombre = new JLabel(nombreFormateado);
+            lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+            JLabel lblPrecioU = new JLabel("Unit: $" + p.getPrice());
+            lblPrecioU.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+            lblPrecioU.setForeground(new Color(100, 116, 139));
+
+            pInfo.add(lblNombre);
+            pInfo.add(lblPrecioU);
+
+            gbc.gridx = 2;
+            gbc.weightx = 1.0; // Este absorbe el espacio pero el HTML lo contiene
+            gbc.insets = new Insets(0, 0, 0, 5);
+            add(pInfo, gbc);
+
+            // 4. COLUMNA CONTROLES (BOTONES + Y -)
+            JPanel pControles = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 0));
+            pControles.setOpaque(false);
 
             JButton btnMenos = new JButton("-");
             JButton btnMas = new JButton("+");
-            btnMenos.setFocusable(false);
-            btnMas.setFocusable(false);
+            estilizarBotonMasMenos(btnMenos);
+            estilizarBotonMasMenos(btnMas);
 
-            JButton btnEliminar = new JButton(crearIconoBasura());
-            btnEliminar.setFocusable(false);
-            btnEliminar.setBorderPainted(false);
-            btnEliminar.setContentAreaFilled(false);
-            btnEliminar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            txtCant = new JTextField("1");
+            txtCant.setPreferredSize(new Dimension(55, 28));
+            txtCant.setHorizontalAlignment(JTextField.CENTER);
+            // Estilo extra para el buscador
+            txtCant.putClientProperty("JComponent.roundRect", true);
 
-            // --- ACCIONES ---
+            pControles.add(btnMenos);
+            pControles.add(txtCant);
+            pControles.add(btnMas);
+
+            gbc.gridx = 3;
+            gbc.weightx = 0;
+            gbc.fill = GridBagConstraints.NONE;
+            add(pControles, gbc);
+
+            // 5. COLUMNA IMPORTE (DERECHA EXTREMA)
+            lblImporte = new JLabel("$0.00");
+            lblImporte.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            lblImporte.setForeground(new Color(79, 70, 229));
+            lblImporte.setPreferredSize(new Dimension(85, 25));
+            lblImporte.setHorizontalAlignment(SwingConstants.RIGHT);
+
+            gbc.gridx = 4;
+            gbc.insets = new Insets(0, 5, 0, 5);
+            add(lblImporte, gbc);
+
+            // --- LÓGICA DE FUNCIONAMIENTO (MANTENIDA EXACTAMENTE IGUAL) ---
             btnEliminar.addActionListener(e -> {
                 panelCarritoContenedor.remove(this);
                 panelCarritoContenedor.revalidate();
@@ -910,7 +1044,20 @@ public class ventas extends JPanel {
                 txtBuscador.requestFocusInWindow();
             });
 
-            // Listener para cambios manuales en el texto
+            btnEditar.addActionListener(e -> abrirDialogoEdicionBascula());
+
+            btnMenos.addActionListener(e -> {
+                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
+                if (cantidad.compareTo(salto) >= 0) {
+                    setCantidad(cantidad.subtract(salto));
+                }
+            });
+
+            btnMas.addActionListener(e -> {
+                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
+                setCantidad(cantidad.add(salto));
+            });
+
             txtCant.getDocument().addDocumentListener(new DocumentListener() {
                 public void insertUpdate(DocumentEvent e) {
                     act();
@@ -938,71 +1085,73 @@ public class ventas extends JPanel {
                 }
             });
 
-            btnMenos.addActionListener(e -> {
-                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
-                if (cantidad.compareTo(salto) >= 0) {
-                    setCantidad(cantidad.subtract(salto));
-                }
-            });
-
-            btnMas.addActionListener(e -> {
-                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
-                setCantidad(cantidad.add(salto));
-            });
-
-            // --- ARMADO DEL PANEL ---
-            JPanel pMid = new JPanel(new GridLayout(2, 1));
-            pMid.setOpaque(false);
-            JLabel lblNombre = new JLabel(p.getName());
-            lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            pMid.add(lblNombre);
-            pMid.add(new JLabel("Precio Unit: $" + p.getPrice()));
-
-            JPanel pDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 12));
-            pDer.setOpaque(false);
-            pDer.add(btnMenos);
-            pDer.add(txtCant);
-            pDer.add(btnMas);
-            pDer.add(lblImporte);
-
-            JPanel pIzquierda = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 10));
-            pIzquierda.setOpaque(false);
-            pIzquierda.add(btnEliminar);
-            pIzquierda.add(new JLabel(cargarImagen(p.getImagePath(), 45, 45, p.getName())));
-
-            add(pIzquierda, BorderLayout.WEST);
-            add(pMid, BorderLayout.CENTER);
-            add(pDer, BorderLayout.EAST);
-
-            // Foco visual
             addFocusListener(new FocusAdapter() {
                 public void focusGained(FocusEvent e) {
                     setBackground(new Color(245, 247, 251));
+                    setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(79, 70, 229)), // Borde azul al seleccionar
+                            BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                    ));
                 }
 
                 public void focusLost(FocusEvent e) {
                     setBackground(Color.WHITE);
+                    setBorder(BorderFactory.createCompoundBorder(
+                            BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
+                            BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                    ));
                 }
             });
         }
 
+        // Métodos auxiliares mantenidos
+        private void estilizarBotonIcono(JButton b) {
+            b.setFocusable(false);
+            b.setBorderPainted(false);
+            b.setContentAreaFilled(false);
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
+
+        private void estilizarBotonMasMenos(JButton b) {
+            b.setPreferredSize(new Dimension(30, 30)); // Un poquito más grandes
+            b.setFocusable(false);
+            b.setFont(new Font("Segoe UI", Font.BOLD, 16)); // Símbolos más marcados
+            b.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            // Colores suaves para que se noten sobre el blanco
+            b.setBackground(new Color(242, 244, 247));
+            b.setForeground(new Color(51, 65, 85)); // Gris oscuro profesional
+
+            // Borde redondeado suave (característica de FlatLaf)
+            b.putClientProperty("JButton.buttonType", "roundRect");
+            b.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
+        }
+
+        private void abrirDialogoEdicionBascula() {
+            Container parent = this.getParent();
+            while (parent != null && !(parent instanceof ventas)) {
+                parent = parent.getParent();
+            }
+            if (parent instanceof ventas v) {
+                panelCarritoContenedor.remove(this);
+                panelCarritoContenedor.revalidate();
+                panelCarritoContenedor.repaint();
+                v.alSeleccionarProducto(this.producto);
+                v.calcularTotales();
+            }
+        }
+
         public void setCantidad(BigDecimal nuevaCantidad) {
             this.cantidad = nuevaCantidad;
-
-            // Si es granel mostramos 3 decimales (gramos), si no, 0 decimales (piezas)
             String formato = producto.isGranel() ? "%.3f" : "%.0f";
             txtCant.setText(String.format(java.util.Locale.US, formato, cantidad));
-
             actualizarImporte();
         }
 
         private void actualizarImporte() {
             if (producto != null && cantidad != null) {
-                // El cálculo que mata el bug: PRECIO * CANTIDAD ACUMULADA
                 BigDecimal importe = producto.getPrice().multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
                 lblImporte.setText(String.format("$ %.2f", importe));
-
-                // Notificar al frame principal para actualizar el botón de PAGAR
                 Container parent = this.getParent();
                 while (parent != null && !(parent instanceof ventas)) {
                     parent = parent.getParent();
@@ -1013,6 +1162,28 @@ public class ventas extends JPanel {
             }
         }
 
+        private Icon crearIconoEditar() {
+            BufferedImage bi = new BufferedImage(18, 18, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = bi.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(0, 123, 255));
+            g.rotate(Math.toRadians(45), 9, 9);
+            g.fillRect(7, 3, 4, 11);
+            g.dispose();
+            return new ImageIcon(bi);
+        }
+
+        private Icon crearIconoBasura() {
+            BufferedImage bi = new BufferedImage(18, 18, BufferedImage.TYPE_INT_ARGB);
+            Graphics2D g = bi.createGraphics();
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(239, 68, 68));
+            g.fillRect(5, 6, 8, 9);
+            g.fillRect(3, 4, 12, 2);
+            g.dispose();
+            return new ImageIcon(bi);
+        }
+
         public BigDecimal getCantidad() {
             return this.cantidad;
         }
@@ -1020,20 +1191,6 @@ public class ventas extends JPanel {
         public ProductoDTO getProducto() {
             return producto;
         }
-
-        private Icon crearIconoBasura() {
-            BufferedImage bi = new BufferedImage(20, 20, BufferedImage.TYPE_INT_ARGB);
-            Graphics2D g = bi.createGraphics();
-            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g.setColor(new Color(239, 68, 68)); // Rojo moderno
-            g.fillRoundRect(6, 7, 8, 10, 2, 2);
-            g.fillRect(4, 4, 12, 2);
-            g.fillRect(8, 2, 4, 2);
-            g.dispose();
-            return new ImageIcon(bi);
-        }
-
-        // Métodos de navegación de foco (mantener los tuyos de VK_UP, VK_DOWN, etc.)
     }
 
     private ImageIcon cargarImagen(String ruta, int w, int h, String t) {
