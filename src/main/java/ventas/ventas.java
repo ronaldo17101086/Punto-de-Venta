@@ -265,96 +265,177 @@ public class ventas extends JPanel {
 
     public void alSeleccionarProducto(ProductoDTO p) {
         if (p.isGranel()) {
-            // --- COLORES EXACTOS DEL DISEÑO PROFESIONAL ---
-            java.awt.Color COLOR_BORDE_SOFT = new java.awt.Color(235, 235, 235);
-            java.awt.Color COLOR_GRIS_IMAGEN = new java.awt.Color(236, 240, 241);
-            java.awt.Color COLOR_TEXTO_SKU = new java.awt.Color(37, 99, 235);
-            java.awt.Color COLOR_PRECIO = new java.awt.Color(34, 197, 94);
-            java.awt.Color COLOR_BOTON_ENTENDIDO = new java.awt.Color(51, 60, 68);
+            // --- PALETA DE COLORES "CYBER-CLEAN" ---
+            Color COLOR_FONDO = new Color(248, 250, 252);
+            Color COLOR_PRIMARIO = new Color(79, 70, 229); // Indigo moderno
+            Color COLOR_EXITO = new Color(16, 185, 129);   // Esmeralda
+            Color COLOR_TEXTO = new Color(15, 23, 42);
+            Color COLOR_GRADIENTE = new Color(238, 242, 255);
 
-            // 1. Panel Principal (Contenedor con bordes redondeados simulados)
-            JPanel modal = new JPanel(new java.awt.GridBagLayout());
-            modal.setBackground(java.awt.Color.WHITE);
-            modal.setBorder(javax.swing.BorderFactory.createEmptyBorder(20, 20, 20, 20));
-            java.awt.GridBagConstraints gbc = new java.awt.GridBagConstraints();
+            // Crear JDialog con estilo Custom
+            JDialog win = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), true);
+            win.setUndecorated(true); // Quitamos la barra de Windows fea
+            win.getRootPane().setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
 
-            // 2. Cuadro de Imagen (Lado Izquierdo)
-            JPanel panelImagen = new JPanel(new java.awt.GridBagLayout());
-            panelImagen.setPreferredSize(new java.awt.Dimension(160, 160));
-            panelImagen.setBackground(COLOR_GRIS_IMAGEN);
-            JLabel lblLetra = new JLabel(p.getName().substring(0, 1).toUpperCase());
-            lblLetra.setFont(new java.awt.Font("SansSerif", java.awt.Font.PLAIN, 60));
-            lblLetra.setForeground(new java.awt.Color(160, 174, 192));
-            panelImagen.add(lblLetra);
+            JPanel layout = new JPanel(new BorderLayout());
+            layout.setBackground(COLOR_FONDO);
+
+            // 1. HEADER CON GRADIENTE (Nombre y Precio)
+            JPanel header = new JPanel(new GridLayout(2, 1));
+            header.setBackground(COLOR_GRADIENTE);
+            header.setBorder(new EmptyBorder(25, 40, 25, 40));
+
+            JLabel name = new JLabel(p.getName().toUpperCase());
+            name.setFont(new Font("Inter", Font.BOLD, 32));
+            name.setForeground(COLOR_TEXTO);
+
+            JLabel priceInfo = new JLabel("Tasa de mercado: $" + p.getPrice() + " MXN / Kilogramo");
+            priceInfo.setFont(new Font("Inter", Font.ITALIC, 14));
+            priceInfo.setForeground(new Color(71, 85, 105));
+
+            header.add(name);
+            header.add(priceInfo);
+
+            // 2. CUERPO DE ENTRADA (Diseño Horizontal Minimalista)
+            JPanel body = new JPanel(new GridBagLayout());
+            body.setBackground(COLOR_FONDO);
+            body.setBorder(new EmptyBorder(40, 40, 40, 40));
+            GridBagConstraints gbc = new GridBagConstraints();
+            gbc.fill = GridBagConstraints.BOTH;
+            gbc.weightx = 1.0;
+
+            // Estilizamos los campos con un método dedicado
+            JTextField fieldGramos = crearFieldModerno(COLOR_PRIMARIO, "0");
+            JTextField fieldTotal = crearFieldModerno(COLOR_EXITO, "0.00");
 
             gbc.gridx = 0;
-            gbc.gridy = 0;
-            gbc.gridheight = 2;
-            gbc.insets = new java.awt.Insets(0, 0, 0, 25);
-            modal.add(panelImagen, gbc);
-
-            // 3. Panel de Información (Lado Derecho)
-            JPanel info = new JPanel();
-            info.setLayout(new javax.swing.BoxLayout(info, javax.swing.BoxLayout.Y_AXIS));
-            info.setBackground(java.awt.Color.WHITE);
-
-            // SKU Tag
-            JLabel lblSku = new JLabel(" SKU: " + p.getSku() + " ");
-            lblSku.setOpaque(true);
-            lblSku.setBackground(new java.awt.Color(239, 246, 255));
-            lblSku.setForeground(COLOR_TEXTO_SKU);
-            lblSku.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 12));
-
-            // Nombre y Precio
-            JLabel lblNombre = new JLabel(p.getName().toLowerCase());
-            lblNombre.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 24));
-            JLabel lblPrecio = new JLabel("$" + p.getPrice() + " MXN");
-            lblPrecio.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 22));
-            lblPrecio.setForeground(COLOR_PRECIO);
-
-            // Campo de Monto (Input estilizado)
-            JTextField txtDinero = new JTextField();
-            txtDinero.setFont(new java.awt.Font("SansSerif", java.awt.Font.BOLD, 18));
-            txtDinero.setBorder(javax.swing.BorderFactory.createTitledBorder(
-                    javax.swing.BorderFactory.createLineBorder(new java.awt.Color(200, 200, 200)), "MONTO A PAGAR ($)"));
-
-            info.add(lblSku);
-            info.add(javax.swing.Box.createVerticalStrut(10));
-            info.add(lblNombre);
-            info.add(lblPrecio);
-            info.add(javax.swing.Box.createVerticalStrut(15));
-            info.add(new JLabel("<html><font color='#888888' size='2'>DESCRIPCIÓN:</font><br>Venta por kilo</html>"));
-            info.add(javax.swing.Box.createVerticalStrut(15));
-            info.add(txtDinero);
+            body.add(crearModuloInput("CANTIDAD (GRAMOS)", fieldGramos, "Báscula en tiempo real"), gbc);
 
             gbc.gridx = 1;
-            gbc.gridy = 0;
-            gbc.gridheight = 1;
-            gbc.fill = java.awt.GridBagConstraints.HORIZONTAL;
-            modal.add(info, gbc);
+            gbc.insets = new Insets(0, 30, 0, 0);
+            body.add(crearModuloInput("IMPORTE ($)", fieldTotal, "Monto final"), gbc);
 
-            // 4. Configuración del Dialogo y Botones
-            UIManager.put("Button.background", COLOR_BOTON_ENTENDIDO);
-            UIManager.put("Button.foreground", java.awt.Color.WHITE);
-            UIManager.put("Button.font", new java.awt.Font("SansSerif", java.awt.Font.BOLD, 12));
-
-            javax.swing.SwingUtilities.invokeLater(() -> txtDinero.requestFocusInWindow());
-
-            int result = JOptionPane.showOptionDialog(this, modal, "",
-                    JOptionPane.OK_CANCEL_OPTION, JOptionPane.PLAIN_MESSAGE, null,
-                    new Object[]{"ENTENDIDO", "CANCELAR"}, "ENTENDIDO");
-
-            if (result == JOptionPane.OK_OPTION && !txtDinero.getText().isEmpty()) {
-                try {
-                    BigDecimal dinero = new BigDecimal(txtDinero.getText().replaceAll("[^0-9.]", ""));
-                    BigDecimal cantidad = dinero.divide(p.getPrice(), 3, RoundingMode.HALF_UP);
-                    agregarAlCarrito(p, cantidad);
-                } catch (Exception e) {
+            // --- LÓGICA DE INTERCONEXIÓN (Segura) ---
+            fieldGramos.addKeyListener(new KeyAdapter() {
+                public void keyReleased(KeyEvent e) {
+                    try {
+                        BigDecimal g = new BigDecimal(fieldGramos.getText().replaceAll("[^0-9.]", ""));
+                        BigDecimal res = p.getPrice().multiply(g.divide(new BigDecimal("1000"))).setScale(2, RoundingMode.HALF_UP);
+                        fieldTotal.setText(res.toString());
+                    } catch (Exception ex) {
+                        fieldTotal.setText("0.00");
+                    }
                 }
-            }
+            });
+
+            fieldTotal.addKeyListener(new KeyAdapter() {
+                public void keyReleased(KeyEvent e) {
+                    try {
+                        BigDecimal d = new BigDecimal(fieldTotal.getText().replaceAll("[^0-9.]", ""));
+                        BigDecimal g = d.divide(p.getPrice(), 4, RoundingMode.HALF_UP).multiply(new BigDecimal("1000")).setScale(0, RoundingMode.HALF_UP);
+                        fieldGramos.setText(g.toString());
+                    } catch (Exception ex) {
+                        fieldGramos.setText("0");
+                    }
+                }
+            });
+
+            // 3. BOTONERA INNOVADORA (Diseño "Edge-to-Edge")
+            JPanel footer = new JPanel(new GridLayout(1, 2));
+
+            JButton btnAdd = new JButton("CONFIRMAR OPERACIÓN");
+            btnAdd.setFont(new Font("Inter", Font.BOLD, 15));
+            btnAdd.setBackground(COLOR_PRIMARIO);
+            btnAdd.setForeground(Color.WHITE);
+            btnAdd.setFocusPainted(false);
+            btnAdd.setBorder(new EmptyBorder(20, 0, 20, 0));
+            btnAdd.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            JButton btnClose = new JButton("CANCELAR");
+            btnClose.setFont(new Font("Inter", Font.BOLD, 14));
+            btnClose.setBackground(new Color(241, 245, 249));
+            btnClose.setForeground(new Color(100, 116, 139));
+            btnClose.setFocusPainted(false);
+            btnClose.setBorder(new EmptyBorder(20, 0, 20, 0));
+
+            footer.add(btnClose);
+            footer.add(btnAdd);
+
+            // --- ACCIONES DE BOTONES ---
+            btnAdd.addActionListener(e -> {
+                try {
+                    BigDecimal g = new BigDecimal(fieldGramos.getText());
+                    BigDecimal kg = g.divide(new BigDecimal("1000"), 3, RoundingMode.HALF_UP);
+                    // ESTA ES LA CLAVE: Llamada directa
+                    if (kg.compareTo(BigDecimal.ZERO) > 0) {
+                        agregarAlCarrito(p, kg);
+                    }
+                    win.dispose();
+                } catch (Exception ex) {
+                }
+            });
+
+            btnClose.addActionListener(e -> win.dispose());
+
+            // Armar el JDialog
+            layout.add(header, BorderLayout.NORTH);
+            layout.add(body, BorderLayout.CENTER);
+            layout.add(footer, BorderLayout.SOUTH);
+
+            win.add(layout);
+            win.pack();
+            win.setLocationRelativeTo(this);
+            win.setVisible(true);
+
         } else {
             agregarAlCarrito(p, BigDecimal.ONE);
         }
+    }
+
+    private JPanel crearModuloInput(String tag, JTextField f, String hint) {
+        JPanel p = new JPanel(new BorderLayout(0, 12));
+        p.setOpaque(false);
+
+        JLabel lblTag = new JLabel(tag);
+        lblTag.setFont(new Font("Inter", Font.BOLD, 12));
+        lblTag.setForeground(new Color(100, 116, 139));
+
+        JLabel lblHint = new JLabel(hint);
+        lblHint.setFont(new Font("Inter", Font.PLAIN, 11));
+        lblHint.setForeground(new Color(148, 163, 184));
+        lblHint.setHorizontalAlignment(SwingConstants.CENTER);
+
+        p.add(lblTag, BorderLayout.NORTH);
+        p.add(f, BorderLayout.CENTER);
+        p.add(lblHint, BorderLayout.SOUTH);
+        return p;
+    }
+
+    private JTextField crearFieldModerno(Color accent, String placeholder) {
+        JTextField f = new JTextField(placeholder);
+        f.setFont(new Font("Inter", Font.BOLD, 42)); // TAMAÑO IMPACTANTE
+        f.setHorizontalAlignment(JTextField.CENTER);
+        f.setPreferredSize(new Dimension(240, 85));
+        f.setBackground(Color.WHITE);
+        f.setForeground(new Color(30, 41, 59));
+
+        // Borde Neumórfico Suave
+        f.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240), 2, true),
+                new EmptyBorder(10, 10, 10, 10)
+        ));
+
+        f.addFocusListener(new FocusAdapter() {
+            public void focusGained(FocusEvent e) {
+                f.setBorder(BorderFactory.createLineBorder(accent, 2, true));
+                f.selectAll();
+            }
+
+            public void focusLost(FocusEvent e) {
+                f.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 2, true));
+            }
+        });
+        return f;
     }
 
     public void mostrarNotificacion(String mensaje) {
@@ -362,7 +443,6 @@ public class ventas extends JPanel {
     }
 
     class Notification extends JDialog {
-
         // --- CLAVE: Variable estática para rastrear la notificación activa ---
         private static Notification instanciaActual = null;
         private int indiceImagenActual = 0;
@@ -525,16 +605,26 @@ public class ventas extends JPanel {
         renderizarCards(filtrados);
     }
 
-// Agregamos el parámetro BigDecimal cantidad
     public void agregarAlCarrito(ProductoDTO p, BigDecimal cantidad) {
+        if (p == null || cantidad == null || cantidad.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        if (!p.isGranel()) {
+            cantidad = cantidad.setScale(0, RoundingMode.DOWN);
+            if (cantidad.compareTo(BigDecimal.ZERO) <= 0) {
+                cantidad = BigDecimal.ONE;
+            }
+        }
+
         boolean existe = false;
+
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemCarritoVisual icv) {
                 if (icv.getProducto().getSku().equals(p.getSku())) {
-                    icv.setCantidad(icv.getCantidad().add(cantidad));
+                    BigDecimal nuevaCantidad = icv.getCantidad().add(cantidad);
+                    icv.setCantidad(nuevaCantidad);
                     icv.revalidate();
                     icv.repaint();
-                    icv.requestFocusInWindow();
                     existe = true;
                     break;
                 }
@@ -544,41 +634,81 @@ public class ventas extends JPanel {
         if (!existe) {
             ItemCarritoVisual nuevo = new ItemCarritoVisual(p);
             nuevo.setCantidad(cantidad);
-            panelCarritoContenedor.add(nuevo);
+            panelCarritoContenedor.add(nuevo, 0);
             panelCarritoContenedor.revalidate();
             panelCarritoContenedor.repaint();
             nuevo.requestFocusInWindow();
         }
-
-        // 3. Recalcular el gran total de la venta
         calcularTotales();
+        BigDecimal importeParaNotificar = p.getPrice().multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
 
-        // Notificación Toast
+// Llamada al método actualizado
+        mostrarNotificacion(p, importeParaNotificar);
+    }
+
+    // 1. Modifica el método para que reciba el importe calculado
+    private void mostrarNotificacion(ProductoDTO p, BigDecimal importeReal) {
         Window win = SwingUtilities.getWindowAncestor(this);
         if (win != null) {
-            Notification toast = new Notification(win, "Agregado al Carrito", p);
+            // Creamos un clon temporal para no afectar el producto original
+            ProductoDTO pTemporal = new ProductoDTO();
+            pTemporal.setName(p.getName());
+
+            // Le asignamos el importe total (ej: 15.75) como si fuera su precio
+            pTemporal.setPrice(importeReal);
+
+            // Pasamos el producto temporal a la notificación
+            Notification toast = new Notification(win, "Agregado: " + p.getName(), pTemporal);
             toast.setVisible(true);
         }
     }
 
     private void calcularTotales() {
         BigDecimal total = BigDecimal.ZERO;
+
+        // 1. Recorremos el carrito y sumamos
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemCarritoVisual icv) {
-                BigDecimal precio = (icv.getProducto().getPrice());
+                BigDecimal precio = icv.getProducto().getPrice();
                 BigDecimal cantidad = icv.getCantidad();
-                BigDecimal importe = precio.multiply(cantidad);
-                total = total.add(importe);
+
+                if (precio != null && cantidad != null) {
+                    // REDONDEO CRUCIAL: Calculamos el importe del renglón y lo redondeamos a 2 decimales
+                    // Esto hace que 19.98222 se convierta en 20.00 antes de sumarse al total general
+                    BigDecimal importe = precio.multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
+                    total = total.add(importe);
+                }
             }
         }
+
+        // 2. Cálculos de impuestos (IVA 16%)
         BigDecimal divisorIVA = new BigDecimal("1.16");
+        // El subtotal se saca del total ya redondeado
         BigDecimal subtotal = total.divide(divisorIVA, 2, RoundingMode.HALF_UP);
         BigDecimal iva = total.subtract(subtotal);
 
-        // 3. Pintamos en los labels (usamos doubleValue() solo para el formato del String)
-        lblSubtotal.setText(String.format("$%.2f", subtotal.doubleValue()));
-        lblIVA.setText(String.format("$%.2f", iva.doubleValue()));
-        btnFinalizar.setText(String.format("PAGAR: $%.2f MXN", total.doubleValue()));
+        // 3. Actualizamos la interfaz (Labels)
+        lblSubtotal.setText(String.format("$ %.2f", subtotal));
+        lblIVA.setText(String.format("$ %.2f", iva));
+
+        // 4. ACTUALIZACIÓN DEL BOTÓN
+        // Usamos compareTo para verificar si hay dinero mayor a cero
+        if (total.compareTo(BigDecimal.ZERO) > 0) {
+            // Formateamos el total para que el botón muestre exactamente lo mismo que los items
+            btnFinalizar.setText(String.format("PAGAR: $ %.2f MXN", total));
+            btnFinalizar.setEnabled(true);
+            btnFinalizar.setBackground(new Color(34, 197, 94)); // Verde
+            btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        } else {
+            btnFinalizar.setText("$ 0.00 MXN");
+            btnFinalizar.setEnabled(false);
+            btnFinalizar.setBackground(new Color(200, 200, 200)); // Gris
+            btnFinalizar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+        }
+
+        // Refrescar componentes para asegurar que el cambio se vea
+        btnFinalizar.revalidate();
+        btnFinalizar.repaint();
     }
 
     private void finalizarVenta() {
@@ -631,7 +761,7 @@ public class ventas extends JPanel {
 
         ProductoDTO encontrado = null;
 
-        // Buscamos en la lista maestra por ID (SKU) o por Nombre exacto/parcial
+        // 1. Buscamos en la lista maestra por SKU o por Nombre exacto
         for (ProductoDTO p : listaProductos) {
             if (p.getSku().toLowerCase().equals(query) || p.getName().toLowerCase().equals(query)) {
                 encontrado = p;
@@ -640,10 +770,15 @@ public class ventas extends JPanel {
         }
 
         if (encontrado != null) {
-            agregarAlCarrito(encontrado, BigDecimal.ONE);
-            txtBuscadorDirecto.setText(""); // Limpiar para el siguiente
+            // 2. CORRECCIÓN: Usamos alSeleccionarProducto para que si es a granel, 
+            // abra el modal de monto en dinero en lugar de agregar 1 unidad automáticamente.
+            alSeleccionarProducto(encontrado);
+
+            // 3. Limpieza y enfoque para el siguiente escaneo
+            txtBuscadorDirecto.setText("");
             txtBuscadorDirecto.requestFocusInWindow();
         } else {
+            // 4. Feedback si el SKU no existe
             JOptionPane.showMessageDialog(this,
                     "No se encontró ningún producto con el nombre o SKU: " + query,
                     "Producto no encontrado",
@@ -721,37 +856,38 @@ public class ventas extends JPanel {
         }
     }
 
-    /* ========== ITEM CARRITO DINÁMICO ========== */
+    /* ========== ITEM CARRITO DINÁMICO MEJORADO ========== */
     class ItemCarritoVisual extends JPanel {
 
         private ProductoDTO producto;
         private JTextField txtCant;
         private JLabel lblImporte;
+        private BigDecimal cantidad; // Registro interno de la magnitud real (Kilos o Piezas)
 
         public ItemCarritoVisual(ProductoDTO p) {
             this.producto = p;
+            this.cantidad = BigDecimal.ZERO; // Inicializamos en cero
+
             setLayout(new BorderLayout(15, 5));
             setBackground(Color.WHITE);
             setFocusable(true);
             setCursor(new Cursor(Cursor.HAND_CURSOR));
-            addMouseListener(new MouseAdapter() {
-                public void mousePressed(MouseEvent e) {
-                    requestFocusInWindow();
-                }
-            });
+
+            // --- BORDES Y ESTILO ---
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
                     BorderFactory.createEmptyBorder(10, 10, 10, 10)
             ));
             setMaximumSize(new Dimension(480, 85));
 
+            // --- COMPONENTES ---
             txtCant = new JTextField("1");
-            txtCant.setPreferredSize(new Dimension(40, 25));
+            txtCant.setPreferredSize(new Dimension(60, 25)); // Un poco más ancho por los decimales
             txtCant.setHorizontalAlignment(JTextField.CENTER);
 
             lblImporte = new JLabel(String.format("$%.2f", p.getPrice()));
             lblImporte.setFont(new Font("Segoe UI", Font.BOLD, 15));
-            lblImporte.setPreferredSize(new Dimension(90, 25));
+            lblImporte.setPreferredSize(new Dimension(95, 25));
             lblImporte.setHorizontalAlignment(SwingConstants.RIGHT);
 
             JButton btnMenos = new JButton("-");
@@ -765,23 +901,16 @@ public class ventas extends JPanel {
             btnEliminar.setContentAreaFilled(false);
             btnEliminar.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-            Runnable eliminarAccion = () -> {
+            // --- ACCIONES ---
+            btnEliminar.addActionListener(e -> {
                 panelCarritoContenedor.remove(this);
                 panelCarritoContenedor.revalidate();
                 panelCarritoContenedor.repaint();
                 calcularTotales();
                 txtBuscador.requestFocusInWindow();
-            };
-            btnEliminar.addActionListener(e -> eliminarAccion.run());
-
-            ((AbstractDocument) txtCant.getDocument()).setDocumentFilter(new DocumentFilter() {
-                public void replace(FilterBypass fb, int offset, int length, String text, AttributeSet attrs) throws BadLocationException {
-                    if ((fb.getDocument().getText(0, fb.getDocument().getLength()).substring(0, offset) + text).matches("\\d{0,3}")) {
-                        super.replace(fb, offset, length, text, attrs);
-                    }
-                }
             });
 
+            // Listener para cambios manuales en el texto
             txtCant.getDocument().addDocumentListener(new DocumentListener() {
                 public void insertUpdate(DocumentEvent e) {
                     act();
@@ -797,106 +926,37 @@ public class ventas extends JPanel {
 
                 private void act() {
                     SwingUtilities.invokeLater(() -> {
-                        actualizarImporte();
-                        calcularTotales();
+                        try {
+                            String t = txtCant.getText().trim();
+                            if (!t.isEmpty()) {
+                                cantidad = new BigDecimal(t);
+                                actualizarImporte();
+                            }
+                        } catch (Exception ex) {
+                        }
                     });
                 }
             });
 
             btnMenos.addActionListener(e -> {
-                BigDecimal actual = getCantidad();
-                if (actual.compareTo(BigDecimal.ONE) > 0) {
-                    setCantidad(actual.subtract(BigDecimal.ONE));
+                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
+                if (cantidad.compareTo(salto) >= 0) {
+                    setCantidad(cantidad.subtract(salto));
                 }
             });
 
             btnMas.addActionListener(e -> {
-                // Sumamos 1 usando .add()
-                setCantidad(getCantidad().add(BigDecimal.ONE));
+                BigDecimal salto = producto.isGranel() ? new BigDecimal("0.100") : BigDecimal.ONE;
+                setCantidad(cantidad.add(salto));
             });
 
-            InputMap im = getInputMap(JComponent.WHEN_ANCESTOR_OF_FOCUSED_COMPONENT);
-            ActionMap am = getActionMap();
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DELETE, 0), "borrar");
-            am.put("borrar", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    eliminarAccion.run();
-                }
-            });
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_DOWN, 0), "bajar");
-            am.put("bajar", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    int index = getComponentIndex();
-                    if (index + 1 < panelCarritoContenedor.getComponentCount()) {
-                        moverFoco(index + 1);
-                    } else {
-                        txtBuscador.requestFocusInWindow();
-                    }
-                }
-            });
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_UP, 0), "subir");
-            am.put("subir", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    int index = getComponentIndex();
-                    if (index > 0) {
-                        moverFoco(index - 1);
-                    } else {
-                        // Si es el primero, sube al buscador de SKU (carrito)
-                        txtBuscadorDirecto.requestFocusInWindow();
-                    }
-                }
-            });
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_LEFT, 0), "izquierda");
-            am.put("izquierda", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    // Salto directo al buscador de la izquierda (Catálogo)
-                    txtBuscador.requestFocusInWindow();
-                    txtBuscador.selectAll(); // Opcional: selecciona el texto para buscar rápido
-                }
-            });
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_RIGHT, 0), "derecha");
-            am.put("derecha", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    // Se mantiene en el área del carrito saltando al buscador SKU
-                    txtBuscadorDirecto.requestFocusInWindow();
-                }
-            });
-
-            im.put(KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0), "entrar");
-            am.put("entrar", new AbstractAction() {
-                public void actionPerformed(ActionEvent e) {
-                    if (txtCant.hasFocus()) {
-                        txtBuscador.requestFocusInWindow();
-                    } else {
-                        txtCant.requestFocus();
-                        txtCant.selectAll();
-                    }
-                }
-            });
-
-            addFocusListener(new FocusAdapter() {
-                public void focusGained(FocusEvent e) {
-                    setBackground(COLOR_SELECCION);
-                }
-
-                public void focusLost(FocusEvent e) {
-                    setBackground(Color.WHITE);
-                }
-            });
-
+            // --- ARMADO DEL PANEL ---
             JPanel pMid = new JPanel(new GridLayout(2, 1));
             pMid.setOpaque(false);
-            pMid.add(new JLabel(p.getName()) {
-                {
-                    setFont(new Font("Segoe UI", Font.BOLD, 12));
-                }
-            });
-            pMid.add(new JLabel("Unit: $" + p.getPrice()));
+            JLabel lblNombre = new JLabel(p.getName());
+            lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 13));
+            pMid.add(lblNombre);
+            pMid.add(new JLabel("Precio Unit: $" + p.getPrice()));
 
             JPanel pDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 12));
             pDer.setOpaque(false);
@@ -913,65 +973,67 @@ public class ventas extends JPanel {
             add(pIzquierda, BorderLayout.WEST);
             add(pMid, BorderLayout.CENTER);
             add(pDer, BorderLayout.EAST);
+
+            // Foco visual
+            addFocusListener(new FocusAdapter() {
+                public void focusGained(FocusEvent e) {
+                    setBackground(new Color(245, 247, 251));
+                }
+
+                public void focusLost(FocusEvent e) {
+                    setBackground(Color.WHITE);
+                }
+            });
         }
 
-        public void setCantidad(BigDecimal n) {
-            if (n == null) {
-                n = BigDecimal.ZERO;
-            }
-            BigDecimal ajustado = n.setScale(3, RoundingMode.HALF_UP);
-            txtCant.setText(ajustado.toPlainString());
+        public void setCantidad(BigDecimal nuevaCantidad) {
+            this.cantidad = nuevaCantidad;
+
+            // Si es granel mostramos 3 decimales (gramos), si no, 0 decimales (piezas)
+            String formato = producto.isGranel() ? "%.3f" : "%.0f";
+            txtCant.setText(String.format(java.util.Locale.US, formato, cantidad));
+
             actualizarImporte();
         }
 
-        public BigDecimal getCantidad() {
-            try {
-                String t = txtCant.getText().trim();
-                return t.isEmpty() ? BigDecimal.ZERO : new BigDecimal(t);
-            } catch (Exception e) {
-                return BigDecimal.ZERO;
+        private void actualizarImporte() {
+            if (producto != null && cantidad != null) {
+                // El cálculo que mata el bug: PRECIO * CANTIDAD ACUMULADA
+                BigDecimal importe = producto.getPrice().multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
+                lblImporte.setText(String.format("$ %.2f", importe));
+
+                // Notificar al frame principal para actualizar el botón de PAGAR
+                Container parent = this.getParent();
+                while (parent != null && !(parent instanceof ventas)) {
+                    parent = parent.getParent();
+                }
+                if (parent instanceof ventas v) {
+                    v.calcularTotales();
+                }
             }
+        }
+
+        public BigDecimal getCantidad() {
+            return this.cantidad;
         }
 
         public ProductoDTO getProducto() {
             return producto;
         }
 
-        private void actualizarImporte() {
-            BigDecimal precio = producto.getPrice();
-            BigDecimal cantidad = getCantidad();
-            BigDecimal total = precio.multiply(cantidad);
-            lblImporte.setText(String.format("$%.2f", total.doubleValue()));
-        }
-
-        private int getComponentIndex() {
-            Component[] comps = panelCarritoContenedor.getComponents();
-            for (int i = 0; i < comps.length; i++) {
-                if (comps[i] == this) {
-                    return i;
-                }
-            }
-            return -1;
-        }
-
-        private void moverFoco(int i) {
-            if (i >= 0 && i < panelCarritoContenedor.getComponentCount()) {
-                panelCarritoContenedor.getComponent(i).requestFocusInWindow();
-            } else if (i < 0) {
-                txtBuscador.requestFocusInWindow();
-            }
-        }
-
         private Icon crearIconoBasura() {
             BufferedImage bi = new BufferedImage(20, 20, BufferedImage.TYPE_INT_ARGB);
             Graphics2D g = bi.createGraphics();
-            g.setColor(new Color(220, 53, 69));
-            g.fillRect(5, 7, 10, 9);
-            g.fillRect(4, 5, 12, 2);
-            g.fillRect(8, 3, 4, 2);
+            g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g.setColor(new Color(239, 68, 68)); // Rojo moderno
+            g.fillRoundRect(6, 7, 8, 10, 2, 2);
+            g.fillRect(4, 4, 12, 2);
+            g.fillRect(8, 2, 4, 2);
             g.dispose();
             return new ImageIcon(bi);
         }
+
+        // Métodos de navegación de foco (mantener los tuyos de VK_UP, VK_DOWN, etc.)
     }
 
     private ImageIcon cargarImagen(String ruta, int w, int h, String t) {
