@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import javax.management.Notification;
 import tools.DialogoPago;
 import tools.DialogoPago.DialogoExitoVenta;
 
@@ -509,115 +510,6 @@ public class ventas extends JPanel {
         JOptionPane.showMessageDialog(this, mensaje, "Sistema de Ventas", JOptionPane.INFORMATION_MESSAGE);
     }
 
-    class Notification extends JDialog {
-
-        // --- CLAVE: Variable estática para rastrear la notificación activa ---
-        private static Notification instanciaActual = null;
-        private int indiceImagenActual = 0;
-
-        public Notification(Window parent, String mensaje, ProductoDTO p) {
-            super(parent);
-
-            // --- LÓGICA DE REEMPLAZO ---
-            if (instanciaActual != null && instanciaActual.isVisible()) {
-                instanciaActual.dispose();
-            }
-            instanciaActual = this;
-
-            setUndecorated(true);
-            setLayout(new BorderLayout());
-            setBackground(new Color(0, 0, 0, 0));
-            setFocusableWindowState(false);
-            setAlwaysOnTop(true);
-
-            Color colorPrimario = new Color(0, 102, 255);
-            Color colorExito = new Color(40, 167, 69);
-
-            JPanel mainPanel = new JPanel(new BorderLayout(0, 0)) {
-                @Override
-                protected void paintComponent(Graphics g) {
-                    Graphics2D g2 = (Graphics2D) g.create();
-                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(new Color(0, 0, 0, 40));
-                    g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 30, 30);
-                    g2.setColor(Color.WHITE);
-                    g2.fillRoundRect(3, 3, getWidth() - 10, getHeight() - 10, 30, 30);
-                    g2.setColor(colorPrimario);
-                    g2.fillRoundRect(3, 3, 12, getHeight() - 10, 30, 30);
-                    g2.fillRect(10, 3, 5, getHeight() - 10);
-                    g2.dispose();
-                }
-            };
-
-            // Cabecera
-            JPanel header = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 15));
-            header.setOpaque(false);
-            JLabel lblCheck = new JLabel("🛒 " + mensaje);
-            lblCheck.setFont(new Font("Segoe UI", Font.BOLD, 15));
-            lblCheck.setForeground(colorPrimario);
-            header.add(lblCheck);
-
-            // Cuerpo (Imagen + Info)
-            JPanel body = new JPanel(new BorderLayout(15, 0));
-            body.setOpaque(false);
-            body.setBorder(BorderFactory.createEmptyBorder(0, 25, 20, 30));
-
-            JLabel lblFoto = new JLabel(cargarImagen(p.getImagePath(), 100, 100, p.getName()));
-            lblFoto.setBorder(BorderFactory.createLineBorder(new Color(240, 240, 240), 1, true));
-            lblFoto.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-            // Hover para carrusel de imágenes
-            lblFoto.addMouseListener(new java.awt.event.MouseAdapter() {
-                @Override
-                public void mouseEntered(java.awt.event.MouseEvent evt) {
-                    String pathCompleto = p.getImagePath();
-                    if (pathCompleto != null && !pathCompleto.isEmpty()) {
-                        String[] rutas = pathCompleto.split(",");
-                        if (rutas.length > 1) {
-                            indiceImagenActual = (indiceImagenActual + 1) % rutas.length;
-                            String nuevaRuta = rutas[indiceImagenActual].trim();
-                            lblFoto.setIcon(cargarImagen(nuevaRuta, 100, 100, p.getName()));
-                        }
-                    }
-                }
-            });
-
-            JPanel infoPanel = new JPanel(new GridLayout(2, 1, 0, 0));
-            infoPanel.setOpaque(false);
-
-            JLabel name = new JLabel(p.getName());
-            name.setFont(new Font("Segoe UI", Font.BOLD, 14));
-
-            JLabel price = new JLabel("$" + String.format("%.2f", p.getPrice()));
-            price.setFont(new Font("Segoe UI", Font.BOLD, 22));
-            price.setForeground(colorExito);
-
-            infoPanel.add(name);
-            infoPanel.add(price);
-
-            body.add(lblFoto, BorderLayout.WEST);
-            body.add(infoPanel, BorderLayout.CENTER);
-
-            mainPanel.add(header, BorderLayout.NORTH);
-            mainPanel.add(body, BorderLayout.CENTER);
-            add(mainPanel);
-            pack();
-
-            // --- UBICACIÓN CORREGIDA PARA NO TAPAR EL CARRITO ---
-            if (parent != null) {
-                // Aparece a la izquierda de la zona del carrito
-                int x = parent.getX() + parent.getWidth() - getWidth() - 340;
-                int y = parent.getY() + parent.getHeight() - getHeight() - 30;
-                setLocation(x, y);
-            }
-
-            // Timer de auto-cierre (3 segundos es suficiente si se actualizan rápido)
-            Timer timer = new Timer(3000, e -> dispose());
-            timer.setRepeats(false);
-            timer.start();
-        }
-    }
-
     private void cargarProductosCompletos() {
         listaProductos.clear();
         if (panelCardsContenedor != null) {
@@ -709,8 +601,6 @@ public class ventas extends JPanel {
         }
         calcularTotales();
         BigDecimal importeParaNotificar = p.getPrice().multiply(cantidad).setScale(2, RoundingMode.HALF_UP);
-
-// Llamada al método actualizado
         mostrarNotificacion(p, importeParaNotificar);
     }
 
@@ -718,15 +608,12 @@ public class ventas extends JPanel {
     private void mostrarNotificacion(ProductoDTO p, BigDecimal importeReal) {
         Window win = SwingUtilities.getWindowAncestor(this);
         if (win != null) {
-            // Creamos un clon temporal para no afectar el producto original
             ProductoDTO pTemporal = new ProductoDTO();
             pTemporal.setName(p.getName());
-
-            // Le asignamos el importe total (ej: 15.75) como si fuera su precio
             pTemporal.setPrice(importeReal);
-
-            // Pasamos el producto temporal a la notificación
-            Notification toast = new Notification(win, "Agregado: " + p.getName(), pTemporal);
+            pTemporal.setImagePath(p.getImagePath());
+            productoFrom.NotificationInterfice toast
+                    = new productoFrom.NotificationInterfice(win, "Agregado: " + p.getName(), pTemporal);
             toast.setVisible(true);
         }
     }
@@ -1193,7 +1080,7 @@ public class ventas extends JPanel {
         }
     }
 
-    private ImageIcon cargarImagen(String ruta, int w, int h, String t) {
+    public static ImageIcon cargarImagen(String ruta, int w, int h, String t) {
         // 1. SI TIENE IMAGEN: Intentar cargarla desde la ruta
         if (ruta != null && !ruta.isEmpty()) {
             java.io.File archivo = new java.io.File(ruta);

@@ -1,14 +1,14 @@
-
 package tools;
 
 public enum FormaPagoDto {
-    EFECTIVO("💵 Efectivo"),
-    TARJETA("💳 Tarjeta"),
-    TRANSFERENCIA("📲 Transferencia"),
-    VALES("🎫 Vales"),
-    CREDITO("🏦 Crédito"),
-    QR("📱 QR"),
-    MIXTO("🔀 Mixto");
+    EFECTIVO("Efectivo"),
+    TARJETA("Tarjeta"),
+    TRANSFERENCIA("Transferencia"),
+    QR("QR / App"),
+    VALES("Vales"),
+    CREDITO("Crédito / Fiao"),
+    CHEQUE("Cheque"),
+    MIXTO("Pago Mixto");
 
     private final String nombre;
 
@@ -16,6 +16,11 @@ public enum FormaPagoDto {
         this.nombre = nombre;
     }
 
+    @Override
+    public String toString() {
+        return nombre;
+    }
+    
     public String getNombre() {
         return nombre;
     }

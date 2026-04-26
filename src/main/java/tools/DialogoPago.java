@@ -2,6 +2,7 @@ package tools;
 
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
+import javax.swing.border.LineBorder;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Path2D;
@@ -14,21 +15,22 @@ import java.util.Locale;
 
 public class DialogoPago extends JDialog {
 
-    private BigDecimal totalVenta;
-    private List<?> productos;
-    private EnumMap<FormaPagoDto, JTextField> camposPago = new EnumMap<>(FormaPagoDto.class);
+    private final BigDecimal totalVenta;
+    private final List<?> productos;
+    private final EnumMap<FormaPagoDto, JTextField> camposPago = new EnumMap<>(FormaPagoDto.class);
     private JLabel lblPagado, lblFalta, lblCambio;
-    private final NumberFormat formatoMoneda = NumberFormat.getNumberInstance(new Locale("es", "MX"));
+    private JButton btnConfirmar;
+    private final NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "MX"));
     private boolean ventaConfirmada = false;
 
-    // --- COLORES GENERALES ---
+    // --- COLORES ---
     private final Color COLOR_FONDO = new Color(245, 247, 251);
     private final Color COLOR_LATERAL = new Color(52, 58, 64);
     private final Color COLOR_ACCENTO = new Color(40, 167, 69);
     private final Color COLOR_PELIGRO = new Color(220, 53, 69);
     private final Color COLOR_PRIMARIO = new Color(0, 123, 255);
-    private final Color COLOR_CARD = Color.WHITE;
     private final Color COLOR_BORDE = new Color(225, 230, 239);
+    private final Color COLOR_BLOQUEADO = new Color(180, 185, 190);
 
     public DialogoPago(Window parent, BigDecimal total, List<?> productos) {
         super(parent);
@@ -46,64 +48,55 @@ public class DialogoPago extends JDialog {
         JPanel container = new JPanel(new BorderLayout());
         container.setBackground(COLOR_FONDO);
 
-        /* --- 1. BARRA LATERAL --- */
+        // --- BARRA LATERAL ---
         JPanel sideBar = new JPanel(new BorderLayout());
         sideBar.setPreferredSize(new Dimension(100, 0));
         sideBar.setBackground(COLOR_LATERAL);
-
         JButton btnAtras = new JButton("<html><center><font color='white' size='6'>←</font><br><font color='white'>ATRÁS</font></center></html>");
         btnAtras.setContentAreaFilled(false);
         btnAtras.setBorder(new EmptyBorder(30, 0, 0, 0));
-        btnAtras.setFocusPainted(false);
         btnAtras.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAtras.addActionListener(e -> dispose());
         sideBar.add(btnAtras, BorderLayout.NORTH);
 
-        /* --- 2. PANEL PRINCIPAL --- */
+        // --- PANEL PRINCIPAL ---
         JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setOpaque(false);
 
+        // Header con indicadores
         JPanel header = new JPanel(new GridLayout(1, 4, 30, 0));
         header.setBackground(Color.WHITE);
         header.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE),
                 new EmptyBorder(40, 50, 40, 50)));
 
-        JPanel pTotal = new JPanel(new GridLayout(2, 1));
-        pTotal.setOpaque(false);
-        JLabel t1 = new JLabel("TOTAL A COBRAR");
-        t1.setForeground(Color.GRAY);
-        JLabel t2 = new JLabel("$" + totalVenta.setScale(2, java.math.RoundingMode.HALF_UP).toString());
-        t2.setFont(new Font("Segoe UI", Font.BOLD, 42));
-        pTotal.add(t1);
-        pTotal.add(t2);
+        crearIndicadorEstatico(header, "TOTAL A COBRAR", totalVenta, Color.BLACK);
+        lblPagado = crearIndicadorVariable(header, "RECIBIDO", COLOR_PRIMARIO);
+        lblFalta = crearIndicadorVariable(header, "PENDIENTE", COLOR_PELIGRO);
+        lblCambio = crearIndicadorVariable(header, "CAMBIO", COLOR_ACCENTO);
 
-        header.add(pTotal);
-        lblPagado = crearIndicador(header, "RECIBIDO", "$0.00", COLOR_PRIMARIO);
-// Opción A: Si tu método formatear ya acepta BigDecimal
-        lblFalta = crearIndicador(header, "PENDIENTE", "$" + formatear(totalVenta), COLOR_PELIGRO);
-
-// Opción B: Si quieres formatearlo directamente con 2 decimales sin depender de otro método
-        String totalTexto = totalVenta.setScale(2, java.math.RoundingMode.HALF_UP).toString();
-        lblFalta = crearIndicador(header, "PENDIENTE", "$" + totalTexto, COLOR_PELIGRO);
-        lblCambio = crearIndicador(header, "CAMBIO", "$0.00", COLOR_ACCENTO);
-
-        JPanel gridPagos = new JPanel(new GridLayout(3, 2, 25, 25));
+        // Grid de campos
+        JPanel gridPagos = new JPanel(new GridLayout(4, 2, 20, 20));
         gridPagos.setOpaque(false);
-        gridPagos.setBorder(new EmptyBorder(40, 50, 40, 50));
+        gridPagos.setBorder(new EmptyBorder(30, 50, 30, 50));
 
         for (FormaPagoDto forma : FormaPagoDto.values()) {
             gridPagos.add(crearCardPago(forma));
         }
 
-        JButton btnConfirmar = new JButton("CONFIRMAR Y FINALIZAR VENTA");
-        btnConfirmar.setBackground(COLOR_ACCENTO);
+        // Botón Confirmar
+        btnConfirmar = new JButton("CONFIRMAR Y FINALIZAR VENTA");
+        btnConfirmar.setBackground(COLOR_BLOQUEADO);
         btnConfirmar.setForeground(Color.WHITE);
         btnConfirmar.setFont(new Font("Segoe UI", Font.BOLD, 24));
         btnConfirmar.setPreferredSize(new Dimension(0, 90));
         btnConfirmar.setBorder(null);
+        btnConfirmar.setEnabled(false);
         btnConfirmar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnConfirmar.addActionListener(e -> confirmar());
+        btnConfirmar.addActionListener(e -> {
+            ventaConfirmada = true;
+            dispose();
+        });
 
         mainContent.add(header, BorderLayout.NORTH);
         mainContent.add(gridPagos, BorderLayout.CENTER);
@@ -112,179 +105,162 @@ public class DialogoPago extends JDialog {
         container.add(sideBar, BorderLayout.WEST);
         container.add(mainContent, BorderLayout.CENTER);
         add(container);
-    }
 
-    private JLabel crearIndicador(JPanel parent, String titulo, String valor, Color colorMonto) {
-        JPanel p = new JPanel(new BorderLayout());
-        p.setOpaque(false);
-        JLabel t = new JLabel(titulo);
-        t.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        t.setForeground(Color.GRAY);
-        JLabel v = new JLabel(valor);
-        v.setFont(new Font("Segoe UI", Font.BOLD, 30));
-        v.setForeground(colorMonto);
-        p.add(t, BorderLayout.NORTH);
-        p.add(v, BorderLayout.CENTER);
-        parent.add(p);
-        return v;
+        calcularTotales();
     }
 
     private JPanel crearCardPago(FormaPagoDto forma) {
-        JPanel card = new JPanel(new BorderLayout(20, 0));
-        card.setBackground(COLOR_CARD);
+        JPanel card = new JPanel(new BorderLayout(15, 0));
+        card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(COLOR_BORDE, 1, true),
-                new EmptyBorder(20, 25, 20, 25)));
+                new LineBorder(COLOR_BORDE, 1, true),
+                new EmptyBorder(15, 20, 15, 20)));
 
-        JLabel icon = new JLabel(iconoFormaPago(forma));
-        icon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 40));
+        // Icono + Nombre (Se usa Font compatible con Emojis si es posible)
+        JLabel lblIcono = new JLabel(getIcono(forma));
+        lblIcono.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 25));
 
-        JTextField txt = new JTextField("0.00");
-        txt.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        JLabel lblNombre = new JLabel(forma.name().replace("_", " "));
+        lblNombre.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        lblNombre.setForeground(Color.GRAY);
+
+        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        pnlLeft.setOpaque(false);
+        pnlLeft.add(lblIcono);
+        pnlLeft.add(lblNombre);
+
+        JTextField txt = new JTextField("0");
+        txt.setFont(new Font("Segoe UI", Font.BOLD, 28));
         txt.setBorder(null);
         txt.setHorizontalAlignment(JTextField.RIGHT);
-        camposPago.put(forma, txt);
 
-        card.add(icon, BorderLayout.WEST);
-        card.add(txt, BorderLayout.CENTER);
-
-        txt.addFocusListener(new FocusAdapter() {
-            @Override
-            public void focusGained(FocusEvent e) {
-                txt.selectAll();
-            }
-
-            @Override
-            public void focusLost(FocusEvent e) {
-                txt.setText(formatear(obtenerNumero(txt)));
-                calcularTotales();
-            }
-        });
+        // Bloqueo de letras
         txt.addKeyListener(new KeyAdapter() {
+            @Override
+            public void keyTyped(KeyEvent e) {
+                char c = e.getKeyChar();
+                if (!Character.isDigit(c) && c != '.') {
+                    e.consume();
+                }
+                if (c == '.' && txt.getText().contains(".")) {
+                    e.consume();
+                }
+            }
+
             @Override
             public void keyReleased(KeyEvent e) {
                 calcularTotales();
             }
         });
 
+        txt.addFocusListener(new FocusAdapter() {
+            @Override
+            public void focusGained(FocusEvent e) {
+                txt.selectAll();
+            }
+        });
+
+        camposPago.put(forma, txt);
+        card.add(pnlLeft, BorderLayout.WEST);
+        card.add(txt, BorderLayout.CENTER);
         return card;
     }
 
     private void calcularTotales() {
-        // 1. Acumulamos el pago total (Efectivo + Tarjeta + etc.)
-        java.math.BigDecimal pagado = java.math.BigDecimal.ZERO;
+        BigDecimal pagado = BigDecimal.ZERO;
         for (JTextField txt : camposPago.values()) {
-            // Sumamos lo que devuelve obtenerNumero() que ya es BigDecimal
             pagado = pagado.add(obtenerNumero(txt));
         }
 
-        // 2. Calculamos cuánto falta (Total - Pagado)
-        java.math.BigDecimal falta = totalVenta.subtract(pagado);
+        BigDecimal falta = totalVenta.subtract(pagado).max(BigDecimal.ZERO);
+        BigDecimal cambio = pagado.subtract(totalVenta).max(BigDecimal.ZERO);
 
-        // 3. Calculamos el cambio (Pagado - Total)
-        java.math.BigDecimal cambio = pagado.subtract(totalVenta);
+        lblPagado.setText(formatoMoneda.format(pagado));
+        lblFalta.setText(formatoMoneda.format(falta));
+        lblCambio.setText(formatoMoneda.format(cambio));
 
-        // 4. Aplicamos la lógica de "Mínimo Cero" usando compareTo
-        // Si falta es menor a 0, ponemos ZERO
-        java.math.BigDecimal faltaVisual = (falta.compareTo(java.math.BigDecimal.ZERO) < 0)
-                ? java.math.BigDecimal.ZERO : falta;
-
-        // Si el cambio es menor a 0, ponemos ZERO
-        java.math.BigDecimal cambioVisual = (cambio.compareTo(java.math.BigDecimal.ZERO) < 0)
-                ? java.math.BigDecimal.ZERO : cambio;
-
-        // 5. Actualizamos los Labels con el formato correcto
-        lblPagado.setText("$" + formatear(pagado));
-        lblFalta.setText("$" + formatear(faltaVisual));
-        lblCambio.setText("$" + formatear(cambioVisual));
-
-        // Tip extra: Si quieres que el botón de "Cobrar" solo se active cuando ya completaron el pago:
-        // btnCobrar.setEnabled(faltaVisual.compareTo(java.math.BigDecimal.ZERO) == 0);
+        boolean puedeFinalizar = pagado.compareTo(totalVenta) >= 0 && pagado.compareTo(BigDecimal.ZERO) > 0;
+        btnConfirmar.setEnabled(puedeFinalizar);
+        btnConfirmar.setBackground(puedeFinalizar ? COLOR_ACCENTO : COLOR_BLOQUEADO);
     }
 
-    private void confirmar() {
-        // 1. Acumulador de lo pagado en BigDecimal
-        java.math.BigDecimal totalPagado = java.math.BigDecimal.ZERO;
-
-        for (JTextField txt : camposPago.values()) {
-            // Sumamos cada campo (ya convertido a BigDecimal por obtenerNumero)
-            totalPagado = totalPagado.add(obtenerNumero(txt));
-        }
-
-        // 2. Validamos si el pago es insuficiente
-        // compareTo devuelve -1 si totalPagado es menor que totalVenta
-        if (totalPagado.compareTo(totalVenta) < 0) {
-            JOptionPane.showMessageDialog(this,
-                    "Monto insuficiente. Faltan: $" + formatear(totalVenta.subtract(totalPagado)));
-            return;
-        }
-
-        // 3. Si pasó la validación, procedemos
-        ventaConfirmada = true;
-        dispose();
-    }
-
-    private String formatear(BigDecimal val) {
-        return formatoMoneda.format(val);
-    }
-
-    private java.math.BigDecimal obtenerNumero(JTextField txt) {
-        try {
-            String texto = txt.getText().replaceAll("[^0-9.]", "");
-            if (texto.isEmpty()) {
-                return java.math.BigDecimal.ZERO;
-            }
-            return new java.math.BigDecimal(texto);
-        } catch (Exception e) {
-            return java.math.BigDecimal.ZERO;
-        }
-    }
-
-    private String iconoFormaPago(FormaPagoDto forma) {
-        return switch (forma) {
+    private String getIcono(FormaPagoDto f) {
+        return switch (f) {
             case EFECTIVO ->
                 "💵";
             case TARJETA ->
                 "💳";
             case TRANSFERENCIA ->
                 "🏦";
+            case QR ->
+                "📱";
             case VALES ->
                 "🎟️";
             case CREDITO ->
                 "⏳";
-            case QR ->
-                "📱";
+            case CHEQUE ->
+                "✍️";
+            case MIXTO ->
+                "🔄";
             default ->
                 "💰";
         };
+    }
+
+    private BigDecimal obtenerNumero(JTextField txt) {
+        try {
+            String s = txt.getText().replaceAll("[^0-9.]", "");
+            return s.isEmpty() ? BigDecimal.ZERO : new BigDecimal(s);
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
+    }
+
+    private void crearIndicadorEstatico(JPanel p, String t, BigDecimal v, Color c) {
+        JPanel s = new JPanel(new GridLayout(2, 1));
+        s.setOpaque(false);
+        JLabel l1 = new JLabel(t);
+        l1.setFont(new Font("Segoe UI", 1, 12));
+        l1.setForeground(Color.GRAY);
+        JLabel l2 = new JLabel(formatoMoneda.format(v));
+        l2.setFont(new Font("Segoe UI", 1, 38));
+        l2.setForeground(c);
+        s.add(l1);
+        s.add(l2);
+        p.add(s);
+    }
+
+    private JLabel crearIndicadorVariable(JPanel p, String t, Color c) {
+        JPanel s = new JPanel(new GridLayout(2, 1));
+        s.setOpaque(false);
+        JLabel l1 = new JLabel(t);
+        l1.setFont(new Font("Segoe UI", 1, 12));
+        l1.setForeground(Color.GRAY);
+        JLabel v = new JLabel("$0.00");
+        v.setFont(new Font("Segoe UI", 1, 30));
+        v.setForeground(c);
+        s.add(l1);
+        s.add(v);
+        p.add(s);
+        return v;
     }
 
     public boolean isVentaConfirmada() {
         return ventaConfirmada;
     }
 
-    public java.math.BigDecimal getCambio() {
-        java.math.BigDecimal pagado = java.math.BigDecimal.ZERO;
+    public BigDecimal getCambio() {
+        BigDecimal pagado = BigDecimal.ZERO;
         for (JTextField txt : camposPago.values()) {
             pagado = pagado.add(obtenerNumero(txt));
         }
-        java.math.BigDecimal diferencia = pagado.subtract(totalVenta);
-        if (diferencia.compareTo(java.math.BigDecimal.ZERO) < 0) {
-            return java.math.BigDecimal.ZERO;
-        }
-        return diferencia;
+        return pagado.subtract(totalVenta).max(BigDecimal.ZERO);
     }
 
     // =========================================================================
-    // DISEÑO PREMIUM: DIÁLOGO DE ÉXITO CORREGIDO
+    // DIÁLOGO DE ÉXITO PREMIUM (RESTABLECIDO)
     // =========================================================================
     public static class DialogoExitoVenta extends JDialog {
-
-        private final Color COLOR_EXITO = new Color(40, 167, 69);
-        private final Color COLOR_SUBTITULO = new Color(130, 140, 150);
-        private final Color COLOR_VALOR = new Color(45, 50, 55);
-        private final Color COLOR_FONDO_VENTANA = new Color(242, 244, 248); // Fondo gris muy suave para que el blanco resalte
-        private final Color COLOR_BOTON = new Color(30, 35, 40);
 
         public DialogoExitoVenta(Window parent, String folio, BigDecimal cambio) {
             super(parent);
@@ -294,115 +270,87 @@ public class DialogoPago extends JDialog {
             setLocationRelativeTo(parent);
             setShape(new RoundRectangle2D.Double(0, 0, 500, 700, 40, 40));
 
-            JPanel mainPanel = new JPanel(new BorderLayout());
-            mainPanel.setBackground(COLOR_FONDO_VENTANA);
-            mainPanel.setBorder(new EmptyBorder(40, 40, 40, 40));
+            JPanel main = new JPanel(new BorderLayout());
+            main.setBackground(new Color(242, 244, 248));
+            main.setBorder(new EmptyBorder(40, 40, 40, 40));
 
-            // --- CABECERA CON CHECK DIBUJADO (NO PIXELADO) ---
-            JPanel topPanel = new JPanel(new BorderLayout(0, 15));
-            topPanel.setOpaque(false);
-
-            // Panel personalizado para dibujar el Check perfecto
-            JPanel checkContainer = new JPanel() {
+            // Check dibujado (Path2D)
+            JPanel checkPanel = new JPanel() {
                 @Override
                 protected void paintComponent(Graphics g) {
-                    super.paintComponent(g);
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                    g2.setColor(COLOR_EXITO);
-
-                    int size = 80;
-                    int x = (getWidth() - size) / 2;
-                    int y = (getHeight() - size) / 2;
-
-                    // Dibujar círculo de fondo sutil
                     g2.setColor(new Color(40, 167, 69, 30));
-                    g2.fillOval(x - 10, y - 10, size + 20, size + 20);
-
-                    // Dibujar la palomita
-                    g2.setColor(COLOR_EXITO);
-                    g2.setStroke(new BasicStroke(10f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    Path2D path = new Path2D.Double();
-                    path.moveTo(x + size * 0.2, y + size * 0.5);
-                    path.lineTo(x + size * 0.45, y + size * 0.75);
-                    path.lineTo(x + size * 0.85, y + size * 0.25);
-                    g2.draw(path);
+                    g2.fillOval((getWidth() - 100) / 2, 10, 100, 100);
+                    g2.setColor(new Color(40, 167, 69));
+                    g2.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    int x = (getWidth() - 100) / 2;
+                    Path2D p = new Path2D.Double();
+                    p.moveTo(x + 25, 60);
+                    p.lineTo(x + 45, 80);
+                    p.lineTo(x + 75, 40);
+                    g2.draw(p);
                     g2.dispose();
                 }
             };
-            checkContainer.setPreferredSize(new Dimension(120, 120));
-            checkContainer.setOpaque(false);
+            checkPanel.setPreferredSize(new Dimension(120, 120));
+            checkPanel.setOpaque(false);
 
-            JLabel lblMsg = new JLabel("¡VENTA EXITOSA!", SwingConstants.CENTER);
-            lblMsg.setFont(new Font("Segoe UI", Font.BOLD, 32));
-            lblMsg.setForeground(COLOR_EXITO);
+            JLabel lblOk = new JLabel("¡VENTA EXITOSA!", SwingConstants.CENTER);
+            lblOk.setFont(new Font("Segoe UI", Font.BOLD, 32));
+            lblOk.setForeground(new Color(40, 167, 69));
 
-            topPanel.add(checkContainer, BorderLayout.CENTER);
-            topPanel.add(lblMsg, BorderLayout.SOUTH);
+            // Tarjeta de recibo blanca
+            JPanel card = new JPanel();
+            card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
+            card.setBackground(Color.WHITE);
+            card.setBorder(BorderFactory.createCompoundBorder(
+                    new LineBorder(new Color(220, 225, 230), 1, true),
+                    new EmptyBorder(40, 30, 40, 30)));
 
-            // --- ÁREA DE RECIBO (TARJETA BLANCA SOBRE FONDO GRIS) ---
-            JPanel receiptCard = new JPanel();
-            receiptCard.setLayout(new BoxLayout(receiptCard, BoxLayout.Y_AXIS));
-            receiptCard.setBackground(Color.WHITE);
-            receiptCard.setBorder(BorderFactory.createCompoundBorder(
-                    BorderFactory.createLineBorder(new Color(220, 225, 230), 1, true),
-                    new EmptyBorder(40, 30, 40, 30)
-            ));
+            JLabel f1 = new JLabel("FOLIO DE VENTA");
+            f1.setAlignmentX(0.5f);
+            f1.setForeground(Color.LIGHT_GRAY);
+            JLabel f2 = new JLabel("#" + folio);
+            f2.setAlignmentX(0.5f);
+            f2.setFont(new Font("Segoe UI", 1, 22));
 
-            JLabel lblF1 = new JLabel("FOLIO DE VENTA");
-            lblF1.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            lblF1.setForeground(COLOR_SUBTITULO);
-            lblF1.setAlignmentX(Component.CENTER_ALIGNMENT);
+            JLabel c1 = new JLabel("CAMBIO A ENTREGAR");
+            c1.setAlignmentX(0.5f);
+            c1.setForeground(Color.LIGHT_GRAY);
+            JLabel c2 = new JLabel(NumberFormat.getCurrencyInstance(new Locale("es", "MX")).format(cambio));
+            c2.setAlignmentX(0.5f);
+            c2.setFont(new Font("Segoe UI Black", 1, 65));
 
-            JLabel lblF2 = new JLabel("#" + folio);
-            lblF2.setFont(new Font("Segoe UI", Font.BOLD, 22));
-            lblF2.setForeground(COLOR_VALOR);
-            lblF2.setAlignmentX(Component.CENTER_ALIGNMENT);
-
+            card.add(f1);
+            card.add(Box.createVerticalStrut(10));
+            card.add(f2);
+            card.add(Box.createVerticalStrut(30));
             JSeparator sep = new JSeparator();
-            sep.setForeground(new Color(235, 235, 235));
-            sep.setMaximumSize(new Dimension(320, 1));
+            sep.setMaximumSize(new Dimension(300, 1));
+            card.add(sep);
+            card.add(Box.createVerticalStrut(30));
+            card.add(c1);
+            card.add(Box.createVerticalStrut(10));
+            card.add(c2);
 
-            JLabel lblC1 = new JLabel("CAMBIO A ENTREGAR");
-            lblC1.setFont(new Font("Segoe UI", Font.BOLD, 13));
-            lblC1.setForeground(COLOR_SUBTITULO);
-            lblC1.setAlignmentX(Component.CENTER_ALIGNMENT);
+            JButton btn = new JButton("CONTINUAR A SIGUIENTE VENTA");
+            btn.setBackground(new Color(30, 35, 40));
+            btn.setForeground(Color.WHITE);
+            btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btn.setPreferredSize(new Dimension(0, 70));
+            btn.addActionListener(e -> dispose());
 
-            JLabel lblC2 = new JLabel("$" + String.format("%.2f", cambio));
-            lblC2.setFont(new Font("Segoe UI", Font.BOLD, 70));
-            lblC2.setForeground(COLOR_VALOR);
-            lblC2.setAlignmentX(Component.CENTER_ALIGNMENT);
+            JPanel top = new JPanel(new BorderLayout(0, 15));
+            top.setOpaque(false);
+            top.add(checkPanel, BorderLayout.CENTER);
+            top.add(lblOk, BorderLayout.SOUTH);
 
-            receiptCard.add(lblF1);
-            receiptCard.add(Box.createVerticalStrut(8));
-            receiptCard.add(lblF2);
-            receiptCard.add(Box.createVerticalStrut(30));
-            receiptCard.add(sep);
-            receiptCard.add(Box.createVerticalStrut(30));
-            receiptCard.add(lblC1);
-            receiptCard.add(Box.createVerticalStrut(8));
-            receiptCard.add(lblC2);
-
-            // --- BOTÓN ACCIÓN ---
-            JButton btnOk = new JButton("CONTINUAR A SIGUIENTE VENTA");
-            btnOk.setBackground(COLOR_BOTON);
-            btnOk.setForeground(Color.WHITE);
-            btnOk.setFont(new Font("Segoe UI", Font.BOLD, 15));
-            btnOk.setFocusPainted(false);
-            btnOk.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            btnOk.setBorder(null);
-            btnOk.setPreferredSize(new Dimension(0, 70));
-            btnOk.addActionListener(e -> dispose());
-
-            // --- ESTRUCTURA FINAL ---
-            JPanel content = new JPanel(new BorderLayout(0, 30));
-            content.setOpaque(false);
-            content.add(topPanel, BorderLayout.NORTH);
-            content.add(receiptCard, BorderLayout.CENTER);
-            content.add(btnOk, BorderLayout.SOUTH);
-
-            mainPanel.add(content, BorderLayout.CENTER);
-            add(mainPanel);
+            main.add(top, BorderLayout.NORTH);
+            main.add(card, BorderLayout.CENTER);
+            main.add(btn, BorderLayout.SOUTH);
+            add(main);
         }
     }
 }
