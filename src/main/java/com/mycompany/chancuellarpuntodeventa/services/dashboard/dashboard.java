@@ -40,7 +40,7 @@ public class dashboard extends JFrame {
     }
 
     private void initUI() {
-        setTitle("Chancuellar POS");
+        setTitle("Chancuellar");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
         setMinimumSize(new Dimension(1280, 720));

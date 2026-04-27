@@ -5,7 +5,7 @@ import java.io.Serializable;
 
 @Entity
 @Table(name = "productos") // Nombre de tu tabla en MySQL
-public class ProductoService implements Serializable {
+public class ProductoTable implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -23,13 +23,14 @@ public class ProductoService implements Serializable {
     @Column(name = "image_path")
     private String imagePath; // Aquí se guarda la ruta de la foto
 
-    public ProductoService() {
+    public ProductoTable() {
     }
 
-    public ProductoService(String sku, String name, Double price) {
+    public ProductoTable(String sku, String name, Double price, String imagePath) {
         this.sku = sku;
         this.name = name;
         this.price = price;
+        this.imagePath = imagePath;
     }
 
     public Long getId() {

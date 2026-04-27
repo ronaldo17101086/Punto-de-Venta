@@ -1,6 +1,6 @@
 package com.mycompany.chancuellarpuntodeventa.services.dtos;
 
-import jakarta.persistence.Column; 
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -11,6 +11,20 @@ import java.math.BigDecimal;
 @Entity
 @Table(name = "productos")
 public class ProductoDTO {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    private String sku;
+    private String name;
+    private BigDecimal price;
+
+    @Column(name = "image_path")
+    private String imagePath;
+
+    @Column(name = "is_granel")
+    private boolean granel;
 
     public ProductoDTO() {
     }
@@ -23,19 +37,15 @@ public class ProductoDTO {
         this.granel = granel;
     }
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    // --- EL BLOQUE QUE TE FALTA PARA EDITAR ---
+    public Long getId() {
+        return id;
+    }
 
-    private String sku;
-    private String name;
-    private BigDecimal price;
-
-    @Column(name = "image_path") // Coincide con el nombre de la columna en MySQL
-    private String imagePath;
-
-    @Column(name = "is_granel") // O como se llame en tu tabla
-    private boolean granel;
+    public void setId(Long id) {
+        this.id = id;
+    }
+    // ------------------------------------------
 
     public boolean isGranel() {
         return granel;
@@ -61,7 +71,7 @@ public class ProductoDTO {
         this.name = name;
     }
 
-    public java.math.BigDecimal getPrice() {
+    public BigDecimal getPrice() {
         return price;
     }
 

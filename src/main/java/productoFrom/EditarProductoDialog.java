@@ -10,7 +10,7 @@ import java.io.File;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 
-public class EditarProductoDialog extends JFrame { 
+public class EditarProductoDialog extends JFrame {
 
     private JTextField txtNombre, txtSku, txtPrecio, txtDescripcion;
     private JLabel lblPreviewImagen;
@@ -93,16 +93,18 @@ public class EditarProductoDialog extends JFrame {
         container.add(crearSeccionFotos());
         container.add(Box.createVerticalStrut(30));
 
-        // SECCIÓN DATOS
+// SECCIÓN DATOS
         txtSku = crearCampoMaterial(dto.getSku(), false);
         txtNombre = crearCampoMaterial(dto.getName(), true);
         txtPrecio = crearCampoMaterial(String.valueOf(dto.getPrice()), true);
+
+        txtDescripcion = crearCampoMaterial("", true);
 
         container.add(crearFila("CLAVE / SKU", txtSku));
         container.add(Box.createVerticalStrut(20));
         container.add(crearFila("NOMBRE DEL PRODUCTO", txtNombre));
         container.add(Box.createVerticalStrut(20));
-        container.add(crearFila("DESCRIPCIÓN", txtDescripcion));
+        container.add(crearFila("DESCRIPCIÓN", txtDescripcion)); // Ahora ya no será null
         container.add(Box.createVerticalStrut(30));
 
         // PANEL PRECIOS (Estilo Caja)
@@ -247,7 +249,7 @@ public class EditarProductoDialog extends JFrame {
                 regresar();
             }
         } catch (Exception e) {
-            e.printStackTrace(); 
+            e.printStackTrace();
             JOptionPane.showMessageDialog(this, "❌ Error al guardar.");
         }
     }
