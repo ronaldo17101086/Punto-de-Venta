@@ -1,105 +1,127 @@
 package productoFrom;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Cursor;
-import java.awt.Dialog;
-import java.awt.Dimension;
-import java.awt.FlowLayout;
-import java.awt.Font;
-import java.awt.FontMetrics;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Image;
-import java.awt.RenderingHints;
-import java.awt.Toolkit;
+import java.awt.*;
 import java.awt.datatransfer.StringSelection;
 import java.awt.image.BufferedImage;
-import javax.swing.BorderFactory;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
-import javax.swing.JButton;
-import javax.swing.JDialog;
-import javax.swing.JLabel;
-import javax.swing.JPanel;
-import javax.swing.JTextArea;
-import javax.swing.Timer;
+import java.net.URL;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Random;
+import javax.swing.*;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
 
 public class DialogoDetalleProducto extends JDialog {
 
-    private int indiceImagenActual = 0;
+    private JLabel lblImagen;
+    private static final int ANCHO_IMG = 350;
+    private static final int ALTO_IMG = 350;
 
     public DialogoDetalleProducto(java.awt.Window parent, ProductoDTO p) {
         super(parent, "Detalles del Producto", Dialog.ModalityType.APPLICATION_MODAL);
         setUndecorated(true);
         setLayout(new BorderLayout());
 
-        // Ventana amplia para la imagen de 350x350
-        setSize(800, 500);
+        setSize(800, 520);
         setLocationRelativeTo(parent);
         setBackground(new Color(0, 0, 0, 0));
 
-        // Panel Principal con Fondo White Smoke y Sombra
+        // --- PANEL PRINCIPAL (Fondo Redondeado y Sombra) ---
         JPanel mainPanel = new JPanel(new BorderLayout(40, 0)) {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Sombra
+                // Dibujar sombra
                 g2.setColor(new Color(0, 0, 0, 30));
-                g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 35, 35);
+                g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 35, 35);
 
-                // Fondo
+                // Dibujar fondo panel
                 g2.setColor(new Color(248, 249, 250));
                 g2.fillRoundRect(0, 0, getWidth() - 5, getHeight() - 5, 35, 35);
                 g2.dispose();
             }
         };
+        mainPanel.setOpaque(false);
         mainPanel.setBorder(BorderFactory.createEmptyBorder(40, 40, 40, 40));
 
-        // --- IZQUIERDA: IMAGEN GRANDE (350x350) ---
-        JPanel panelImagen = new JPanel(new BorderLayout());
-        panelImagen.setOpaque(false);
+        // --- IZQUIERDA: IMAGEN Y BOTÓN DE BÚSQUEDA ---
+        JPanel panelIzquierdo = new JPanel(new GridBagLayout());
+        panelIzquierdo.setOpaque(false);
+        GridBagConstraints gbcImg = new GridBagConstraints();
 
-        String[] rutas = (p.getImagePath() != null && !p.getImagePath().isEmpty())
-                ? p.getImagePath().split(",")
-                : new String[]{""};
-
-        JLabel lblImagen = new JLabel(cargarImagenInterna(rutas[0].trim(), 350, 350, p.getName()));
-        lblImagen.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        lblImagen = new JLabel();
+        lblImagen.setPreferredSize(new Dimension(ANCHO_IMG, ALTO_IMG));
+        lblImagen.setHorizontalAlignment(SwingConstants.CENTER);
         lblImagen.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(225, 225, 225), 1, true),
                 BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
 
-        // Lógica Hover para cambio de imágenes
-        lblImagen.addMouseListener(new java.awt.event.MouseAdapter() {
-            @Override
-            public void mouseEntered(java.awt.event.MouseEvent evt) {
-                if (rutas.length > 1) {
-                    indiceImagenActual = (indiceImagenActual + 1) % rutas.length;
-                    lblImagen.setIcon(cargarImagenInterna(rutas[indiceImagenActual].trim(), 350, 350, p.getName()));
-                }
-            }
+        actualizarIconoImagen(p.getImagePath(), p.getName());
+
+        gbcImg.gridx = 0;
+        gbcImg.gridy = 0;
+        gbcImg.insets = new Insets(0, 0, 15, 0);
+        panelIzquierdo.add(lblImagen, gbcImg);
+
+        // Botón Buscar Imagen Aleatoria (Moderno)
+        JButton btnBuscarWeb = new JButton();
+        btnBuscarWeb.setText("<html><body style='text-align: center; color: white;'>"
+                + "<span style='font-size: 18px;'>⟳</span> &nbsp; "
+                + "<span style='font-size: 13px;'>Buscar Imagen Aleatoria</span>"
+                + "</body></html>");
+        btnBuscarWeb.setBackground(new Color(79, 70, 229));
+        btnBuscarWeb.setPreferredSize(new Dimension(ANCHO_IMG, 50));
+        btnBuscarWeb.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBuscarWeb.putClientProperty("JButton.buttonType", "roundRect");
+        btnBuscarWeb.setFocusPainted(false);
+        btnBuscarWeb.setBorderPainted(false);
+
+        btnBuscarWeb.addActionListener(e -> {
+            btnBuscarWeb.setEnabled(false);
+            btnBuscarWeb.setText("Buscando...");
+
+            new Thread(() -> {
+                String urlFinal = buscarImagenPerfecta(p.getName());
+                SwingUtilities.invokeLater(() -> {
+                    if (urlFinal != null) {
+                        p.setImagePath(urlFinal);
+                        actualizarIconoImagen(urlFinal, p.getName());
+
+                        // --- ESTO ES LO QUE FALTA ---
+                        lblImagen.revalidate();
+                        lblImagen.repaint();
+                    } else {
+                        JOptionPane.showMessageDialog(this, "No se encontraron imágenes para: " + p.getName(), "Búsqueda Fallida", JOptionPane.WARNING_MESSAGE);
+                    }
+                    btnBuscarWeb.setEnabled(true);
+                    btnBuscarWeb.setText("<html><span style='font-size:16px'>⟳</span> Buscar Imagen Real</html>");
+                });
+            }).start();
         });
 
-        panelImagen.add(lblImagen, BorderLayout.NORTH);
-        mainPanel.add(panelImagen, BorderLayout.WEST);
+        gbcImg.gridy = 1;
+        panelIzquierdo.add(btnBuscarWeb, gbcImg);
+        mainPanel.add(panelIzquierdo, BorderLayout.WEST);
 
-        // --- DERECHA: INFORMACIÓN APILADA ARRIBA ---
+        // --- DERECHA: INFORMACIÓN DEL PRODUCTO ---
         JPanel pInfo = new JPanel();
         pInfo.setLayout(new BoxLayout(pInfo, BoxLayout.Y_AXIS));
         pInfo.setOpaque(false);
 
-        // 1. SKU + COPIAR
+        // 1. Panel SKU + Botón Copiar
         JPanel panelSKU = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         panelSKU.setOpaque(false);
         panelSKU.setAlignmentX(Component.LEFT_ALIGNMENT);
-
         JLabel lblSKU = new JLabel("  SKU: " + p.getSku() + "  ");
         lblSKU.setOpaque(true);
         lblSKU.setBackground(new Color(230, 240, 255));
@@ -110,9 +132,7 @@ public class DialogoDetalleProducto extends JDialog {
         JButton btnCopiar = new JButton("📋");
         btnCopiar.setPreferredSize(new Dimension(40, 26));
         btnCopiar.setFocusPainted(false);
-        btnCopiar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnCopiar.setBackground(Color.WHITE);
-        btnCopiar.setBorder(BorderFactory.createMatteBorder(1, 0, 1, 1, new Color(180, 200, 255)));
         btnCopiar.addActionListener(e -> {
             StringSelection ss = new StringSelection(p.getSku());
             Toolkit.getDefaultToolkit().getSystemClipboard().setContents(ss, ss);
@@ -122,51 +142,28 @@ public class DialogoDetalleProducto extends JDialog {
         panelSKU.add(lblSKU);
         panelSKU.add(btnCopiar);
 
-        // 2. NOMBRE (Se eliminó el ancho fijo de 300px para que se muestre completo)
+        // 2. Nombre y Precio
         JLabel lblNom = new JLabel("<html><body>" + p.getName() + "</body></html>");
         lblNom.setFont(new Font("Segoe UI", Font.BOLD, 28));
         lblNom.setForeground(new Color(45, 52, 54));
-        lblNom.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        // 3. PRECIO
         JLabel lblPre = new JLabel("$" + String.format("%.2f", p.getPrice()) + " MXN");
         lblPre.setFont(new Font("Segoe UI", Font.BOLD, 32));
         lblPre.setForeground(new Color(40, 167, 69));
-        lblPre.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        // 4. DESCRIPCIÓN
-        JLabel lblDescT = new JLabel("DESCRIPCIÓN:");
-        lblDescT.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblDescT.setForeground(new Color(160, 160, 160));
-        lblDescT.setAlignmentX(Component.LEFT_ALIGNMENT);
-
-        JTextArea txtDesc = new JTextArea("Sin descripción.");
-        txtDesc.setWrapStyleWord(true);
-        txtDesc.setLineWrap(true);
-        txtDesc.setEditable(false);
-        txtDesc.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtDesc.setOpaque(false);
-        txtDesc.setForeground(new Color(80, 80, 80));
-        txtDesc.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         pInfo.add(panelSKU);
         pInfo.add(Box.createVerticalStrut(15));
         pInfo.add(lblNom);
         pInfo.add(Box.createVerticalStrut(10));
         pInfo.add(lblPre);
-        pInfo.add(Box.createVerticalStrut(25));
-        pInfo.add(lblDescT);
-        pInfo.add(Box.createVerticalStrut(8));
-        pInfo.add(txtDesc);
-        pInfo.add(Box.createVerticalGlue()); // Empuja todo hacia arriba
+        pInfo.add(Box.createVerticalGlue());
 
         mainPanel.add(pInfo, BorderLayout.CENTER);
 
-        // --- BOTÓN INFERIOR ---
+        // --- BOTÓN INFERIOR DE CIERRE ---
         JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         panelBoton.setOpaque(false);
         JButton btnCerrar = new JButton("ENTENDIDO");
-        btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 12));
         btnCerrar.setPreferredSize(new Dimension(140, 40));
         btnCerrar.setBackground(new Color(45, 52, 54));
         btnCerrar.setForeground(Color.WHITE);
@@ -179,13 +176,31 @@ public class DialogoDetalleProducto extends JDialog {
         add(panelBoton, BorderLayout.SOUTH);
     }
 
+    private void actualizarIconoImagen(String ruta, String nombre) {
+        lblImagen.setIcon(cargarImagenInterna(ruta, ANCHO_IMG, ALTO_IMG, nombre));
+    }
+
+    // MEJORA DE NITIDEZ: Usa RenderingHints para evitar lo borroso
     private ImageIcon cargarImagenInterna(String ruta, int w, int h, String nombre) {
         if (ruta != null && !ruta.isEmpty()) {
-            java.io.File archivo = new java.io.File(ruta);
-            if (archivo.exists()) {
-                return new ImageIcon(new ImageIcon(ruta).getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH));
+            try {
+                Image imgRaw = (ruta.startsWith("http"))
+                        ? new ImageIcon(new URL(ruta)).getImage()
+                        : new ImageIcon(ruta).getImage();
+
+                BufferedImage dimg = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g2 = dimg.createGraphics();
+                g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.drawImage(imgRaw, 0, 0, w, h, null);
+                g2.dispose();
+                return new ImageIcon(dimg);
+            } catch (Exception e) {
+                System.err.println("Error: " + e.getMessage());
             }
         }
+        // Placeholder moderno
         BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bi.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -198,5 +213,66 @@ public class DialogoDetalleProducto extends JDialog {
         g.drawString(letra, (w - fm.stringWidth(letra)) / 2, (h + fm.getAscent() - fm.getDescent()) / 2);
         g.dispose();
         return new ImageIcon(bi);
+    }
+public String buscarImagenPerfecta(String nombreProducto) {
+        // 1. Limpiamos y enfocamos la búsqueda para forzar un producto real
+        String query = nombreProducto + " producto oficial alta resolucion";
+        List<String> poolDeImagenes = new ArrayList<>();
+
+        try {
+            String queryCodificada = URLEncoder.encode(query, StandardCharsets.UTF_8);
+            
+            // Usamos Bing porque su HTML permite extraer la imagen ORIGINAL, no la miniatura.
+            String url = "https://www.bing.com/images/search?q=" + queryCodificada + "&form=HDRSC2";
+
+            // 2. Conexión simulando navegador real
+            Document doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
+                    .referrer("https://www.bing.com/")
+                    .timeout(10000)
+                    .get();
+
+            // 3. EL SECRETO: Bing oculta los datos de la imagen de alta calidad en anclas con clase "iusc"
+            Elements enlacesImagenes = doc.select("a.iusc");
+
+            for (Element enlace : enlacesImagenes) {
+                // El atributo "m" contiene un pseudo-JSON con la URL en alta resolución bajo la clave "murl"
+                String mData = enlace.attr("m");
+
+                if (mData != null && mData.contains("\"murl\":\"")) {
+                    // Extraemos la URL real recortando el String
+                    String imgUrl = mData.split("\"murl\":\"")[1].split("\"")[0];
+
+                    // FILTRO DE CALIDAD EXTREMO:
+                    // Exigimos que termine en extensión de imagen y rechazamos iconos o basura de UI
+                    String urlLower = imgUrl.toLowerCase();
+                    if (imgUrl.startsWith("http") 
+                            && !urlLower.contains("logo") 
+                            && !urlLower.contains("icon")
+                            && !urlLower.contains("placeholder")
+                            && (urlLower.endsWith(".jpg") || urlLower.endsWith(".png") || urlLower.endsWith(".jpeg") || urlLower.endsWith(".webp"))) {
+                        
+                        poolDeImagenes.add(imgUrl);
+                    }
+                }
+
+                // Guardamos un buen grupo para poder hacer el random (10 es un buen número)
+                if (poolDeImagenes.size() >= 10) {
+                    break;
+                }
+            }
+
+            // 4. ALEATORIEDAD REAL
+            if (!poolDeImagenes.isEmpty()) {
+                Collections.shuffle(poolDeImagenes); // Mezclamos la lista de 10 imágenes
+                return poolDeImagenes.get(0);        // Devolvemos una al azar
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error en el motor de búsqueda: " + e.getMessage());
+        }
+
+        // Si todo falla, devuelve null (o podrías devolver un String con la URL de tu imagen genérica)
+        return null;
     }
 }

@@ -213,6 +213,7 @@ public class ventas extends JPanel {
         gbc.insets = new Insets(0, 20, 0, 10);
         gbc.gridx = 0;
         panelCabecera.add(btnActualizar, gbc);
+
         gbc.gridx = 1;
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -221,6 +222,9 @@ public class ventas extends JPanel {
         gbc.weightx = 0.0;
         gbc.insets = new Insets(0, 40, 0, 20);
         panelCabecera.add(txtBuscadorDirecto, gbc);
+
+        // D. Botón de Opciones / Caja (Llamada al método moderno)
+        configurarMenuOpciones(panelCabecera, gbc);
 
         // --- 3. PANEL CARRITO ---
         JPanel panelCheckout = new JPanel(new BorderLayout());
@@ -330,6 +334,133 @@ public class ventas extends JPanel {
                 SwingUtilities.invokeLater(() -> filtrarCatalogo(txtBuscador.getText()));
             }
         });
+    }
+
+
+
+    private void configurarMenuOpciones(JPanel panelCabecera, GridBagConstraints gbc) {
+        // 1. Botón "Más" con icono dibujado manualmente (Garantiza que se vea siempre)
+        JButton btnMas = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Fondo al pasar el mouse (Efecto circular moderno)
+                if (getModel().isPressed()) {
+                    g2.setColor(new Color(226, 232, 240));
+                } else if (getModel().isRollover()) {
+                    g2.setColor(new Color(241, 245, 249));
+                } else {
+                    g2.setColor(new Color(0, 0, 0, 0)); // Transparente
+                }
+                g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 100, 100);
+
+                // Dibujar los 3 puntos manualmente (Color Slate 600)
+                g2.setColor(new Color(71, 85, 105));
+                int x = getWidth() / 2 - 2;
+                // Sustituye esa sección por esta:
+                int yCenter = getHeight() / 2; // Sin espacio aquí
+
+                g2.fillOval(x, yCenter - 8, 4, 4); // Punto superior
+                g2.fillOval(x, yCenter - 1, 4, 4); // Punto medio
+                g2.fillOval(x, yCenter + 6, 4, 4); // Punto inferior
+                g2.dispose();
+            }
+        };
+
+        btnMas.setPreferredSize(new Dimension(48, 48));
+        btnMas.setBorderPainted(false);
+        btnMas.setContentAreaFilled(false);
+        btnMas.setFocusPainted(false);
+        btnMas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Dentro de configurarMenuOpciones...
+        JPopupMenu menu = new JPopupMenu();
+        menu.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1)); // Borde gris claro
+        menu.setBackground(Color.WHITE);
+        menu.add(crearItemModerno("Control de Caja", "🏦", e -> {
+            try {
+                caja.CajaView vc = new caja.CajaView();
+                vc.setLocationRelativeTo(null);
+                vc.setVisible(true);
+            } catch (Exception ex) {
+                ex.printStackTrace(); // Esto te dirá en consola si hay un error al abrir
+            }
+        }));
+        menu.add(crearItemModerno("Resumen de Ventas", "📊", e -> {
+            /* acción */ }));
+        menu.add(crearItemModerno("Configuración", "⚙️", e -> {
+            /* acción */ }));
+        btnMas.addActionListener(e -> {
+            menu.show(btnMas, btnMas.getWidth() - menu.getPreferredSize().width, btnMas.getHeight());
+        });
+
+        // 3. Ubicación en el Grid
+        gbc.gridx = 3;
+        gbc.weightx = 0.0;
+        gbc.insets = new Insets(0, 5, 0, 20);
+        panelCabecera.add(btnMas, gbc);
+    }
+
+    private JMenuItem crearItemModerno(String texto, String icono, java.awt.event.ActionListener accion) {
+        JMenuItem item = new JMenuItem();
+        item.setLayout(new GridBagLayout()); // Usamos Layout para control total
+        item.setPreferredSize(new Dimension(240, 48)); // Más ancho y alto
+        item.setBackground(Color.WHITE);
+        item.setOpaque(true);
+        item.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 15)); // Margen interno lateral
+        item.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        GridBagConstraints c = new GridBagConstraints();
+
+        // --- ICONO ---
+        JLabel lblIcono = new JLabel(icono);
+        lblIcono.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 18));
+        c.gridx = 0;
+        c.weightx = 0.0;
+        c.insets = new Insets(0, 0, 0, 15); // ESPACIO FIJO entre icono y texto
+        item.add(lblIcono, c);
+
+        // --- TEXTO ---
+        JLabel lblTexto = new JLabel(texto);
+        lblTexto.setFont(new Font("Segoe UI", Font.BOLD, 13)); // Semibold para modernidad
+        lblTexto.setForeground(new Color(51, 65, 85)); // Color Slate 700
+        c.gridx = 1;
+        c.weightx = 1.0;
+        c.anchor = GridBagConstraints.WEST;
+        c.insets = new Insets(0, 0, 0, 0);
+        item.add(lblTexto, c);
+
+        // --- ACCIÓN ---
+        // Importante: quitamos cualquier listener previo y agregamos el nuevo
+        for (java.awt.event.ActionListener al : item.getActionListeners()) {
+            item.removeActionListener(al);
+        }
+        item.addActionListener(accion);
+
+        // --- EFECTOS VISUALES CORREGIDOS ---
+        item.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent e) {
+                // Un azul moderno y vibrante (estilo Microsoft/Google)
+                item.setBackground(new Color(37, 99, 235));
+                lblTexto.setForeground(Color.WHITE); // Texto en blanco para contraste total
+                lblIcono.setForeground(Color.WHITE); // Si el icono es texto/emoji, también cambia
+            }
+
+            public void mouseExited(java.awt.event.MouseEvent e) {
+                // Volvemos al estado limpio
+                item.setBackground(Color.WHITE);
+                lblTexto.setForeground(new Color(51, 65, 85)); // Slate 700
+                lblIcono.setForeground(new Color(51, 65, 85));
+            }
+        });
+
+// ESTO ES CLAVE: Evita que Swing pinte su propio fondo azul encima del nuestro
+        item.setContentAreaFilled(false);
+        item.setOpaque(true);
+
+        return item;
     }
 
     public void alSeleccionarProducto(ProductoDTO p) {
@@ -814,31 +945,49 @@ public class ventas extends JPanel {
     }
 
     public static ImageIcon cargarImagen(String ruta, int w, int h, String t) {
-        // 1. SI TIENE IMAGEN: Intentar cargarla desde la ruta
         if (ruta != null && !ruta.isEmpty()) {
-            java.io.File archivo = new java.io.File(ruta);
-            if (archivo.exists()) {
-                ImageIcon iconOriginal = new ImageIcon(ruta);
-                // Ajustamos la imagen al tamaño del contenedor (w, h)
-                Image imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-                return new ImageIcon(imgEscalada);
+            try {
+                Image imgEscalada;
+                if (ruta.startsWith("http")) {
+                    // CARGAR DESDE URL (Internet)
+                    ImageIcon iconWeb = new ImageIcon(new java.net.URL(ruta));
+                    imgEscalada = iconWeb.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                    return new ImageIcon(imgEscalada);
+                } else {
+                    // CARGAR DESDE ARCHIVO LOCAL (Tu código actual [cite: 432])
+                    java.io.File archivo = new java.io.File(ruta);
+                    if (archivo.exists()) {
+                        ImageIcon iconOriginal = new ImageIcon(ruta);
+                        imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                        return new ImageIcon(imgEscalada);
+                    }
+                }
+            } catch (Exception e) {
+                System.err.println("Error cargando imagen: " + e.getMessage());
             }
         }
+        // Si falla, se mantiene tu diseño de inicial con fondo gris [cite: 435, 436]
+        return generarImagenPlaceholder(w, h, t);
+    }
 
-        // 2. SI NO TIENE IMAGEN (O NO EXISTE): Usar tu código original de la inicial
+    private static ImageIcon generarImagenPlaceholder(int w, int h, String t) {
         BufferedImage bi = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bi.createGraphics();
+
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-        g.setColor(new Color(230, 235, 240));
-        g.fillRoundRect(0, 0, w, h, 8, 8);
-        g.setColor(new Color(110, 110, 110));
+        g.setColor(new Color(230, 235, 240)); // Gris suave moderno
+        g.fillRoundRect(0, 0, w, h, 15, 15);
+
+        g.setColor(new Color(110, 116, 125));
         g.setFont(new Font("Segoe UI", Font.BOLD, w / 2));
 
-        // Manejo de error si el nombre viene vacío para que no truene el substring
-        String s = (t != null && !t.isEmpty()) ? t.substring(0, 1).toUpperCase() : "?";
+        String inicial = (t != null && !t.isEmpty()) ? t.substring(0, 1).toUpperCase() : "?";
 
         FontMetrics fm = g.getFontMetrics();
-        g.drawString(s, (w - fm.stringWidth(s)) / 2, (h + fm.getAscent() - fm.getDescent()) / 2);
+        int x = (w - fm.stringWidth(inicial)) / 2;
+        int y = (h + fm.getAscent() - fm.getDescent()) / 2;
+
+        g.drawString(inicial, x, y);
         g.dispose();
 
         return new ImageIcon(bi);
