@@ -34,7 +34,7 @@ public class LoginInterface extends JFrame {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                java.net.URL imgURL = getClass().getResource("/images/logo.jpg");
+                java.net.URL imgURL = getClass().getResource("/images/Logotipo.jpg");
                 if (imgURL != null) {
                     Image imagenFondo = new ImageIcon(imgURL).getImage();
                     g.drawImage(imagenFondo, 0, 0, getWidth(), getHeight(), this);

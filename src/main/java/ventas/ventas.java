@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import javax.management.Notification;
+import org.springframework.beans.factory.annotation.Autowired;
 import productoFrom.DialogoDetalleProducto;
 import productoFrom.ItemProductoCarrito;
 import tools.DialogoPago;
@@ -42,6 +43,9 @@ public class ventas extends JPanel {
     private List<ProductoDTO> listaProductos = new ArrayList<>();
     private final int COLUMNAS = 4;
     private final Color COLOR_SELECCION = new Color(232, 244, 253);
+
+    @Autowired
+    private caja.CajaService cajaService; // Esto "jala" el servicio automáticamente
 
     public ventas() {
         setLayout(new BorderLayout(10, 10));
@@ -336,8 +340,6 @@ public class ventas extends JPanel {
         });
     }
 
-
-
     private void configurarMenuOpciones(JPanel panelCabecera, GridBagConstraints gbc) {
         // 1. Botón "Más" con icono dibujado manualmente (Garantiza que se vea siempre)
         JButton btnMas = new JButton() {
@@ -381,8 +383,7 @@ public class ventas extends JPanel {
         menu.setBackground(Color.WHITE);
         menu.add(crearItemModerno("Control de Caja", "🏦", e -> {
             try {
-                caja.CajaView vc = new caja.CajaView();
-                vc.setLocationRelativeTo(null);
+                caja.CajaView vc = new caja.CajaView(cajaService); // <--- Le pasamos el servicio aquí
                 vc.setVisible(true);
             } catch (Exception ex) {
                 ex.printStackTrace(); // Esto te dirá en consola si hay un error al abrir

@@ -214,65 +214,51 @@ public class DialogoDetalleProducto extends JDialog {
         g.dispose();
         return new ImageIcon(bi);
     }
-public String buscarImagenPerfecta(String nombreProducto) {
+
+    public String buscarImagenPerfecta(String nombreProducto) {
         // 1. Limpiamos y enfocamos la búsqueda para forzar un producto real
         String query = nombreProducto + " producto oficial alta resolucion";
         List<String> poolDeImagenes = new ArrayList<>();
 
         try {
             String queryCodificada = URLEncoder.encode(query, StandardCharsets.UTF_8);
-            
+
             // Usamos Bing porque su HTML permite extraer la imagen ORIGINAL, no la miniatura.
             String url = "https://www.bing.com/images/search?q=" + queryCodificada + "&form=HDRSC2";
 
-            // 2. Conexión simulando navegador real
             Document doc = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36")
                     .referrer("https://www.bing.com/")
                     .timeout(10000)
                     .get();
-
-            // 3. EL SECRETO: Bing oculta los datos de la imagen de alta calidad en anclas con clase "iusc"
             Elements enlacesImagenes = doc.select("a.iusc");
 
             for (Element enlace : enlacesImagenes) {
-                // El atributo "m" contiene un pseudo-JSON con la URL en alta resolución bajo la clave "murl"
                 String mData = enlace.attr("m");
 
                 if (mData != null && mData.contains("\"murl\":\"")) {
-                    // Extraemos la URL real recortando el String
                     String imgUrl = mData.split("\"murl\":\"")[1].split("\"")[0];
-
-                    // FILTRO DE CALIDAD EXTREMO:
-                    // Exigimos que termine en extensión de imagen y rechazamos iconos o basura de UI
                     String urlLower = imgUrl.toLowerCase();
-                    if (imgUrl.startsWith("http") 
-                            && !urlLower.contains("logo") 
+                    if (imgUrl.startsWith("http")
+                            && !urlLower.contains("logo")
                             && !urlLower.contains("icon")
                             && !urlLower.contains("placeholder")
                             && (urlLower.endsWith(".jpg") || urlLower.endsWith(".png") || urlLower.endsWith(".jpeg") || urlLower.endsWith(".webp"))) {
-                        
+
                         poolDeImagenes.add(imgUrl);
                     }
                 }
-
-                // Guardamos un buen grupo para poder hacer el random (10 es un buen número)
                 if (poolDeImagenes.size() >= 10) {
                     break;
                 }
             }
-
-            // 4. ALEATORIEDAD REAL
             if (!poolDeImagenes.isEmpty()) {
                 Collections.shuffle(poolDeImagenes); // Mezclamos la lista de 10 imágenes
                 return poolDeImagenes.get(0);        // Devolvemos una al azar
             }
-
         } catch (Exception e) {
             System.err.println("Error en el motor de búsqueda: " + e.getMessage());
         }
-
-        // Si todo falla, devuelve null (o podrías devolver un String con la URL de tu imagen genérica)
         return null;
     }
 }
