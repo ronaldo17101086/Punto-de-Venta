@@ -19,8 +19,9 @@ import java.awt.EventQueue;
     "ventas",
     "productoFrom",
     "producto",
-    "caja" // <--- AGREGADO: Ahora Spring ya puede ver tu CajaService
-})
+    "caja",
+    "clientes" 
+})              
 public class chancuellarpuntodeventa {
 
     public static void main(String[] args) {

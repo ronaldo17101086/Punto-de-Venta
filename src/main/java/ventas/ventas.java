@@ -1,7 +1,14 @@
 package ventas;
 
+import clientes.clientInterface;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.CambioDTO;
+import com.mycompany.chancuellarpuntodeventa.services.querys.ventaServicio;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.ClienteDTO;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.VentaDTO;
+import com.mycompany.chancuellarpuntodeventa.services.querys.ClienteServicio;
+import com.mycompany.chancuellarpuntodeventa.services.querys.ventaServicio;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 import tools.PlaceholderTextField;
 import javax.swing.*;
@@ -16,10 +23,13 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 import javax.management.Notification;
 import org.springframework.beans.factory.annotation.Autowired;
 import productoFrom.DialogoDetalleProducto;
@@ -46,6 +56,13 @@ public class ventas extends JPanel {
 
     @Autowired
     private caja.CajaService cajaService; // Esto "jala" el servicio automáticamente
+
+    @Autowired
+    private ClienteServicio clienteServicio;
+    @Autowired
+    private ventaServicio ventaServicio;
+    private JComboBox<clientInterface.ItemClienteCombo> comboClientes;
+    private JTextField txtComentarios;
 
     public ventas() {
         setLayout(new BorderLayout(10, 10));
@@ -86,7 +103,7 @@ public class ventas extends JPanel {
         panelCardsContenedor.setBackground(bgMain);
         panelCardsContenedor.setBorder(new EmptyBorder(20, 10, 20, 10));
 
-// --- LA CORRECCIÓN REAL ---
+        // --- LA CORRECCIÓN REAL ---
         JPanel wrapperCatalogo = new JPanel(new BorderLayout());
         wrapperCatalogo.setBackground(bgMain);
         wrapperCatalogo.add(panelCardsContenedor, BorderLayout.NORTH);
@@ -101,6 +118,7 @@ public class ventas extends JPanel {
                 panelCardsContenedor.revalidate();
             }
         });
+
         // --- 2. CABECERA (BUSCADORES) ---
         JPanel panelCabecera = new JPanel(new GridBagLayout());
         panelCabecera.setBackground(white);
@@ -124,7 +142,7 @@ public class ventas extends JPanel {
         txtBuscador.setPreferredSize(new Dimension(380, 45));
         txtBuscador.setFont(new Font("Segoe UI", Font.PLAIN, 15));
 
-// 2. Botón de Limpieza Minimalista
+        // 2. Botón de Limpieza Minimalista
         JButton btnClear = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -153,20 +171,20 @@ public class ventas extends JPanel {
             }
         };
 
-// Configuración del botón
+        // Configuración del botón
         btnClear.setPreferredSize(new Dimension(35, 35));
         btnClear.setFocusable(false);
         btnClear.setBorderPainted(false);
         btnClear.setContentAreaFilled(false);
         btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-// Acción de limpieza
+        // Acción de limpieza
         btnClear.addActionListener(e -> {
             txtBuscador.setText("");
             txtBuscador.requestFocusInWindow();
         });
 
-// 3. Integración en el TextField
+        // 3. Integración en el TextField
         txtBuscador.putClientProperty("JTextField.trailingComponent", btnClear);
         txtBuscador.putClientProperty("JTextField.showClearButton", false); // Desactivamos la X de Windows
         txtBuscador.putClientProperty("JComponent.roundRect", true);
@@ -196,10 +214,8 @@ public class ventas extends JPanel {
             @Override
             public void actionPerformed(ActionEvent e) {
                 if (btnFinalizar.isEnabled()) {
-                    // Ejecuta el clic del botón verde
                     btnFinalizar.doClick();
                 } else {
-                    // Feedback de error si el carrito está vacío
                     txtBuscador.putClientProperty("JComponent.outline", "error");
                     Timer timer = new Timer(500, ex -> txtBuscador.putClientProperty("JComponent.outline", null));
                     timer.setRepeats(false);
@@ -208,7 +224,7 @@ public class ventas extends JPanel {
             }
         };
 
-// 2. Registramos la tecla ESCAPE a nivel de PANEL (para que funcione en toda la ventana de ventas)
+        // 2. Registramos la tecla ESCAPE a nivel de PANEL
         this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
                 KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "finalizarVenta"
         );
@@ -227,16 +243,20 @@ public class ventas extends JPanel {
         gbc.insets = new Insets(0, 40, 0, 20);
         panelCabecera.add(txtBuscadorDirecto, gbc);
 
-        // D. Botón de Opciones / Caja (Llamada al método moderno)
         configurarMenuOpciones(panelCabecera, gbc);
 
-        // --- 3. PANEL CARRITO ---
+        // --- 3. PANEL CHECKOUT (INICIALIZACIÓN LÓGICA OCULTA) ---
         JPanel panelCheckout = new JPanel(new BorderLayout());
         panelCheckout.setPreferredSize(new Dimension(520, 0));
         panelCheckout.setBackground(white);
         panelCheckout.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, borderSoft));
 
-        // 1. DEFINICIÓN DEL BOTÓN CON ESTILO
+        comboClientes = new JComboBox<>();
+        comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+        cargarClientesBD(comboClientes);
+
+        txtComentarios = new JTextField();
+
         btnFinalizar = new JButton("$ 0.00 MXN");
         btnFinalizar.setBackground(new Color(200, 200, 200));
         btnFinalizar.setForeground(Color.WHITE);
@@ -244,7 +264,7 @@ public class ventas extends JPanel {
         btnFinalizar.setPreferredSize(new Dimension(0, 70));
         btnFinalizar.setBorder(null);
         btnFinalizar.setFocusPainted(false);
-        btnFinalizar.setEnabled(false); // Empieza bloqueado
+        btnFinalizar.setEnabled(false);
         btnFinalizar.putClientProperty("JButton.buttonType", "roundRect");
         btnFinalizar.addActionListener(e -> {
             finalizarVenta();
@@ -255,11 +275,11 @@ public class ventas extends JPanel {
                 double valor = Double.parseDouble(texto);
                 if (valor > 0) {
                     btnFinalizar.setEnabled(true);
-                    btnFinalizar.setBackground(new Color(34, 197, 94)); // Verde Esmeralda
+                    btnFinalizar.setBackground(new Color(34, 197, 94));
                     btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
                 } else {
                     btnFinalizar.setEnabled(false);
-                    btnFinalizar.setBackground(new Color(200, 200, 200)); // Gris
+                    btnFinalizar.setBackground(new Color(200, 200, 200));
                     btnFinalizar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                 }
             } catch (Exception ex) {
@@ -311,7 +331,6 @@ public class ventas extends JPanel {
         pPieVenta.add(tIva, g);
         pPieVenta.add(lblIVA, g);
 
-        //  panelCheckout.add(lblTit, BorderLayout.NORTH);
         panelCheckout.add(scrollCarrito, BorderLayout.CENTER);
         panelCheckout.add(pPieVenta, BorderLayout.SOUTH);
         panelCheckout.add(btnFinalizar, BorderLayout.PAGE_END);
@@ -340,8 +359,155 @@ public class ventas extends JPanel {
         });
     }
 
+// --- MÉTODOS DE DIÁLOGO FLOTANTE ---
+    private void abrirDialogoCliente() {
+        // 1. ANTES de abrir la ventana, refrescamos los datos de la BD en el combo
+        if (clienteServicio != null) {
+            comboClientes.removeAllItems();
+            comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+
+            try {
+                List<ClienteDTO> clientes = clienteServicio.obtenerTodosLosClientes();
+                if (clientes != null) {
+                    for (ClienteDTO c : clientes) {
+                        String nombre = c.getNombre() != null ? c.getNombre().trim() : "";
+                        if (!nombre.equalsIgnoreCase("público general") && !nombre.equalsIgnoreCase("publico general")) {
+                            comboClientes.addItem(new clientInterface.ItemClienteCombo(c.getId(), c.getNombre()));
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        // 2. Creamos y mostramos el diálogo flotante
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Seleccionar Cliente", true);
+        dialog.setSize(400, 220);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel panel = new JPanel(new GridLayout(3, 1, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel lbl = new JLabel("Elija o busque el cliente para esta venta:");
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        comboClientes.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        comboClientes.setMaximumRowCount(5); // Limitamos cuántos se despliegan visualmente para orden
+
+        JButton btnAceptar = new JButton("Aceptar");
+        btnAceptar.setBackground(new Color(34, 197, 94));
+        btnAceptar.setForeground(Color.WHITE);
+        btnAceptar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnAceptar.addActionListener(e -> {
+            dialog.dispose(); // Cierra y mantiene seleccionado al cliente elegido
+        });
+
+        panel.add(lbl);
+        panel.add(comboClientes);
+        panel.add(btnAceptar);
+
+        dialog.add(panel, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void abrirDialogoComentario() {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Comentarios de Venta", true);
+        dialog.setSize(420, 200);
+        dialog.setLocationRelativeTo(this);
+        dialog.setLayout(new BorderLayout(10, 10));
+
+        JPanel panel = new JPanel(new GridLayout(3, 1, 10, 10));
+        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+
+        JLabel lbl = new JLabel("Ingrese notas o referencia para el ticket/venta:");
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+
+        JTextField txtTemp = new JTextField(txtComentarios.getText());
+        txtTemp.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+
+        JButton btnGuardar = new JButton("Guardar Nota");
+        btnGuardar.setBackground(new Color(34, 197, 94));
+        btnGuardar.setForeground(Color.WHITE);
+        btnGuardar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnGuardar.addActionListener(e -> {
+            txtComentarios.setText(txtTemp.getText());
+            dialog.dispose();
+        });
+
+        panel.add(lbl);
+        panel.add(txtTemp);
+        panel.add(btnGuardar);
+
+        dialog.add(panel, BorderLayout.CENTER);
+        dialog.setVisible(true);
+    }
+
+    private void cargarClientesBD(JComboBox<clientInterface.ItemClienteCombo> combo) {
+        if (clienteServicio == null) {
+            return; // Evita el null pointer si Spring aún lo está inyectando
+        }
+        try {
+            // 1. Limpiamos los elementos anteriores para evitar duplicados o datos viejos
+            combo.removeAllItems();
+
+            // 2. Opcional: Volvemos a asegurar que "Público General" esté siempre fijo al inicio
+            combo.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+
+            // 3. Traemos la lista actualizada desde la base de datos
+            List<ClienteDTO> clientes = clienteServicio.obtenerTodosLosClientes();
+            if (clientes != null) {
+                for (ClienteDTO c : clientes) {
+                    // Evitamos duplicar "Público General" si ya viene guardado en la BD
+                    String nombre = c.getNombre() != null ? c.getNombre().trim() : "";
+                    if (!nombre.equalsIgnoreCase("público general") && !nombre.equalsIgnoreCase("publico general")) {
+                        combo.addItem(new clientInterface.ItemClienteCombo(c.getId(), c.getNombre()));
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void buscarYAgregarDirecto() {
+        String query = txtBuscadorDirecto.getText().trim().toLowerCase();
+
+        if (query.isEmpty()) {
+            return;
+        }
+
+        ProductoDTO encontrado = null;
+
+        // 1. Buscamos en la lista maestra por SKU o por Nombre exacto
+        for (ProductoDTO p : listaProductos) {
+            if (p.getSku().toLowerCase().equals(query) || p.getName().toLowerCase().equals(query)) {
+                encontrado = p;
+                break;
+            }
+        }
+
+        if (encontrado != null) {
+            // 2. CORRECCIÓN: Usamos alSeleccionarProducto para que si es a granel, 
+            // abra el modal de monto en dinero en lugar de agregar 1 unidad automáticamente.
+            alSeleccionarProducto(encontrado);
+
+            // 3. Limpieza y enfoque para el siguiente escaneo
+            txtBuscadorDirecto.setText("");
+            txtBuscadorDirecto.requestFocusInWindow();
+        } else {
+            // 4. Feedback si el SKU no existe
+            JOptionPane.showMessageDialog(this,
+                    "No se encontró ningún producto con el nombre o SKU: " + query,
+                    "Producto no encontrado",
+                    JOptionPane.ERROR_MESSAGE);
+            txtBuscadorDirecto.selectAll();
+        }
+    }
+
     private void configurarMenuOpciones(JPanel panelCabecera, GridBagConstraints gbc) {
-        // 1. Botón "Más" con icono dibujado manualmente (Garantiza que se vea siempre)
+        // 1. Botón "Más" con los 3 puntos verticales dibujados profesionalmente
         JButton btnMas = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
@@ -358,11 +524,10 @@ public class ventas extends JPanel {
                 }
                 g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 100, 100);
 
-                // Dibujar los 3 puntos manualmente (Color Slate 600)
+                // Dibujar los 3 puntos verticalmente (Color Slate 600)
                 g2.setColor(new Color(71, 85, 105));
                 int x = getWidth() / 2 - 2;
-                // Sustituye esa sección por esta:
-                int yCenter = getHeight() / 2; // Sin espacio aquí
+                int yCenter = getHeight() / 2;
 
                 g2.fillOval(x, yCenter - 8, 4, 4); // Punto superior
                 g2.fillOval(x, yCenter - 1, 4, 4); // Punto medio
@@ -377,27 +542,73 @@ public class ventas extends JPanel {
         btnMas.setFocusPainted(false);
         btnMas.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // Dentro de configurarMenuOpciones...
+        // 2. Creación del Menú Desplegable Moderno con las 5 Opciones
         JPopupMenu menu = new JPopupMenu();
-        menu.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1)); // Borde gris claro
+        menu.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240), 1),
+                BorderFactory.createEmptyBorder(4, 2, 4, 2)
+        ));
         menu.setBackground(Color.WHITE);
-        menu.add(crearItemModerno("Control de Caja", "🏦", e -> {
+
+        Font fontMenu = new Font("Segoe UI", Font.PLAIN, 14);
+
+        // --- OPCIÓN 1: Seleccionar Cliente ---
+        JMenuItem itemCliente = new JMenuItem("Seleccionar Cliente...", new com.formdev.flatlaf.icons.FlatSearchIcon());
+        itemCliente.setFont(fontMenu);
+        itemCliente.setIconTextGap(12);
+        itemCliente.addActionListener(e -> abrirDialogoCliente());
+
+        // --- OPCIÓN 2: Agregar Comentario ---
+        JMenuItem itemComentario = new JMenuItem("Agregar Comentario...", new com.formdev.flatlaf.icons.FlatClearIcon());
+        itemComentario.setFont(fontMenu);
+        itemComentario.setIconTextGap(12);
+        itemComentario.addActionListener(e -> abrirDialogoComentario());
+
+        // --- OPCIÓN 3: Control de Caja ---
+        JMenuItem itemCaja = new JMenuItem("Control de Caja");
+        itemCaja.setFont(fontMenu);
+        itemCaja.setIconTextGap(12);
+        itemCaja.addActionListener(e -> {
             try {
-                caja.CajaView vc = new caja.CajaView(cajaService); // <--- Le pasamos el servicio aquí
+                caja.CajaView vc = new caja.CajaView(cajaService);
                 vc.setVisible(true);
             } catch (Exception ex) {
-                ex.printStackTrace(); // Esto te dirá en consola si hay un error al abrir
+                ex.printStackTrace();
             }
-        }));
-        menu.add(crearItemModerno("Resumen de Ventas", "📊", e -> {
-            /* acción */ }));
-        menu.add(crearItemModerno("Configuración", "⚙️", e -> {
-            /* acción */ }));
+        });
+
+        // --- OPCIÓN 4: Resumen de Ventas ---
+        JMenuItem itemResumen = new JMenuItem("Resumen de Ventas");
+        itemResumen.setFont(fontMenu);
+        itemResumen.setIconTextGap(12);
+        itemResumen.addActionListener(e -> {
+            // TODO: Agrega aquí la llamada a tu método de Resumen de Ventas
+            // ej: abrirResumenVentas();
+        });
+
+        // --- OPCIÓN 5: Configuración ---
+        JMenuItem itemConfig = new JMenuItem("Configuración");
+        itemConfig.setFont(fontMenu);
+        itemConfig.setIconTextGap(12);
+        itemConfig.addActionListener(e -> {
+            // TODO: Agrega aquí la llamada a tu método de Configuración
+            // ej: abrirConfiguracion();
+        });
+
+        // Ensamblaje ordenado del menú con separador lógico
+        menu.add(itemCliente);
+        menu.add(itemComentario);
+        menu.addSeparator();
+        menu.add(itemCaja);
+        menu.add(itemResumen);
+        menu.add(itemConfig);
+
+        // Acción para mostrar el menú perfectamente alineado abajo del botón
         btnMas.addActionListener(e -> {
             menu.show(btnMas, btnMas.getWidth() - menu.getPreferredSize().width, btnMas.getHeight());
         });
 
-        // 3. Ubicación en el Grid
+        // 3. Ubicación final en el GridBagConstraints de la cabecera
         gbc.gridx = 3;
         gbc.weightx = 0.0;
         gbc.insets = new Insets(0, 5, 0, 20);
@@ -661,11 +872,13 @@ public class ventas extends JPanel {
                 }
 
                 ProductoDTO item = new ProductoDTO(
+                        p.getId(), // Asegúrate de pasar el ID primero
                         p.getSku(),
                         p.getName() != null ? p.getName() : "Sin nombre",
                         precioBD,
                         p.getImagePath(),
-                        p.isGranel());
+                        p.isGranel()
+                );
 
                 // Importante: Si tu ProductoDTO tiene el booleano isGranel, asegúrate de pasarlo también
                 item.setGranel(p.isGranel());
@@ -811,7 +1024,6 @@ public class ventas extends JPanel {
 
         for (Component c : panelCarritoContenedor.getComponents()) {
             if (c instanceof ItemProductoCarrito icv) {
-                // Sustituimos: totalVentaActual += precio * cantidad;
                 totalVentaActual = totalVentaActual.add(
                         icv.getProducto().getPrice().multiply(icv.getCantidad())
                 );
@@ -820,64 +1032,192 @@ public class ventas extends JPanel {
         }
 
         Window parentWindow = SwingUtilities.getWindowAncestor(this);
+
+        // --- OBTENCIÓN Y VALIDACIÓN REAL DEL CLIENTE SELECCIONADO ---
+        ClienteDTO clienteActual = null;
+        boolean esPublicoGeneral = true;
+        BigDecimal creditoDisponible = BigDecimal.ZERO;
+
+        try {
+            clientInterface.ItemClienteCombo itemSeleccionado
+                    = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
+
+            if (itemSeleccionado != null && itemSeleccionado.getId() != null) {
+                // Consulta a la BD por ID
+                clienteActual = clienteServicio.obtenerClientePorId(itemSeleccionado.getId());
+
+                if (clienteActual != null) {
+                    BigDecimal limite = clienteActual.getLimiteCredito() != null ? clienteActual.getLimiteCredito() : BigDecimal.ZERO;
+                    BigDecimal deuda = clienteActual.getDeudaActual() != null ? clienteActual.getDeudaActual() : BigDecimal.ZERO;
+                    creditoDisponible = limite.subtract(deuda);
+
+                    // Validamos SOLO por nombre para que el ID 1 no se bloquee como público general
+                    String nombreCliente = clienteActual.getNombre() != null ? clienteActual.getNombre().toLowerCase().trim() : "";
+                    esPublicoGeneral = nombreCliente.contains("público general")
+                            || nombreCliente.contains("publico general")
+                            || nombreCliente.isEmpty();
+                }
+            }
+        } catch (Exception ex) {
+            esPublicoGeneral = true;
+            creditoDisponible = BigDecimal.ZERO;
+        }
+
+        // Instancias el diálogo con los datos listos
         DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
+
+        // Pasas el estado real una sola vez
+        dialogo.setClienteActual(esPublicoGeneral, creditoDisponible);
+
         dialogo.setVisible(true);
 
         if (dialogo.isVentaConfirmada()) {
-            // Aquí puedes poner tu lógica real de base de datos
-            String folioGenerado = "NV-" + System.currentTimeMillis() / 1000;
-            BigDecimal cambioFinal = dialogo.getCambio();
+            try {
 
-            panelCarritoContenedor.removeAll();
-            panelCarritoContenedor.revalidate();
-            panelCarritoContenedor.repaint();
-            calcularTotales();
-            txtBuscador.setText("");
-            txtBuscador.requestFocusInWindow();
+                String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
+                Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
+                if (txtComentarios != null) {
+                    txtComentarios.setText("");
+                }
+                // Generamos el UUID / Folio único
+                String uuidGenerado = "NV-" + System.currentTimeMillis();
 
-            // FORMA CORRECTA:
-            DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
-            exito.setVisible(true);
-        }
-    }
+                // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
+                BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
 
-    private void buscarYAgregarDirecto() {
-        String query = txtBuscadorDirecto.getText().trim().toLowerCase();
+                // Si el cliente pagó en efectivo un monto mayor al total
+                BigDecimal cambioFinal = BigDecimal.ZERO;
+                if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
+                    cambioFinal = efectivoRecibido.subtract(totalVentaActual);
+                } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
+                    // Fallback si DialogoPago ya calcula el cambio correctamente
+                    cambioFinal = dialogo.getCambio();
+                }
 
-        if (query.isEmpty()) {
-            return;
-        }
+                CambioDTO nodoCambio = new CambioDTO();
+                nodoCambio.setEfectivoRecibido(efectivoRecibido);
+                nodoCambio.setCambioDevuelto(cambioFinal);
 
-        ProductoDTO encontrado = null;
+                VentaDTO ventaDto = new VentaDTO();
+                ventaDto.setUuidVenta(uuidGenerado);
+                ventaDto.setFechaVenta(LocalDate.now());
+                ventaDto.setHoraVenta(LocalTime.now());
 
-        // 1. Buscamos en la lista maestra por SKU o por Nombre exacto
-        for (ProductoDTO p : listaProductos) {
-            if (p.getSku().toLowerCase().equals(query) || p.getName().toLowerCase().equals(query)) {
-                encontrado = p;
-                break;
+                ventaDto.setCambio(nodoCambio);
+                ventaDto.setCliente(clienteActual);
+                ventaDto.setProductos(productosEnCarrito);
+                ventaDto.setFormasPagoMap(desglosePagos);
+                ventaDto.setComentarios(comentariosVenta);
+                ventaDto.setTotalVenta(totalVentaActual);
+
+                if (clienteActual != null && clienteActual.getId() != null) {
+                    ventaDto.setClienteId(clienteActual.getId());
+                }
+
+                String folioGenerado = ventaServicio.registrarVentaCompleta(ventaDto);
+
+                // Limpieza visual de la pantalla
+                panelCarritoContenedor.removeAll();
+                panelCarritoContenedor.revalidate();
+                panelCarritoContenedor.repaint();
+                calcularTotales();
+                txtBuscador.setText("");
+
+                // --- RESTABLECER CLIENTE A PÚBLICO GENERAL ÚNICAMENTE TRAS VENTA EXITOSA ---
+                if (comboClientes != null && comboClientes.getItemCount() > 0) {
+                    comboClientes.setSelectedIndex(0);
+                }
+
+                txtBuscador.requestFocusInWindow();
+
+                // Mostramos el diálogo con el folio registrado y el cambio exacto ($450.00 en lugar de $400.00)
+                DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
+                exito.setVisible(true);
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al guardar la venta: " + ex.getMessage(), "Error Crítico", JOptionPane.ERROR_MESSAGE);
             }
-        }
-
-        if (encontrado != null) {
-            // 2. CORRECCIÓN: Usamos alSeleccionarProducto para que si es a granel, 
-            // abra el modal de monto en dinero en lugar de agregar 1 unidad automáticamente.
-            alSeleccionarProducto(encontrado);
-
-            // 3. Limpieza y enfoque para el siguiente escaneo
-            txtBuscadorDirecto.setText("");
-            txtBuscadorDirecto.requestFocusInWindow();
-        } else {
-            // 4. Feedback si el SKU no existe
-            JOptionPane.showMessageDialog(this,
-                    "No se encontró ningún producto con el nombre o SKU: " + query,
-                    "Producto no encontrado",
-                    JOptionPane.ERROR_MESSAGE);
-            txtBuscadorDirecto.selectAll();
         }
     }
 
     /* ========== TARJETA CATÁLOGO MODIFICADA ========== */
     class CardProducto extends JPanel {
+
+        private void finalizarVenta() {
+            if (panelCarritoContenedor.getComponentCount() == 0) {
+                JOptionPane.showMessageDialog(this, "El carrito está vacío.");
+                return;
+            }
+
+            BigDecimal totalVentaActual = BigDecimal.ZERO;
+            List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
+
+            for (Component c : panelCarritoContenedor.getComponents()) {
+                if (c instanceof ItemProductoCarrito icv) {
+                    // Sustituimos: totalVentaActual += precio * cantidad;
+                    totalVentaActual = totalVentaActual.add(
+                            icv.getProducto().getPrice().multiply(icv.getCantidad())
+                    );
+                    productosEnCarrito.add(icv.getProducto());
+                }
+            }
+
+            Window parentWindow = SwingUtilities.getWindowAncestor(this);
+            DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
+            dialogo.setVisible(true);
+
+            if (dialogo.isVentaConfirmada()) {
+                // Aquí puedes poner tu lógica real de base de datos
+                String folioGenerado = "NV-" + System.currentTimeMillis() / 1000;
+                BigDecimal cambioFinal = dialogo.getCambio();
+
+                panelCarritoContenedor.removeAll();
+                panelCarritoContenedor.revalidate();
+                panelCarritoContenedor.repaint();
+                calcularTotales();
+                txtBuscador.setText("");
+                txtBuscador.requestFocusInWindow();
+
+                // FORMA CORRECTA:
+                DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
+                exito.setVisible(true);
+            }
+        }
+
+        private void buscarYAgregarDirecto() {
+            String query = txtBuscadorDirecto.getText().trim().toLowerCase();
+
+            if (query.isEmpty()) {
+                return;
+            }
+
+            ProductoDTO encontrado = null;
+
+            // 1. Buscamos en la lista maestra por SKU o por Nombre exacto
+            for (ProductoDTO p : listaProductos) {
+                if (p.getSku().toLowerCase().equals(query) || p.getName().toLowerCase().equals(query)) {
+                    encontrado = p;
+                    break;
+                }
+            }
+
+            if (encontrado != null) {
+                // 2. CORRECCIÓN: Usamos alSeleccionarProducto para que si es a granel, 
+                // abra el modal de monto en dinero en lugar de agregar 1 unidad automáticamente.
+                alSeleccionarProducto(encontrado);
+
+                // 3. Limpieza y enfoque para el siguiente escaneo
+                txtBuscadorDirecto.setText("");
+                txtBuscadorDirecto.requestFocusInWindow();
+            } else {
+                // 4. Feedback si el SKU no existe
+                JOptionPane.showMessageDialog(this,
+                        "No se encontró ningún producto con el nombre o SKU: " + query,
+                        "Producto no encontrado",
+                        JOptionPane.ERROR_MESSAGE);
+                txtBuscadorDirecto.selectAll();
+            }
+        }
 
         int index;
 

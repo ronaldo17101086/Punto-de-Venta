@@ -10,6 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import ventas.ventas;
 import productoFrom.productInterface;
+import clientes.clientInterface; // Importa tu panel de clientes
 
 @org.springframework.stereotype.Component
 public class dashboard extends JFrame {
@@ -23,6 +24,9 @@ public class dashboard extends JFrame {
     @Autowired
     private productInterface productosPanel;
 
+    @Autowired
+    private clientInterface clientesPanel; // Inyección del panel de clientes
+
     private JPanel sideMenu;
     private JPanel contentPanel;
     private CardLayout cardLayout;
@@ -35,7 +39,8 @@ public class dashboard extends JFrame {
     private final Color COLOR_FONDO = new Color(235, 238, 242);
     private final Color COLOR_EXITO = new Color(40, 167, 69);
     private final Color COLOR_PELIGRO = new Color(220, 53, 69);
-    private final Color COLOR_PROVEEDOR = new Color(108, 92, 231); // Color distintivo para proveedores
+    private final Color COLOR_PROVEEDOR = new Color(108, 92, 231);
+    private final Color COLOR_CLIENTE = new Color(32, 201, 151); // Color distintivo para clientes
 
     public dashboard() {
     }
@@ -101,6 +106,7 @@ public class dashboard extends JFrame {
         addMenuButton("\uD83D\uDCE6 Productos", "productos");
 
         addMenuHeader("GESTIÓN");
+        addMenuButton("\uD83D\uDC65 Clientes", "clientes");       // Botón de Clientes añadido
         addMenuButton("\uD83D\uDE9B Proveedores", "proveedores");
         addMenuButton("\uD83D\uDCB3 Pagos Realizados", "pagos_prov");
 
@@ -112,10 +118,11 @@ public class dashboard extends JFrame {
         contentPanel.setBackground(COLOR_FONDO);
         mainContainer.add(contentPanel, BorderLayout.CENTER);
 
-        // Pantallas
+        // Pantallas registradas en el CardLayout
         contentPanel.add(createCajaDefaultPanel(), "inicio");
         contentPanel.add(ventasPanel, "ventas");
         contentPanel.add(productosPanel, "productos");
+        contentPanel.add(clientesPanel, "clientes");             // Panel de Clientes añadido
         contentPanel.add(createScreen("GESTIÓN DE PROVEEDORES"), "proveedores");
         contentPanel.add(createScreen("HISTORIAL DE PAGOS"), "pagos_prov");
     }
@@ -125,7 +132,6 @@ public class dashboard extends JFrame {
         main.setBackground(COLOR_FONDO);
         main.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
 
-        // Título con Info de CajaDto
         JPanel header = new JPanel(new GridLayout(2, 1));
         header.setOpaque(false);
         JLabel lblTitulo = new JLabel("Resumen General de Caja");
@@ -138,7 +144,6 @@ public class dashboard extends JFrame {
         header.add(lblInfo);
         main.add(header, BorderLayout.NORTH);
 
-        // PANEL DE "CAJAS" DE RESUMEN (Ahora con 4 indicadores)
         JPanel cardsPanel = new JPanel(new GridLayout(1, 4, 15, 0));
         cardsPanel.setOpaque(false);
         cardsPanel.setPreferredSize(new Dimension(0, 125));
@@ -148,7 +153,6 @@ public class dashboard extends JFrame {
         cardsPanel.add(createStatCard("PAGOS PROV.", "$2,100.00", "Abonos a proveedores", COLOR_PROVEEDOR));
         cardsPanel.add(createStatCard("SALDO NETO", "$2,850.00", "Efectivo disponible", COLOR_ACCENTO));
 
-        // TABLA DE MOVIMIENTOS
         JPanel tablePanel = new JPanel(new BorderLayout(0, 10));
         tablePanel.setOpaque(false);
         
@@ -182,6 +186,7 @@ public class dashboard extends JFrame {
         return main;
     }
 
+    
     private JPanel createStatCard(String title, String value, String desc, Color accent) {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(Color.WHITE);
@@ -248,7 +253,7 @@ public class dashboard extends JFrame {
         sideMenu.add(Box.createRigidArea(new Dimension(0, 2)));
     }
 
-    private void logout() {
+        private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this, "¿Cerrar sesión?", "Chancuellar", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             this.dispose();
@@ -265,4 +270,6 @@ public class dashboard extends JFrame {
         panel.add(label);
         return panel;
     }
+    
+    
 }

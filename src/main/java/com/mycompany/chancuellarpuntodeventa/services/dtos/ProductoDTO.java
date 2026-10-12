@@ -6,18 +6,24 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import java.io.Serializable;
 import java.math.BigDecimal;
 
 @Entity
 @Table(name = "productos")
-public class ProductoDTO {
+public class ProductoDTO implements Serializable {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @Column(nullable = false, unique = true)
     private String sku;
+
+    @Column(nullable = false)
     private String name;
+
+    @Column(nullable = false)
     private BigDecimal price;
 
     @Column(name = "image_path")
@@ -29,7 +35,8 @@ public class ProductoDTO {
     public ProductoDTO() {
     }
 
-    public ProductoDTO(String sku, String name, BigDecimal price, String imagePath, boolean granel) {
+    public ProductoDTO(Long id, String sku, String name, BigDecimal price, String imagePath, boolean granel) {
+        this.id = id;
         this.sku = sku;
         this.name = name;
         this.price = price;
@@ -37,7 +44,7 @@ public class ProductoDTO {
         this.granel = granel;
     }
 
-    // --- EL BLOQUE QUE TE FALTA PARA EDITAR ---
+    // --- GETTERS Y SETTERS ---
     public Long getId() {
         return id;
     }
@@ -45,7 +52,6 @@ public class ProductoDTO {
     public void setId(Long id) {
         this.id = id;
     }
-    // ------------------------------------------
 
     public boolean isGranel() {
         return granel;

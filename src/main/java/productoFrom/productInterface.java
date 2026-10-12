@@ -73,13 +73,15 @@ public class productInterface extends JPanel {
                 BigDecimal precioSeguro = (p.getPrice() != null) ? p.getPrice() : BigDecimal.ZERO;
 
                 // 2. Creamos el objeto pasando el BigDecimal y el boolean de granel
-                todosLosProductos.add(new ProductoDTO(
-                        p.getSku(),
-                        p.getName() != null ? p.getName() : "Sin nombre",
-                        precioSeguro, // <-- BigDecimal puro
-                        p.getImagePath(),
-                        p.isGranel() // <-- El boolean que agregamos
-                ));
+                ProductoDTO item = new ProductoDTO();
+                item.setId(p.getId()); // Si tiene ID
+                item.setSku(p.getSku());
+                item.setName(p.getName() != null ? p.getName() : "Sin nombre");
+                item.setPrice(precioSeguro);
+                item.setImagePath(p.getImagePath());
+                item.setGranel(p.isGranel());
+
+                todosLosProductos.add(item);
             }
             todosLosProductos.sort((p1, p2) -> p1.getName().compareToIgnoreCase(p2.getName()));
             actualizarLista(todosLosProductos);

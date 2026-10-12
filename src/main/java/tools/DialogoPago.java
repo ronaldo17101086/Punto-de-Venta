@@ -12,6 +12,7 @@ import java.text.NumberFormat;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 public class DialogoPago extends JDialog {
 
@@ -22,6 +23,11 @@ public class DialogoPago extends JDialog {
     private JButton btnConfirmar;
     private final NumberFormat formatoMoneda = NumberFormat.getCurrencyInstance(new Locale("es", "MX"));
     private boolean ventaConfirmada = false;
+
+    // --- VARIABLES DE CONTROL DE CRÉDITO Y CLIENTE ---
+    private boolean esPublicoGeneral = true;
+    private BigDecimal creditoDisponible = BigDecimal.ZERO;
+    private JPanel cardCreditoRef; // Referencia para modificar su estado visual
 
     // --- COLORES ---
     private final Color COLOR_FONDO = new Color(245, 247, 251);
@@ -42,6 +48,35 @@ public class DialogoPago extends JDialog {
         setLocationRelativeTo(parent);
         setShape(new RoundRectangle2D.Double(0, 0, 1100, 750, 30, 30));
         initUI();
+    }
+
+    public void setClienteActual(boolean esPublicoGeneral, BigDecimal creditoDisponible) {
+        this.esPublicoGeneral = esPublicoGeneral;
+        this.creditoDisponible = creditoDisponible != null
+                ? creditoDisponible.max(BigDecimal.ZERO)
+                : BigDecimal.ZERO;
+
+        boolean tieneCreditoValido = !this.esPublicoGeneral
+                && this.creditoDisponible.compareTo(BigDecimal.ZERO) > 0;
+
+        JTextField txtCredito = camposPago.get(FormaPagoDto.CREDITO);
+
+        if (txtCredito != null) {
+            // Habilitamos o deshabilitamos la edición de acuerdo a si el cliente tiene crédito
+            txtCredito.setEditable(tieneCreditoValido);
+            // Lo dejamos en "0" de inicio para que el cajero elija libremente cuándo usarlo
+            txtCredito.setText("0");
+        }
+
+        if (cardCreditoRef != null) {
+            cardCreditoRef.setBackground(
+                    tieneCreditoValido ? Color.WHITE : new Color(240, 243, 246)
+            );
+            cardCreditoRef.setOpaque(true);
+            cardCreditoRef.repaint();
+        }
+
+        calcularTotales();
     }
 
     private void initUI() {
@@ -81,7 +116,13 @@ public class DialogoPago extends JDialog {
         gridPagos.setBorder(new EmptyBorder(30, 50, 30, 50));
 
         for (FormaPagoDto forma : FormaPagoDto.values()) {
-            gridPagos.add(crearCardPago(forma));
+            JPanel card = crearCardPago(forma);
+            gridPagos.add(card);
+
+            // Guardar referencia específica de la tarjeta de crédito
+            if (forma == FormaPagoDto.CREDITO) {
+                cardCreditoRef = card;
+            }
         }
 
         // Botón Confirmar
@@ -109,6 +150,18 @@ public class DialogoPago extends JDialog {
         calcularTotales();
     }
 
+    /**
+     * Retorna un mapa con todas las formas de pago y el monto ingresado en cada
+     * una.
+     */
+    public java.util.Map<String, BigDecimal> obtenerDesglosePagos() {
+        java.util.Map<String, BigDecimal> desglose = new java.util.HashMap<>();
+        for (Map.Entry<FormaPagoDto, JTextField> entry : camposPago.entrySet()) {
+            desglose.put(entry.getKey().name(), obtenerNumero(entry.getValue()));
+        }
+        return desglose;
+    }
+
     private JPanel crearCardPago(FormaPagoDto forma) {
         JPanel card = new JPanel(new BorderLayout(15, 0));
         card.setBackground(Color.WHITE);
@@ -116,7 +169,7 @@ public class DialogoPago extends JDialog {
                 new LineBorder(COLOR_BORDE, 1, true),
                 new EmptyBorder(15, 20, 15, 20)));
 
-        // Icono + Nombre (Se usa Font compatible con Emojis si es posible)
+        // Icono + Nombre
         JLabel lblIcono = new JLabel(getIcono(forma));
         lblIcono.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 25));
 
@@ -134,10 +187,15 @@ public class DialogoPago extends JDialog {
         txt.setBorder(null);
         txt.setHorizontalAlignment(JTextField.RIGHT);
 
-        // Bloqueo de letras
+        // Bloqueo de letras y validación general
         txt.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
+                if (forma == FormaPagoDto.CREDITO) {
+                    e.consume(); // El crédito se asigna en automático al hacer clic, no se escribe manualmente
+                    return;
+                }
+
                 char c = e.getKeyChar();
                 if (!Character.isDigit(c) && c != '.') {
                     e.consume();
@@ -149,14 +207,43 @@ public class DialogoPago extends JDialog {
 
             @Override
             public void keyReleased(KeyEvent e) {
-                calcularTotales();
+                if (forma != FormaPagoDto.CREDITO) {
+                    calcularTotales();
+                }
             }
         });
 
         txt.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
-                txt.selectAll();
+                if (forma == FormaPagoDto.CREDITO) {
+                    if (esPublicoGeneral) {
+                        JOptionPane.showMessageDialog(DialogoPago.this,
+                                "El Público General no cuenta con opciones de crédito.",
+                                "Restricción", JOptionPane.WARNING_MESSAGE);
+                        txt.transferFocus();
+                        return;
+                    }
+
+                    // Al hacer clic en Crédito: inyectamos el total completo de la venta de forma fija
+                    BigDecimal montoACredito = totalVenta.min(creditoDisponible);
+                    txt.setText(montoACredito.toPlainString());
+
+                    // Limpiamos las demás formas de pago para evitar cobros mixtos accidentales
+                    for (Map.Entry<FormaPagoDto, JTextField> entry : camposPago.entrySet()) {
+                        if (entry.getKey() != FormaPagoDto.CREDITO) {
+                            entry.getValue().setText("0");
+                        }
+                    }
+                } else {
+                    // Si haces clic en cualquier otro método (Efectivo, Tarjeta, etc.), el crédito vuelve a 0
+                    JTextField txtCredito = camposPago.get(FormaPagoDto.CREDITO);
+                    if (txtCredito != null) {
+                        txtCredito.setText("0");
+                    }
+                    txt.selectAll();
+                }
+                calcularTotales();
             }
         });
 
@@ -164,6 +251,14 @@ public class DialogoPago extends JDialog {
         card.add(pnlLeft, BorderLayout.WEST);
         card.add(txt, BorderLayout.CENTER);
         return card;
+    }
+
+    private BigDecimal obtenerNumeroSimulado(char nuevoChar) {
+        try {
+            return new BigDecimal(String.valueOf(nuevoChar));
+        } catch (Exception e) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private void calcularTotales() {
