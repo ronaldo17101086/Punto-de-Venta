@@ -363,18 +363,17 @@ public class ventas extends JPanel {
 
 // --- MÉTODOS DE DIÁLOGO FLOTANTE ---
     private void abrirDialogoCliente() {
-        // 1. ANTES de abrir la ventana, refrescamos los datos de la BD en el combo
+        // 1. Obtener todos los clientes de la BD previamente
+        List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
-            comboClientes.removeAllItems();
-            comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
-
             try {
                 List<ClienteDTO> clientes = clienteServicio.obtenerTodosLosClientes();
                 if (clientes != null) {
+                    listaClientesOriginales.add(null); // Público General por defecto
                     for (ClienteDTO c : clientes) {
                         String nombre = c.getNombre() != null ? c.getNombre().trim() : "";
                         if (!nombre.equalsIgnoreCase("público general") && !nombre.equalsIgnoreCase("publico general")) {
-                            comboClientes.addItem(new clientInterface.ItemClienteCombo(c.getId(), c.getNombre()));
+                            listaClientesOriginales.add(c);
                         }
                     }
                 }
@@ -383,66 +382,215 @@ public class ventas extends JPanel {
             }
         }
 
-        // 2. Creamos y mostramos el diálogo flotante
+        // Detectar qué ID de cliente está seleccionado actualmente en el combo principal
+        // Detectar qué ID de cliente está seleccionado actualmente en el combo principal
+        Long idClienteActualSeleccionado = null;
+        if (comboClientes != null && comboClientes.getSelectedItem() != null) {
+            Object seleccionado = comboClientes.getSelectedItem();
+            if (seleccionado instanceof clientInterface.ItemClienteCombo itemCombo) {
+                idClienteActualSeleccionado = itemCombo.getId(); // Será null si es Público General
+            }
+        }
+
+        // 2. Creamos y configuramos el diálogo flotante con mayor tamaño (520x420)
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Seleccionar Cliente", true);
-        dialog.setSize(400, 220);
+        dialog.setSize(520, 420);
         dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setLayout(new BorderLayout(0, 0));
 
-        JPanel panel = new JPanel(new GridLayout(3, 1, 10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        JPanel panelPrincipal = new JPanel(new BorderLayout(12, 12));
+        panelPrincipal.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panelPrincipal.setBackground(Color.WHITE);
 
-        JLabel lbl = new JLabel("Elija o busque el cliente para esta venta:");
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        // --- ENCABEZADO: Título y Buscador ---
+        JPanel panelNorte = new JPanel(new BorderLayout(8, 8));
+        panelNorte.setOpaque(false);
 
-        comboClientes.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        comboClientes.setMaximumRowCount(5); // Limitamos cuántos se despliegan visualmente para orden
+        JLabel lblTitulo = new JLabel("Buscar y Seleccionar Cliente:");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lblTitulo.setForeground(new Color(30, 41, 59));
 
-        JButton btnAceptar = new JButton("Aceptar");
-        btnAceptar.setBackground(new Color(34, 197, 94));
-        btnAceptar.setForeground(Color.WHITE);
-        btnAceptar.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        btnAceptar.addActionListener(e -> {
-            dialog.dispose(); // Cierra y mantiene seleccionado al cliente elegido
+        JTextField txtFiltro = new JTextField();
+        txtFiltro.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtFiltro.putClientProperty("JTextField.placeholderText", "Escribe el nombre o teléfono del cliente...");
+        txtFiltro.putClientProperty("JTextField.showClearButton", true);
+        txtFiltro.setPreferredSize(new Dimension(0, 38));
+
+        panelNorte.add(lblTitulo, BorderLayout.NORTH);
+        panelNorte.add(txtFiltro, BorderLayout.CENTER);
+
+        // --- TABLA DE CLIENTES ---
+        String[] columnas = {"ID", "Nombre del Cliente", "Teléfono"};
+        javax.swing.table.DefaultTableModel modeloTabla = new javax.swing.table.DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        javax.swing.JTable tablaClientes = new javax.swing.JTable(modeloTabla);
+        tablaClientes.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaClientes.setRowHeight(32);
+        tablaClientes.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        tablaClientes.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
+        tablaClientes.getColumnModel().getColumn(0).setMaxWidth(60);
+
+        // Variables empaquetadas para uso seguro dentro de la lambda
+        final Long idBusqueda = idClienteActualSeleccionado;
+        int[] filaASeleccionar = {0};
+
+        // Función para llenar la tabla dinámicamente
+        Runnable actualizarTabla = () -> {
+            modeloTabla.setRowCount(0);
+            String filtro = txtFiltro.getText().toLowerCase().trim();
+            int indexEnTabla = 0;
+
+            for (ClienteDTO c : listaClientesOriginales) {
+                if (c == null) {
+                    if (filtro.isEmpty() || "público general".contains(filtro)) {
+                        modeloTabla.addRow(new Object[]{"-", "Público General", "N/A"});
+                        if (idBusqueda == null) {
+                            filaASeleccionar[0] = indexEnTabla;
+                        }
+                        indexEnTabla++;
+                    }
+                } else {
+                    String nombre = c.getNombre() != null ? c.getNombre() : "";
+                    String telefono = c.getTelefono() != null ? c.getTelefono() : "";
+
+                    if (filtro.isEmpty() || nombre.toLowerCase().contains(filtro) || telefono.toLowerCase().contains(filtro)) {
+                        modeloTabla.addRow(new Object[]{c.getId(), nombre, telefono});
+                        if (idBusqueda != null && c.getId().equals(idBusqueda)) {
+                            filaASeleccionar[0] = indexEnTabla;
+                        }
+                        indexEnTabla++;
+                    }
+                }
+            }
+
+            // Seleccionar la fila correspondiente de forma automática
+            if (modeloTabla.getRowCount() > 0) {
+                int filaDestino = Math.min(filaASeleccionar[0], modeloTabla.getRowCount() - 1);
+                tablaClientes.setRowSelectionInterval(filaDestino, filaDestino);
+                tablaClientes.scrollRectToVisible(tablaClientes.getCellRect(filaDestino, 0, true));
+            }
+        };
+
+        // Ejecutar carga inicial
+        actualizarTabla.run();
+
+        // Escucha en tiempo real para el buscador
+        txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
         });
 
-        panel.add(lbl);
-        panel.add(comboClientes);
-        panel.add(btnAceptar);
+        javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
 
-        dialog.add(panel, BorderLayout.CENTER);
+        // --- BOTÓN DE ACCIÓN ---
+        JButton btnAceptar = new JButton("Seleccionar Cliente");
+        btnAceptar.setBackground(new Color(16, 185, 129));
+        btnAceptar.setForeground(Color.WHITE);
+        btnAceptar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnAceptar.setPreferredSize(new Dimension(0, 42));
+        btnAceptar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        Runnable seleccionarYSalir = () -> {
+            int filaSeleccionada = tablaClientes.getSelectedRow();
+            if (filaSeleccionada != -1) {
+                Object idObj = modeloTabla.getValueAt(filaSeleccionada, 0);
+
+                if (idObj instanceof Long idClienteReal) {
+                    for (ClienteDTO c : listaClientesOriginales) {
+                        if (c != null && c.getId().equals(idClienteReal)) {
+                            comboClientes.removeAllItems();
+                            comboClientes.addItem(new clientInterface.ItemClienteCombo(c.getId(), c.getNombre()));
+                            break;
+                        }
+                    }
+                } else {
+                    comboClientes.removeAllItems();
+                    comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+                }
+            }
+            dialog.dispose();
+        };
+
+        btnAceptar.addActionListener(e -> seleccionarYSalir.run());
+        tablaClientes.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseClicked(java.awt.event.MouseEvent evt) {
+                if (evt.getClickCount() == 2) {
+                    seleccionarYSalir.run();
+                }
+            }
+        });
+
+        panelPrincipal.add(panelNorte, BorderLayout.NORTH);
+        panelPrincipal.add(scrollPane, BorderLayout.CENTER);
+        panelPrincipal.add(btnAceptar, BorderLayout.SOUTH);
+
+        dialog.add(panelPrincipal);
         dialog.setVisible(true);
     }
 
+// --- MÉTODO DE DIÁLOGO FLOTANTE DE COMENTARIOS MEJORADO ---
     private void abrirDialogoComentario() {
+        // 1. Creamos y configuramos el diálogo con mayor tamaño (480x320) para dar comodidad
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Comentarios de Venta", true);
-        dialog.setSize(420, 200);
+        dialog.setSize(480, 320);
         dialog.setLocationRelativeTo(this);
-        dialog.setLayout(new BorderLayout(10, 10));
+        dialog.setLayout(new BorderLayout(0, 0));
 
-        JPanel panel = new JPanel(new GridLayout(3, 1, 10, 10));
-        panel.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        // Panel Principal con diseño limpio y moderno
+        JPanel panelPrincipal = new JPanel(new BorderLayout(12, 12));
+        panelPrincipal.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        panelPrincipal.setBackground(Color.WHITE);
 
+        // --- ENCABEZADO: Título descriptivo ---
         JLabel lbl = new JLabel("Ingrese notas o referencia para el ticket/venta:");
-        lbl.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        lbl.setForeground(new Color(30, 41, 59));
 
-        JTextField txtTemp = new JTextField(txtComentarios.getText());
-        txtTemp.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        // --- ÁREA DE TEXTO MULTILÍNEA ---
+        JTextArea txtAreaTemp = new JTextArea(txtComentarios.getText());
+        txtAreaTemp.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtAreaTemp.setLineWrap(true);          // Ajusta el texto al ancho del cuadro
+        txtAreaTemp.setWrapStyleWord(true);     // Evita que corte palabras a la mitad
+        txtAreaTemp.setMargin(new Insets(8, 8, 8, 8));
 
+        // Envolvemos el JTextArea en un JScrollPane para que aparezca la barra de desplazamiento si escriben mucho
+        JScrollPane scrollPane = new JScrollPane(txtAreaTemp);
+        scrollPane.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
+
+        // --- BOTÓN DE ACCIÓN ---
         JButton btnGuardar = new JButton("Guardar Nota");
-        btnGuardar.setBackground(new Color(34, 197, 94));
+        btnGuardar.setBackground(new Color(16, 185, 129)); // Verde moderno
         btnGuardar.setForeground(Color.WHITE);
         btnGuardar.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btnGuardar.setPreferredSize(new Dimension(0, 42));
+        btnGuardar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
         btnGuardar.addActionListener(e -> {
-            txtComentarios.setText(txtTemp.getText());
+            txtComentarios.setText(txtAreaTemp.getText());
             dialog.dispose();
         });
 
-        panel.add(lbl);
-        panel.add(txtTemp);
-        panel.add(btnGuardar);
+        // Ensamblaje ordenado en el panel principal
+        panelPrincipal.add(lbl, BorderLayout.NORTH);
+        panelPrincipal.add(scrollPane, BorderLayout.CENTER);
+        panelPrincipal.add(btnGuardar, BorderLayout.SOUTH);
 
-        dialog.add(panel, BorderLayout.CENTER);
+        dialog.add(panelPrincipal);
         dialog.setVisible(true);
     }
 
@@ -509,67 +657,83 @@ public class ventas extends JPanel {
     }
 
     private void configurarMenuOpciones(JPanel panelCabecera, GridBagConstraints gbc) {
-        // 1. Botón "Más" con los 3 puntos verticales dibujados profesionalmente
+        // 1. Botón "Más" con diseño limpio y minimalista
         JButton btnMas = new JButton() {
             @Override
             protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-                // Fondo al pasar el mouse (Efecto circular moderno)
+                // Efecto de botón sutil y elegante al pasar el cursor
                 if (getModel().isPressed()) {
-                    g2.setColor(new Color(226, 232, 240));
+                    g2.setColor(new Color(203, 213, 225));
                 } else if (getModel().isRollover()) {
-                    g2.setColor(new Color(241, 245, 249));
+                    g2.setColor(new Color(226, 232, 240));
                 } else {
-                    g2.setColor(new Color(0, 0, 0, 0)); // Transparente
+                    g2.setColor(new Color(248, 250, 252));
                 }
-                g2.fillRoundRect(5, 5, getWidth() - 10, getHeight() - 10, 100, 100);
+                g2.fillRoundRect(4, 4, getWidth() - 8, getHeight() - 8, 12, 12);
 
-                // Dibujar los 3 puntos verticalmente (Color Slate 600)
-                g2.setColor(new Color(71, 85, 105));
+                // Dibujar los 3 puntos con un color contrastante y elegante
+                g2.setColor(new Color(51, 65, 85));
                 int x = getWidth() / 2 - 2;
                 int yCenter = getHeight() / 2;
 
-                g2.fillOval(x, yCenter - 8, 4, 4); // Punto superior
-                g2.fillOval(x, yCenter - 1, 4, 4); // Punto medio
-                g2.fillOval(x, yCenter + 6, 4, 4); // Punto inferior
+                g2.fillOval(x, yCenter - 7, 4, 4);
+                g2.fillOval(x, yCenter - 1, 4, 4);
+                g2.fillOval(x, yCenter + 5, 4, 4);
                 g2.dispose();
             }
         };
 
-        btnMas.setPreferredSize(new Dimension(48, 48));
+        btnMas.setPreferredSize(new Dimension(44, 44));
         btnMas.setBorderPainted(false);
         btnMas.setContentAreaFilled(false);
         btnMas.setFocusPainted(false);
         btnMas.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // 2. Creación del Menú Desplegable Moderno con las 5 Opciones
-        JPopupMenu menu = new JPopupMenu();
-        menu.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(new Color(226, 232, 240), 1),
-                BorderFactory.createEmptyBorder(4, 2, 4, 2)
-        ));
-        menu.setBackground(Color.WHITE);
+        // 2. Menú desplegable estilo "Card" moderna (Fondo blanco limpio, sombras y bordes suaves)
+        JPopupMenu menu = new JPopupMenu() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
+                // Fondo principal blanco puro
+                g2.setColor(Color.WHITE);
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+
+                // Borde exterior fino y elegante
+                g2.setColor(new Color(226, 232, 240));
+                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 14, 14);
+                g2.dispose();
+            }
+        };
+
+        menu.setOpaque(false);
+        menu.setBorder(BorderFactory.createEmptyBorder(8, 8, 8, 8));
+
+        // Tipografía limpia y legible
         Font fontMenu = new Font("Segoe UI", Font.PLAIN, 14);
 
         // --- OPCIÓN 1: Seleccionar Cliente ---
-        JMenuItem itemCliente = new JMenuItem("Seleccionar Cliente...", new com.formdev.flatlaf.icons.FlatSearchIcon());
-        itemCliente.setFont(fontMenu);
-        itemCliente.setIconTextGap(12);
+        JMenuItem itemCliente = new JMenuItem("Seleccionar Cliente", new com.formdev.flatlaf.icons.FlatSearchIcon());
+        estilizarItemModoClaro(itemCliente, fontMenu);
         itemCliente.addActionListener(e -> abrirDialogoCliente());
 
         // --- OPCIÓN 2: Agregar Comentario ---
-        JMenuItem itemComentario = new JMenuItem("Agregar Comentario...", new com.formdev.flatlaf.icons.FlatClearIcon());
-        itemComentario.setFont(fontMenu);
-        itemComentario.setIconTextGap(12);
+        JMenuItem itemComentario = new JMenuItem("Agregar Comentario", new com.formdev.flatlaf.icons.FlatClearIcon());
+        estilizarItemModoClaro(itemComentario, fontMenu);
         itemComentario.addActionListener(e -> abrirDialogoComentario());
 
-        // --- OPCIÓN 3: Control de Caja ---
+        // --- OPCIÓN 3: Gestión de Importes ---
+        JMenuItem itemImportes = new JMenuItem("Gestión de Importes", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
+        estilizarItemModoClaro(itemImportes, fontMenu);
+        itemImportes.addActionListener(e -> abrirDialogoGestionImportes());
+
+        // --- OPCIÓN 4: Control de Caja ---
         JMenuItem itemCaja = new JMenuItem("Control de Caja");
-        itemCaja.setFont(fontMenu);
-        itemCaja.setIconTextGap(12);
+        estilizarItemModoClaro(itemCaja, fontMenu);
         itemCaja.addActionListener(e -> {
             try {
                 caja.CajaView vc = new caja.CajaView(cajaService);
@@ -579,49 +743,33 @@ public class ventas extends JPanel {
             }
         });
 
-        // --- OPCIÓN 4: Resumen de Ventas ---
-        JMenuItem itemResumen = new JMenuItem("Resumen de Ventas");
-        itemResumen.setFont(fontMenu);
-        itemResumen.setIconTextGap(12);
-        itemResumen.addActionListener(e -> {
-            // TODO: Agrega aquí la llamada a tu método de Resumen de Ventas
-            // ej: abrirResumenVentas();
-        });
-
-        // --- OPCIÓN 5: Configuración ---
-        JMenuItem itemConfig = new JMenuItem("Configuración");
-        itemConfig.setFont(fontMenu);
-        itemConfig.setIconTextGap(12);
-        itemConfig.addActionListener(e -> {
-            // TODO: Agrega aquí la llamada a tu método de Configuración
-            // ej: abrirConfiguracion();
-        });
-
-        // --- NUEVA OPCIÓN: Historial y Devolución de Importes ---
-        JMenuItem itemImportes = new JMenuItem("Gestión de Importes...");
-        itemImportes.setFont(fontMenu);
-        itemImportes.setIconTextGap(12);
-        itemImportes.addActionListener(e -> abrirDialogoGestionImportes());
-
-        // Ensamblaje ordenado del menú con separador lógico
+        // Ensamblaje ordenado con separador estético
         menu.add(itemCliente);
         menu.add(itemComentario);
-        menu.add(itemImportes); // <--- Agregado aquí
+        menu.add(itemImportes);
         menu.addSeparator();
         menu.add(itemCaja);
-        menu.add(itemResumen);
-        menu.add(itemConfig);
 
-        // Acción para mostrar el menú perfectamente alineado abajo del botón
+        // Mostrar menú alineado correctamente
         btnMas.addActionListener(e -> {
-            menu.show(btnMas, btnMas.getWidth() - menu.getPreferredSize().width, btnMas.getHeight());
+            menu.show(btnMas, btnMas.getWidth() - menu.getPreferredSize().width, btnMas.getHeight() + 4);
         });
 
-        // 3. Ubicación final en el GridBagConstraints de la cabecera
+        // 3. Ubicación final en la cabecera
         gbc.gridx = 3;
         gbc.weightx = 0.0;
-        gbc.insets = new Insets(0, 5, 0, 20);
+        gbc.insets = new Insets(0, 5, 0, 15);
         panelCabecera.add(btnMas, gbc);
+    }
+
+    // Método auxiliar para darles espaciado y un diseño limpio a las opciones
+    private void estilizarItemModoClaro(JMenuItem item, Font font) {
+        item.setFont(font);
+        item.setForeground(new Color(30, 41, 59)); // Texto oscuro de alta legibilidad
+        item.setIconTextGap(14);
+        item.setOpaque(true);
+        item.setBackground(Color.WHITE);
+        item.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
     }
 
     private void abrirDialogoGestionImportes() {
@@ -1153,142 +1301,144 @@ public class ventas extends JPanel {
     }
 
     private void finalizarVenta() {
-    if (panelCarritoContenedor.getComponentCount() == 0) {
-        JOptionPane.showMessageDialog(this, "El carrito está vacío.");
-        return;
-    }
-
-    BigDecimal totalVentaActual = BigDecimal.ZERO;
-    List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
-
-    for (Component c : panelCarritoContenedor.getComponents()) {
-        if (c instanceof ItemProductoCarrito icv) {
-            totalVentaActual = totalVentaActual.add(
-                    icv.getProducto().getPrice().multiply(icv.getCantidad())
-            );
-            
-            // --- CORRECCIÓN AQUÍ ---
-            // Obtenemos el producto y le asignamos explícitamente su cantidad real
-            ProductoDTO productoConCantidad = icv.getProducto();
-            productoConCantidad.setCantidad(icv.getCantidad());
-            
-            productosEnCarrito.add(productoConCantidad);
+        if (panelCarritoContenedor.getComponentCount() == 0) {
+            JOptionPane.showMessageDialog(this, "El carrito está vacío.");
+            return;
         }
-    }
 
-    Window parentWindow = SwingUtilities.getWindowAncestor(this);
+        BigDecimal totalVentaActual = BigDecimal.ZERO;
+        List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
 
-    // --- OBTENCIÓN Y VALIDACIÓN REAL DEL CLIENTE SELECCIONADO ---
-    ClienteDTO clienteActual = null;
-    boolean esPublicoGeneral = true;
-    BigDecimal creditoDisponible = BigDecimal.ZERO;
+        for (Component c : panelCarritoContenedor.getComponents()) {
+            if (c instanceof ItemProductoCarrito icv) {
+                totalVentaActual = totalVentaActual.add(
+                        icv.getProducto().getPrice().multiply(icv.getCantidad())
+                );
 
-    try {
-        clientInterface.ItemClienteCombo itemSeleccionado
-                = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
+                // --- CORRECCIÓN AQUÍ ---
+                // Obtenemos el producto y le asignamos explícitamente su cantidad real
+                ProductoDTO productoConCantidad = icv.getProducto();
+                productoConCantidad.setCantidad(icv.getCantidad());
 
-        if (itemSeleccionado != null && itemSeleccionado.getId() != null) {
-            // Consulta a la BD por ID
-            clienteActual = clienteServicio.obtenerClientePorId(itemSeleccionado.getId());
-
-            if (clienteActual != null) {
-                BigDecimal limite = clienteActual.getLimiteCredito() != null ? clienteActual.getLimiteCredito() : BigDecimal.ZERO;
-                BigDecimal deuda = clienteActual.getDeudaActual() != null ? clienteActual.getDeudaActual() : BigDecimal.ZERO;
-                creditoDisponible = limite.subtract(deuda);
-
-                // Validamos SOLO por nombre para que el ID 1 no se bloquee como público general
-                String nombreCliente = clienteActual.getNombre() != null ? clienteActual.getNombre().toLowerCase().trim() : "";
-                esPublicoGeneral = nombreCliente.contains("público general")
-                        || nombreCliente.contains("publico general")
-                        || nombreCliente.isEmpty();
+                productosEnCarrito.add(productoConCantidad);
             }
         }
-    } catch (Exception ex) {
-        esPublicoGeneral = true;
-        creditoDisponible = BigDecimal.ZERO;
-    }
 
-    // Instancias el diálogo con los datos listos
-    DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
+        Window parentWindow = SwingUtilities.getWindowAncestor(this);
 
-    // Pasas el estado real una sola vez
-    dialogo.setClienteActual(esPublicoGeneral, creditoDisponible);
+        // --- OBTENCIÓN Y VALIDACIÓN REAL DEL CLIENTE SELECCIONADO ---
+        ClienteDTO clienteActual = null;
+        boolean esPublicoGeneral = true;
+        BigDecimal creditoDisponible = BigDecimal.ZERO;
 
-    dialogo.setVisible(true);
-
-    if (dialogo.isVentaConfirmada()) {
         try {
+            clientInterface.ItemClienteCombo itemSeleccionado
+                    = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
 
-            String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
-            Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
-            if (txtComentarios != null) {
-                txtComentarios.setText("");
+            if (itemSeleccionado != null && itemSeleccionado.getId() != null) {
+                // Consulta a la BD por ID
+                clienteActual = clienteServicio.obtenerClientePorId(itemSeleccionado.getId());
+
+                if (clienteActual != null) {
+                    BigDecimal limite = clienteActual.getLimiteCredito() != null ? clienteActual.getLimiteCredito() : BigDecimal.ZERO;
+                    BigDecimal deuda = clienteActual.getDeudaActual() != null ? clienteActual.getDeudaActual() : BigDecimal.ZERO;
+                    creditoDisponible = limite.subtract(deuda);
+
+                    // Validamos SOLO por nombre para que el ID 1 no se bloquee como público general
+                    String nombreCliente = clienteActual.getNombre() != null ? clienteActual.getNombre().toLowerCase().trim() : "";
+                    esPublicoGeneral = nombreCliente.contains("público general")
+                            || nombreCliente.contains("publico general")
+                            || nombreCliente.isEmpty();
+                }
             }
-            // Generamos el UUID / Folio único
-            String uuidGenerado = "NV-" + System.currentTimeMillis();
-
-            // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
-            BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
-
-            // Si el cliente pagó en efectivo un monto mayor al total
-            BigDecimal cambioFinal = BigDecimal.ZERO;
-            if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
-                cambioFinal = efectivoRecibido.subtract(totalVentaActual);
-            } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
-                // Fallback si DialogoPago ya calcula el cambio correctamente
-                cambioFinal = dialogo.getCambio();
-            }
-
-            CambioDTO nodoCambio = new CambioDTO();
-            nodoCambio.setEfectivoRecibido(efectivoRecibido);
-            nodoCambio.setCambioDevuelto(cambioFinal);
-
-            VentaDTO ventaDto = new VentaDTO();
-            ventaDto.setUuidVenta(uuidGenerado);
-            ventaDto.setFechaVenta(LocalDate.now());
-            ventaDto.setHoraVenta(LocalTime.now());
-
-            ventaDto.setCambio(nodoCambio);
-            ventaDto.setCliente(clienteActual);
-            ventaDto.setProductos(productosEnCarrito);
-            ventaDto.setFormasPagoMap(desglosePagos);
-            ventaDto.setComentarios(comentariosVenta);
-            ventaDto.setTotalVenta(totalVentaActual);
-
-            // --- AGREGAR ESTAS LÍNEAS AQUÍ ---
-            boolean esCreditoVenta = dialogo.isEsCredito();
-            ventaDto.setEsCredito(esCreditoVenta);
-            // ---------------------------------
-
-            if (clienteActual != null && clienteActual.getId() != null) {
-                ventaDto.setClienteId(clienteActual.getId());
-            }
-
-            String folioGenerado = ventaServicio.registrarVentaCompleta(ventaDto);
-
-            // Limpieza visual de la pantalla
-            panelCarritoContenedor.removeAll();
-            panelCarritoContenedor.revalidate();
-            panelCarritoContenedor.repaint();
-            calcularTotales();
-            txtBuscador.setText("");
-
-            // --- RESTABLECER CLIENTE A PÚBLICO GENERAL ÚNICAMENTE TRAS VENTA EXITOSA ---
-            if (comboClientes != null && comboClientes.getItemCount() > 0) {
-                comboClientes.setSelectedIndex(0);
-            }
-
-            txtBuscador.requestFocusInWindow();
-
-            // Mostramos el diálogo con el folio registrado y el cambio exacto
-            DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
-            exito.setVisible(true);
-
         } catch (Exception ex) {
-            JOptionPane.showMessageDialog(this, "Error al guardar la venta: " + ex.getMessage(), "Error Crítico", JOptionPane.ERROR_MESSAGE);
+            esPublicoGeneral = true;
+            creditoDisponible = BigDecimal.ZERO;
+        }
+
+        // Instancias el diálogo con los datos listos
+        DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
+
+        // Pasas el estado real una sola vez
+        dialogo.setClienteActual(esPublicoGeneral, creditoDisponible);
+
+        dialogo.setVisible(true);
+
+        if (dialogo.isVentaConfirmada()) {
+            try {
+
+                String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
+                Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
+                if (txtComentarios != null) {
+                    txtComentarios.setText("");
+                }
+                // Generamos el UUID / Folio único
+                String uuidGenerado = "NV-" + System.currentTimeMillis();
+
+                // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
+                BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
+
+                // Si el cliente pagó en efectivo un monto mayor al total
+                BigDecimal cambioFinal = BigDecimal.ZERO;
+                if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
+                    cambioFinal = efectivoRecibido.subtract(totalVentaActual);
+                } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
+                    // Fallback si DialogoPago ya calcula el cambio correctamente
+                    cambioFinal = dialogo.getCambio();
+                }
+
+                CambioDTO nodoCambio = new CambioDTO();
+                nodoCambio.setEfectivoRecibido(efectivoRecibido);
+                nodoCambio.setCambioDevuelto(cambioFinal);
+
+                VentaDTO ventaDto = new VentaDTO();
+                ventaDto.setUuidVenta(uuidGenerado);
+                ventaDto.setFechaVenta(LocalDate.now());
+                ventaDto.setHoraVenta(LocalTime.now());
+
+                ventaDto.setCambio(nodoCambio);
+                ventaDto.setCliente(clienteActual);
+                ventaDto.setProductos(productosEnCarrito);
+                ventaDto.setFormasPagoMap(desglosePagos);
+                ventaDto.setComentarios(comentariosVenta);
+                ventaDto.setTotalVenta(totalVentaActual);
+
+                // --- AGREGAR ESTAS LÍNEAS AQUÍ ---
+                boolean esCreditoVenta = dialogo.isEsCredito();
+                ventaDto.setEsCredito(esCreditoVenta);
+                // ---------------------------------
+
+                if (clienteActual != null && clienteActual.getId() != null) {
+                    ventaDto.setClienteId(clienteActual.getId());
+                }
+
+                String folioGenerado = ventaServicio.registrarVentaCompleta(ventaDto);
+
+                // Limpieza visual de la pantalla
+                panelCarritoContenedor.removeAll();
+                panelCarritoContenedor.revalidate();
+                panelCarritoContenedor.repaint();
+                calcularTotales();
+                txtBuscador.setText("");
+
+                // --- RESTABLECER CLIENTE A PÚBLICO GENERAL ÚNICAMENTE TRAS VENTA EXITOSA ---
+                if (comboClientes != null) {
+                    comboClientes.removeAllItems();
+                    comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+                    comboClientes.setSelectedIndex(0);
+                }
+                txtBuscador.requestFocusInWindow();
+
+                // Mostramos el diálogo con el folio registrado y el cambio exacto
+                DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
+                exito.setVisible(true);
+
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error al guardar la venta: " + ex.getMessage(), "Error Crítico", JOptionPane.ERROR_MESSAGE);
+            }
         }
     }
-}
+
     /* ========== TARJETA CATÁLOGO MODIFICADA ========== */
     class CardProducto extends JPanel {
 

@@ -16,6 +16,7 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class ClienteServicio {
@@ -25,16 +26,17 @@ public class ClienteServicio {
 
     @Autowired
     private DataSource dataSource;
-    
-    // --- AQUÍ FALTABA INYECTAR EL SERVICIO DE CAJA ---
+
     @Autowired
     private CajaService cajaService;
 
     @Autowired
     public void inicializarTablaDevoluciones() {
+        // Aseguramos que la tabla incluya producto_id para que no falle el registro
         String sql = "CREATE TABLE IF NOT EXISTS envases_devoluciones ("
                 + "id INT AUTO_INCREMENT PRIMARY KEY, "
                 + "cliente_id BIGINT, "
+                + "producto_id BIGINT, "
                 + "cantidad INT, "
                 + "monto_descontado DECIMAL(10,2) DEFAULT 0.00, "
                 + "fecha_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP)";
@@ -77,8 +79,7 @@ public class ClienteServicio {
     }
 
     private int calcularEnvasesCliente(Long clienteId) {
-        // Conteo de comprados: Exclusivo ventas a crédito (v.es_credito = 1) y palabra 'prestado'
-        String sqlComprados = "SELECT COUNT(vp.producto_id) "
+        String sqlComprados = "SELECT COALESCE(SUM(vp.cantidad), 0) "
                 + "FROM ventas v "
                 + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
                 + "JOIN productos p ON vp.producto_id = p.id "
@@ -114,66 +115,59 @@ public class ClienteServicio {
     }
 
     private void obtenerDetalleEnvasesCliente(ClienteDTO cliente) {
-        // Detalle de comprados: Exclusivo ventas a crédito (v.es_credito = 1) y palabra 'prestado'
-        String sqlComprados = "SELECT p.name AS producto, COUNT(vp.producto_id) AS cantidad "
+        // Consulta general de productos de ventas a crédito del cliente sin restricciones estrictas de nombres
+        String sqlComprados = "SELECT p.id AS producto_id, p.name AS producto, SUM(vp.cantidad) AS cantidad "
                 + "FROM ventas v "
                 + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
                 + "JOIN productos p ON vp.producto_id = p.id "
-                + "WHERE v.cliente_id = ? AND (v.es_credito = 1 OR v.es_credito IS TRUE) AND "
-                + "LOWER(p.name) LIKE '%prestado%' "
-                + "GROUP BY p.name";
+                + "WHERE v.cliente_id = ? "
+                + "GROUP BY p.id, p.name";
 
-        String sqlDevueltos = "SELECT COALESCE(SUM(cantidad), 0) FROM envases_devoluciones WHERE cliente_id = ?";
+        String sqlDevueltos = "SELECT producto_id, SUM(cantidad) AS devueltos FROM envases_devoluciones WHERE cliente_id = ? GROUP BY producto_id";
 
-        int totalDevueltos = 0;
+        java.util.Map<Long, Integer> mapaDevueltos = new java.util.HashMap<>();
         try (Connection conn = dataSource.getConnection()) {
+
+            // 1. Cargar devoluciones
             try (PreparedStatement pstmt = conn.prepareStatement(sqlDevueltos)) {
                 pstmt.setLong(1, cliente.getId());
                 ResultSet rs = pstmt.executeQuery();
-                if (rs.next()) {
-                    totalDevueltos = rs.getInt(1);
+                while (rs.next()) {
+                    mapaDevueltos.put(rs.getLong("producto_id"), rs.getInt("devueltos"));
                 }
             }
 
+            // 2. Calcular compras menos devoluciones
             try (PreparedStatement pstmt = conn.prepareStatement(sqlComprados)) {
                 pstmt.setLong(1, cliente.getId());
                 ResultSet rs = pstmt.executeQuery();
 
-                int totalComprados = 0;
-                java.util.Map<String, Integer> productosCompradosMap = new java.util.LinkedHashMap<>();
+                int totalPendientesGlobal = 0;
+                StringBuilder desglose = new StringBuilder();
 
                 while (rs.next()) {
+                    Long prodId = rs.getLong("producto_id");
                     String nombreProd = rs.getString("producto");
-                    int cant = rs.getInt("cantidad");
-                    totalComprados += cant;
-                    productosCompradosMap.put(nombreProd, cant);
-                }
+                    int cantPrestada = rs.getInt("cantidad");
+                    int cantDevuelta = mapaDevueltos.getOrDefault(prodId, 0);
 
-                int pendientes = totalComprados - totalDevueltos;
-                if (pendientes < 0) {
-                    pendientes = 0;
-                }
-
-                cliente.setEnvasesPendientes(pendientes);
-
-                if (pendientes > 0 && !productosCompradosMap.isEmpty()) {
-                    StringBuilder desglose = new StringBuilder();
-                    int restantePorAsignar = pendientes;
-
-                    for (java.util.Map.Entry<String, Integer> entry : productosCompradosMap.entrySet()) {
-                        int cantAsignar = Math.min(entry.getValue(), restantePorAsignar);
-                        if (cantAsignar > 0) {
-                            if (desglose.length() > 0) {
-                                desglose.append(", ");
-                            }
-                            desglose.append(cantAsignar).append(" ").append(entry.getKey());
-                            restantePorAsignar -= cantAsignar;
-                        }
+                    int cantRealPendiente = cantPrestada - cantDevuelta;
+                    if (cantRealPendiente < 0) {
+                        cantRealPendiente = 0;
                     }
-                    cliente.setDetalleProductos(desglose.toString());
-                } else {
-                    cliente.setDetalleProductos("Sin productos prestados");
+
+                    totalPendientesGlobal += cantRealPendiente;
+
+                    if (cantRealPendiente > 0) {
+                        if (desglose.length() > 0) {
+                            desglose.append(", ");
+                        }
+                        desglose.append(cantRealPendiente).append(" ").append(nombreProd);
+                    }
                 }
+
+                cliente.setEnvasesPendientes(totalPendientesGlobal);
+                cliente.setDetalleProductos(desglose.length() > 0 ? desglose.toString() : "Sin productos prestados");
             }
         } catch (SQLException e) {
             System.err.println("Error al calcular desglose de envases: " + e.getMessage());
@@ -192,6 +186,21 @@ public class ClienteServicio {
             System.err.println("Error al obtener precio de envase: " + e.getMessage());
         }
         return new BigDecimal("10.00");
+    }
+
+    public BigDecimal obtenerPrecioProducto(Long productoId) {
+        String sqlPrecio = "SELECT p.price FROM productos p WHERE p.id = ?";
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlPrecio)) {
+            pstmt.setLong(1, productoId);
+            ResultSet rs = pstmt.executeQuery();
+            if (rs.next()) {
+                BigDecimal precio = rs.getBigDecimal(1);
+                return precio != null ? precio : BigDecimal.ZERO;
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener precio del producto: " + e.getMessage());
+        }
+        return BigDecimal.ZERO;
     }
 
     public void guardarCliente(ClienteDTO cliente) {
@@ -222,52 +231,168 @@ public class ClienteServicio {
         clienteRepository.deleteById(id);
     }
 
- public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, int envasesDevueltos) throws Exception {
+    public Map<Long, String> obtenerProductosPrestadosCliente(Long clienteId) {
+        Map<Long, String> productosMap = new java.util.LinkedHashMap<>();
+
+        // Consulta directa y segura de los productos en ventas del cliente restando sus devoluciones
+        String sql = "SELECT p.id, p.name FROM productos p "
+                + "JOIN ("
+                + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
+                + "    FROM ventas v "
+                + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
+                + "    WHERE v.cliente_id = ? "
+                + "    GROUP BY vp.producto_id"
+                + ") prestados ON p.id = prestados.producto_id "
+                + "LEFT JOIN ("
+                + "    SELECT ed.producto_id, SUM(ed.cantidad) as total_devuelto "
+                + "    FROM envases_devoluciones ed "
+                + "    WHERE ed.cliente_id = ? "
+                + "    GROUP BY ed.producto_id"
+                + ") devueltos ON p.id = devueltos.producto_id "
+                + "WHERE prestados.total_prestado > COALESCE(devueltos.total_devuelto, 0)";
+
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+            pstmt.setLong(1, clienteId);
+            pstmt.setLong(2, clienteId);
+            ResultSet rs = pstmt.executeQuery();
+            while (rs.next()) {
+                productosMap.put(rs.getLong("id"), rs.getString("name"));
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener productos prestados del cliente: " + e.getMessage());
+        }
+        return productosMap;
+    }
+
+    public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Long productoId, int cantidadDevuelta) throws Exception {
         ClienteDTO cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new Exception("El cliente no existe en la base de datos."));
 
         BigDecimal deudaActual = cliente.getDeudaActual() != null ? cliente.getDeudaActual() : BigDecimal.ZERO;
         BigDecimal valorTotalDescuento = BigDecimal.ZERO;
 
-        int envasesPendientesActuales = calcularEnvasesCliente(clienteId);
+        try (Connection conn = dataSource.getConnection()) {
+            // 1. Si se indicó una devolución manual de un producto específico en el modal
+            if (cantidadDevuelta > 0 && productoId != null) {
+                int prestadasProducto = 0;
+                String sqlPrestadas = "SELECT COALESCE(SUM(vp.cantidad), 0) FROM ventas v "
+                        + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
+                        + "WHERE v.cliente_id = ? AND vp.producto_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sqlPrestadas)) {
+                    ps.setLong(1, clienteId);
+                    ps.setLong(2, productoId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        prestadasProducto = rs.getInt(1);
+                    }
+                }
 
-        if (envasesDevueltos > 0) {
-            if (envasesDevueltos > envasesPendientesActuales) {
-                throw new Exception("No puedes registrar la devolución de " + envasesDevueltos + " envases porque el cliente solo debe " + envasesPendientesActuales + " pzas.");
+                int devueltasProducto = 0;
+                String sqlDevueltasProd = "SELECT COALESCE(SUM(cantidad), 0) FROM envases_devoluciones WHERE cliente_id = ? AND producto_id = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sqlDevueltasProd)) {
+                    ps.setLong(1, clienteId);
+                    ps.setLong(2, productoId);
+                    ResultSet rs = ps.executeQuery();
+                    if (rs.next()) {
+                        devueltasProducto = rs.getInt(1);
+                    }
+                }
+
+                int pendientesProducto = prestadasProducto - devueltasProducto;
+                if (pendientesProducto < 0) {
+                    pendientesProducto = 0;
+                }
+
+                if (cantidadDevuelta > pendientesProducto) {
+                    throw new Exception("No puedes devolver " + cantidadDevuelta + " piezas. El cliente solo tiene " + pendientesProducto + " pendientes de este artículo.");
+                }
+
+                String sqlPrecio = "SELECT p.price FROM productos p WHERE p.id = ?";
+                BigDecimal precioUnitarioReal = BigDecimal.ZERO;
+                try (PreparedStatement pstmt = conn.prepareStatement(sqlPrecio)) {
+                    pstmt.setLong(1, productoId);
+                    ResultSet rs = pstmt.executeQuery();
+                    if (rs.next()) {
+                        precioUnitarioReal = rs.getBigDecimal(1);
+                    }
+                }
+                if (precioUnitarioReal == null) {
+                    precioUnitarioReal = BigDecimal.ZERO;
+                }
+
+                BigDecimal valorEnvasesDevueltos = precioUnitarioReal.multiply(new BigDecimal(cantidadDevuelta));
+                valorTotalDescuento = valorTotalDescuento.add(valorEnvasesDevueltos);
+
+                String sqlIns = "INSERT INTO envases_devoluciones (cliente_id, producto_id, cantidad, monto_descontado) VALUES (?, ?, ?, ?)";
+                try (PreparedStatement pstmt = conn.prepareStatement(sqlIns)) {
+                    pstmt.setLong(1, clienteId);
+                    pstmt.setLong(2, productoId);
+                    pstmt.setInt(3, cantidadDevuelta);
+                    pstmt.setBigDecimal(4, valorEnvasesDevueltos);
+                    pstmt.executeUpdate();
+                }
             }
 
-            BigDecimal precioEnvase = obtenerPrecioUnitarioEnvase();
-            BigDecimal valorEnvasesDevueltos = precioEnvase.multiply(new BigDecimal(envasesDevueltos));
-            valorTotalDescuento = valorTotalDescuento.add(valorEnvasesDevueltos);
+            // 2. Si hay abono en dinero adicional (Opción B: al abonar dinero, se devuelven automáticamente los envases pendientes)
+            if (montoAbono != null && montoAbono.compareTo(BigDecimal.ZERO) > 0) {
+                if (montoAbono.compareTo(deudaActual) > 0) {
+                    throw new Exception("El abono de $" + montoAbono + " no puede ser mayor a la deuda actual del cliente ($" + deudaActual + ").");
+                }
+                valorTotalDescuento = valorTotalDescuento.add(montoAbono);
 
-            String sqlIns = "INSERT INTO envases_devoluciones (cliente_id, cantidad, monto_descontado) VALUES (?, ?, ?)";
-            try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlIns)) {
-                pstmt.setLong(1, clienteId);
-                pstmt.setInt(2, envasesDevueltos);
-                pstmt.setBigDecimal(3, valorEnvasesDevueltos);
-                pstmt.executeUpdate();
-            }
-        }
+                try {
+                    MovimientoCajaDto mov = new MovimientoCajaDto();
+                    mov.setTipo(TipoMovimiento.ENTRADA);
+                    mov.setMonto(montoAbono.doubleValue());
+                    mov.setConcepto("Abono de Crédito - Cliente ID: " + clienteId);
+                    mov.setUsuario("ADMIN");
 
-        if (montoAbono != null && montoAbono.compareTo(BigDecimal.ZERO) > 0) {
-            if (montoAbono.compareTo(deudaActual) > 0) {
-                throw new Exception("El abono de $" + montoAbono + " no puede ser mayor a la deuda actual del cliente ($" + deudaActual + ").");
-            }
-            valorTotalDescuento = valorTotalDescuento.add(montoAbono);
+                    cajaService.registrarMovimiento(1, mov, montoAbono.doubleValue(), false);
+                } catch (Exception e) {
+                    System.err.println("[ADVERTENCIA] No se pudo registrar el abono en la caja: " + e.getMessage());
+                }
 
-            // ===================================================================
-            // REGISTRAR EL ABONO EN LA CAJA INMEDIATAMENTE (Aunque sea parcial)
-            // ===================================================================
-            try {
-                MovimientoCajaDto mov = new MovimientoCajaDto();
-                mov.setTipo(TipoMovimiento.ENTRADA);
-                mov.setMonto(montoAbono.doubleValue());
-                mov.setConcepto("Abono de Crédito - Cliente ID: " + clienteId);
-                mov.setUsuario("ADMIN");
+                // Registrar automáticamente la devolución de todos los productos pendientes en envases_devoluciones
+                String sqlPendientes = "SELECT p.id AS producto_id, p.price, "
+                        + "(COALESCE(prestados.total_prestado, 0) - COALESCE(devueltos.total_devuelto, 0)) AS pendiente "
+                        + "FROM productos p "
+                        + "JOIN ("
+                        + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
+                        + "    FROM ventas v "
+                        + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
+                        + "    WHERE v.cliente_id = ? GROUP BY vp.producto_id"
+                        + ") prestados ON p.id = prestados.producto_id "
+                        + "LEFT JOIN ("
+                        + "    SELECT ed.producto_id, SUM(ed.cantidad) as total_devuelto "
+                        + "    FROM envases_devoluciones ed "
+                        + "    WHERE ed.cliente_id = ? GROUP BY ed.producto_id"
+                        + ") devueltos ON p.id = devueltos.producto_id "
+                        + "HAVING pendiente > 0";
 
-                cajaService.registrarMovimiento(1, mov, montoAbono.doubleValue(), false);
-            } catch (Exception e) {
-                System.err.println("[ADVERTENCIA] No se pudo registrar el abono en la caja: " + e.getMessage());
+                try (PreparedStatement psPend = conn.prepareStatement(sqlPendientes)) {
+                    psPend.setLong(1, clienteId);
+                    psPend.setLong(2, clienteId);
+                    ResultSet rsPend = psPend.executeQuery();
+
+                    String sqlInsAuto = "INSERT INTO envases_devoluciones (cliente_id, producto_id, cantidad, monto_descontado) VALUES (?, ?, ?, ?)";
+                    while (rsPend.next()) {
+                        Long pId = rsPend.getLong("producto_id");
+                        int cantPendiente = rsPend.getInt("pendiente");
+                        BigDecimal precioP = rsPend.getBigDecimal("price");
+                        if (precioP == null) {
+                            precioP = BigDecimal.ZERO;
+                        }
+                        BigDecimal subtotalP = precioP.multiply(new BigDecimal(cantPendiente));
+
+                        try (PreparedStatement psIns = conn.prepareStatement(sqlInsAuto)) {
+                            psIns.setLong(1, clienteId);
+                            psIns.setLong(2, pId);
+                            psIns.setInt(3, cantPendiente);
+                            psIns.setBigDecimal(4, subtotalP);
+                            psIns.executeUpdate();
+                        }
+                    }
+                }
             }
         }
 
@@ -275,32 +400,15 @@ public class ClienteServicio {
             throw new Exception("Debe ingresar un monto de abono válido o indicar al menos 1 envase a devolver.");
         }
 
-        // --- SI SE PAGA TODA LA CUENTA EN DINERO, SALDAMOS LOS ENVASES RESTANTES AUTOMÁTICAMENTE ---
-        boolean pagaTodaLaCuenta = (montoAbono != null && montoAbono.compareTo(deudaActual) == 0);
-
-        if (pagaTodaLaCuenta && envasesPendientesActuales > envasesDevueltos) {
-            int envasesExtrasADevolver = envasesPendientesActuales - envasesDevueltos;
-            BigDecimal precioEnvase = obtenerPrecioUnitarioEnvase();
-            BigDecimal valorEnvasesExtras = precioEnvase.multiply(new BigDecimal(envasesExtrasADevolver));
-
-            String sqlIns = "INSERT INTO envases_devoluciones (cliente_id, cantidad, monto_descontado) VALUES (?, ?, ?)";
-            try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlIns)) {
-                pstmt.setLong(1, clienteId);
-                pstmt.setInt(2, envasesExtrasADevolver);
-                pstmt.setBigDecimal(3, valorEnvasesExtras);
-                pstmt.executeUpdate();
-            }
-        }
-        // ------------------------------------------------------------------------------------------
-
+        // 3. Actualizamos la deuda restando el total
         if (valorTotalDescuento.compareTo(deudaActual) > 0) {
-            BigDecimal nuevaDeuda = BigDecimal.ZERO;
-            clienteRepository.actualizarDeudaPorId(clienteId, nuevaDeuda);
+            clienteRepository.actualizarDeudaPorId(clienteId, BigDecimal.ZERO);
         } else {
             BigDecimal nuevaDeuda = deudaActual.subtract(valorTotalDescuento);
             clienteRepository.actualizarDeudaPorId(clienteId, nuevaDeuda);
         }
     }
+
     public BigDecimal calcularDeudaTotal() {
         List<ClienteDTO> clientes = clienteRepository.findAll();
         BigDecimal total = BigDecimal.ZERO;

@@ -3,14 +3,13 @@ package com.mycompany.chancuellarpuntodeventa.services.dashboard;
 import com.mycompany.chancuellarpuntodeventa.login.LoginInterface;
 import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
-import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import ventas.ventas;
 import productoFrom.productInterface;
-import clientes.clientInterface; // Importa tu panel de clientes
+import clientes.clientInterface;
 
 @org.springframework.stereotype.Component
 public class dashboard extends JFrame {
@@ -25,7 +24,7 @@ public class dashboard extends JFrame {
     private productInterface productosPanel;
 
     @Autowired
-    private clientInterface clientesPanel; // Inyección del panel de clientes
+    private clientInterface clientesPanel;
 
     private JPanel sideMenu;
     private JPanel contentPanel;
@@ -40,7 +39,7 @@ public class dashboard extends JFrame {
     private final Color COLOR_EXITO = new Color(40, 167, 69);
     private final Color COLOR_PELIGRO = new Color(220, 53, 69);
     private final Color COLOR_PROVEEDOR = new Color(108, 92, 231);
-    private final Color COLOR_CLIENTE = new Color(32, 201, 151); // Color distintivo para clientes
+    private final Color COLOR_CLIENTE = new Color(32, 201, 151);
 
     public dashboard() {
     }
@@ -63,7 +62,7 @@ public class dashboard extends JFrame {
         topBar.setPreferredSize(new Dimension(0, 45));
         topBar.setBackground(COLOR_BARRA_SUP);
 
-        JLabel lblTitle = new JLabel("CHANCUELLAR POS", SwingConstants.CENTER);
+        JLabel lblTitle = new JLabel("Punto de Venta CHANCUELLAR", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(Color.WHITE);
         topBar.add(lblTitle, BorderLayout.CENTER);
@@ -84,7 +83,7 @@ public class dashboard extends JFrame {
         btnLogout.setFont(new Font("Segoe UI", Font.BOLD, 11));
         btnLogout.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
         btnLogout.addActionListener(e -> logout());
-        
+
         rightPanel.add(btnLogout);
         topBar.add(rightPanel, BorderLayout.EAST);
         add(topBar, BorderLayout.NORTH);
@@ -101,14 +100,11 @@ public class dashboard extends JFrame {
         sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
 
         addMenuHeader("OPERACIONES");
-        addMenuButton("\uD83C\uDFE0 Dashboard", "inicio");
         addMenuButton("\uD83D\uDED2 Ventas", "ventas");
         addMenuButton("\uD83D\uDCE6 Productos", "productos");
 
-        addMenuHeader("GESTIÓN");
-        addMenuButton("\uD83D\uDC65 Clientes", "clientes");       // Botón de Clientes añadido
-        addMenuButton("\uD83D\uDE9B Proveedores", "proveedores");
-        addMenuButton("\uD83D\uDCB3 Pagos Realizados", "pagos_prov");
+        addMenuHeader("CREDITO");
+        addMenuButton("\uD83D\uDC65 Clientes", "clientes");
 
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
@@ -118,101 +114,9 @@ public class dashboard extends JFrame {
         contentPanel.setBackground(COLOR_FONDO);
         mainContainer.add(contentPanel, BorderLayout.CENTER);
 
-        // Pantallas registradas en el CardLayout
-        contentPanel.add(createCajaDefaultPanel(), "inicio");
         contentPanel.add(ventasPanel, "ventas");
         contentPanel.add(productosPanel, "productos");
-        contentPanel.add(clientesPanel, "clientes");             // Panel de Clientes añadido
-        contentPanel.add(createScreen("GESTIÓN DE PROVEEDORES"), "proveedores");
-        contentPanel.add(createScreen("HISTORIAL DE PAGOS"), "pagos_prov");
-    }
-
-    private JPanel createCajaDefaultPanel() {
-        JPanel main = new JPanel(new BorderLayout(20, 20));
-        main.setBackground(COLOR_FONDO);
-        main.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
-
-        JPanel header = new JPanel(new GridLayout(2, 1));
-        header.setOpaque(false);
-        JLabel lblTitulo = new JLabel("Resumen General de Caja");
-        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblTitulo.setForeground(COLOR_PRIMARIO);
-        
-        JLabel lblInfo = new JLabel("Caja: Principal | Usuario: Admin | Estado: ABIERTA");
-        lblInfo.setForeground(Color.GRAY);
-        header.add(lblTitulo);
-        header.add(lblInfo);
-        main.add(header, BorderLayout.NORTH);
-
-        JPanel cardsPanel = new JPanel(new GridLayout(1, 4, 15, 0));
-        cardsPanel.setOpaque(false);
-        cardsPanel.setPreferredSize(new Dimension(0, 125));
-
-        cardsPanel.add(createStatCard("ENTRADAS", "$5,400.00", "Ventas totales", COLOR_EXITO));
-        cardsPanel.add(createStatCard("SALIDAS GRAL", "$450.00", "Gastos/Retiros", COLOR_PELIGRO));
-        cardsPanel.add(createStatCard("PAGOS PROV.", "$2,100.00", "Abonos a proveedores", COLOR_PROVEEDOR));
-        cardsPanel.add(createStatCard("SALDO NETO", "$2,850.00", "Efectivo disponible", COLOR_ACCENTO));
-
-        JPanel tablePanel = new JPanel(new BorderLayout(0, 10));
-        tablePanel.setOpaque(false);
-        
-        JLabel lblTable = new JLabel("Últimos Movimientos y Pagos");
-        lblTable.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        tablePanel.add(lblTable, BorderLayout.NORTH);
-
-        String[] columns = {"Fecha", "Concepto / Proveedor", "Tipo", "Monto", "Método", "Usuario"};
-        Object[][] data = {
-            {"2026-04-27 08:30", "Venta Publico General", "INGRESO", "$450.00", "EFECTIVO", "Cajero1"},
-            {"2026-04-27 09:15", "PROVEEDOR: Coca-Cola", "PAGO PROV", "$1,200.00", "TRANSFERENCIA", "Admin"},
-            {"2026-04-27 10:00", "Pago de Luz (Recibo)", "SALIDA", "$300.00", "EFECTIVO", "Admin"},
-            {"2026-04-27 11:20", "PROVEEDOR: Sabritas", "PAGO PROV", "$900.00", "EFECTIVO", "Admin"}
-        };
-
-        JTable table = new JTable(new DefaultTableModel(data, columns));
-        table.setRowHeight(35);
-        table.setShowVerticalLines(false);
-        table.setSelectionBackground(new Color(230, 240, 255));
-        
-        JScrollPane scroll = new JScrollPane(table);
-        scroll.putClientProperty(FlatClientProperties.STYLE, "arc:10");
-        tablePanel.add(scroll, BorderLayout.CENTER);
-
-        JPanel body = new JPanel(new BorderLayout(0, 20));
-        body.setOpaque(false);
-        body.add(cardsPanel, BorderLayout.NORTH);
-        body.add(tablePanel, BorderLayout.CENTER);
-
-        main.add(body, BorderLayout.CENTER);
-        return main;
-    }
-
-    
-    private JPanel createStatCard(String title, String value, String desc, Color accent) {
-        JPanel card = new JPanel(new BorderLayout());
-        card.setBackground(Color.WHITE);
-        card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
-            BorderFactory.createEmptyBorder(12, 15, 12, 15)
-        ));
-        card.putClientProperty(FlatClientProperties.STYLE, "arc:15");
-
-        JLabel lblTitle = new JLabel(title);
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblTitle.setForeground(new Color(130, 130, 130));
-
-        JLabel lblValue = new JLabel(value);
-        lblValue.setFont(new Font("Segoe UI", Font.BOLD, 22));
-        lblValue.setForeground(accent);
-
-        JLabel lblDesc = new JLabel(desc);
-        lblDesc.setFont(new Font("Segoe UI", Font.PLAIN, 10));
-        lblDesc.setForeground(Color.GRAY);
-
-        card.add(lblTitle, BorderLayout.NORTH);
-        card.add(lblValue, BorderLayout.CENTER);
-        card.add(lblDesc, BorderLayout.SOUTH);
-
-        return card;
+        contentPanel.add(clientesPanel, "clientes");
     }
 
     private void addMenuHeader(String text) {
@@ -241,6 +145,7 @@ public class dashboard extends JFrame {
                 btn.setForeground(Color.WHITE);
                 btn.setBorder(BorderFactory.createMatteBorder(0, 4, 0, 0, COLOR_ACCENTO));
             }
+
             public void mouseExited(MouseEvent e) {
                 btn.setBackground(COLOR_PRIMARIO);
                 btn.setForeground(new Color(190, 200, 215));
@@ -253,23 +158,11 @@ public class dashboard extends JFrame {
         sideMenu.add(Box.createRigidArea(new Dimension(0, 2)));
     }
 
-        private void logout() {
+    private void logout() {
         int confirm = JOptionPane.showConfirmDialog(this, "¿Cerrar sesión?", "Chancuellar", JOptionPane.YES_NO_OPTION);
         if (confirm == JOptionPane.YES_OPTION) {
             this.dispose();
             context.getBean(LoginInterface.class).setVisible(true);
         }
     }
-
-    private JPanel createScreen(String text) {
-        JPanel panel = new JPanel(new GridBagLayout());
-        panel.setBackground(COLOR_FONDO);
-        JLabel label = new JLabel(text);
-        label.setFont(new Font("Segoe UI Light", Font.PLAIN, 40));
-        label.setForeground(new Color(180, 190, 210));
-        panel.add(label);
-        return panel;
-    }
-    
-    
 }
