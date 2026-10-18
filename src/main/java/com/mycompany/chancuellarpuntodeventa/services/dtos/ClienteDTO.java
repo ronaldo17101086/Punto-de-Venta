@@ -1,6 +1,4 @@
-
 package com.mycompany.chancuellarpuntodeventa.services.dtos;
-
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
@@ -27,27 +25,97 @@ public class ClienteDTO {
 
     private String estado = "ACTIVO";
 
-    public ClienteDTO() {}
+    // Atributo temporal para los envases pendientes (no se mapea directamente como columna estricta si lo calculas por consulta)
+    @Transient
+    private Integer envasesPendientes = 0;
+
+    @Transient
+    private String detalleEnvases = "";
+
+    public String getDetalleEnvases() {
+        return detalleEnvases;
+    }
+
+    public void setDetalleEnvases(String detalleEnvases) {
+        this.detalleEnvases = detalleEnvases;
+    }
+
+    @Transient
+    private String detalleProductos = "";
+
+    public String getDetalleProductos() {
+        return detalleProductos;
+    }
+
+    public void setDetalleProductos(String detalleProductos) {
+        this.detalleProductos = detalleProductos;
+    }
+
+    public ClienteDTO() {
+    }
 
     // Getters y Setters
-    public Long getId() { return id; }
-    public void setId(Long id) { this.id = id; }
+    public Long getId() {
+        return id;
+    }
 
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
+    public void setId(Long id) {
+        this.id = id;
+    }
 
-    public String getTelefono() { return telefono; }
-    public void setTelefono(String telefono) { this.telefono = telefono; }
+    public String getNombre() {
+        return nombre;
+    }
 
-    public String getDireccion() { return direccion; }
-    public void setDireccion(String direccion) { this.direccion = direccion; }
+    public void setNombre(String nombre) {
+        this.nombre = nombre;
+    }
 
-    public BigDecimal getLimiteCredito() { return limiteCredito; }
-    public void setLimiteCredito(BigDecimal limiteCredito) { this.limiteCredito = limiteCredito; }
+    public String getTelefono() {
+        return telefono;
+    }
 
-    public BigDecimal getDeudaActual() { return deudaActual; }
-    public void setDeudaActual(BigDecimal deudaActual) { this.deudaActual = deudaActual; }
+    public void setTelefono(String telefono) {
+        this.telefono = telefono;
+    }
 
-    public String getEstado() { return estado; }
-    public void setEstado(String estado) { this.estado = estado; }
+    public String getDireccion() {
+        return direccion;
+    }
+
+    public void setDireccion(String direccion) {
+        this.direccion = direccion;
+    }
+
+    public BigDecimal getLimiteCredito() {
+        return limiteCredito;
+    }
+
+    public void setLimiteCredito(BigDecimal limiteCredito) {
+        this.limiteCredito = limiteCredito;
+    }
+
+    public BigDecimal getDeudaActual() {
+        return deudaActual;
+    }
+
+    public void setDeudaActual(BigDecimal deudaActual) {
+        this.deudaActual = deudaActual;
+    }
+
+    public String getEstado() {
+        return estado;
+    }
+
+    public void setEstado(String estado) {
+        this.estado = estado;
+    }
+
+    public Integer getEnvasesPendientes() {
+        return envasesPendientes;
+    }
+
+    public void setEnvasesPendientes(Integer envasesPendientes) {
+        this.envasesPendientes = envasesPendientes;
+    }
 }

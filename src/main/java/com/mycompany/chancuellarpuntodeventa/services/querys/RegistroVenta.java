@@ -1,13 +1,9 @@
 package com.mycompany.chancuellarpuntodeventa.services.querys;
 
-import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "ventas")
@@ -27,7 +23,7 @@ public class RegistroVenta {
     private BigDecimal total;
 
     @Column(nullable = false, length = 30)
-    private String tipoPago; // "EFECTIVO", "CREDITO", etc.
+    private String tipoPago;
 
     @Column(nullable = false)
     private boolean esCredito;
@@ -47,15 +43,6 @@ public class RegistroVenta {
     @Column(name = "cambio_devuelto")
     private BigDecimal cambioDevuelto;
 
-    // Relación ManyToMany apuntando a ProductoDTO
-    @ManyToMany(cascade = CascadeType.MERGE)
-    @JoinTable(
-        name = "venta_productos",
-        joinColumns = @JoinColumn(name = "registro_venta_id"),
-        inverseJoinColumns = @JoinColumn(name = "producto_id")
-    )
-    private List<ProductoDTO> productos = new ArrayList<>();
-
     @PrePersist
     public void prePersist() {
         if (this.fechaVenta == null) {
@@ -70,32 +57,6 @@ public class RegistroVenta {
     }
 
     public RegistroVenta() {
-    }
-
-    // --- MÉTODO AUXILIAR PARA MAPEAR DESDE EL DTO ---
-    public void mapearDesdeDTO(com.mycompany.chancuellarpuntodeventa.services.dtos.VentaDTO dto) {
-        this.uuidVenta = dto.getUuidVenta();
-        this.clienteId = dto.getClienteId();
-        this.total = dto.getTotalVenta();
-        this.tipoPago = dto.getTipoPago();
-        this.esCredito = dto.isEsCredito();
-        this.comentarios = dto.getComentarios();
-        this.fechaVenta = dto.getFechaVenta() != null ? dto.getFechaVenta() : LocalDate.now();
-        this.horaVenta = dto.getHoraVenta() != null ? dto.getHoraVenta() : LocalTime.now();
-
-        // Asignación directa de los productos del DTO para que Hibernate procese los IDs en la tabla intermedia
-        if (dto.getProductos() != null) {
-            this.productos = new ArrayList<>(dto.getProductos());
-        }
-
-        // Mapeo seguro del nodo CambioDTO
-        if (dto.getCambio() != null) {
-            this.efectivoRecibido = dto.getCambio().getEfectivoRecibido();
-            this.cambioDevuelto = dto.getCambio().getCambioDevuelto();
-        } else {
-            this.efectivoRecibido = BigDecimal.ZERO;
-            this.cambioDevuelto = BigDecimal.ZERO;
-        }
     }
 
     // --- GETTERS Y SETTERS ---
@@ -185,13 +146,5 @@ public class RegistroVenta {
 
     public void setCambioDevuelto(BigDecimal cambioDevuelto) {
         this.cambioDevuelto = cambioDevuelto;
-    }
-
-    public List<ProductoDTO> getProductos() {
-        return productos;
-    }
-
-    public void setProductos(List<ProductoDTO> productos) {
-        this.productos = productos;
     }
 }

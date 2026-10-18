@@ -26,7 +26,8 @@ public class clientInterface extends JPanel {
     private JLabel lblDeudaTotalVal;
     private JLabel lblCreditoGlobalVal;
 
-    public clientInterface() {}
+    public clientInterface() {
+    }
 
     @jakarta.annotation.PostConstruct
     public void init() {
@@ -50,12 +51,20 @@ public class clientInterface extends JPanel {
         txtBuscar = new JTextField(16);
         txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar cliente...");
         txtBuscar.putClientProperty(FlatClientProperties.STYLE, "arc:10");
-        
+
         txtBuscar.addActionListener(e -> filtrarClientesTabla());
         txtBuscar.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                filtrarClientesTabla();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                filtrarClientesTabla();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                filtrarClientesTabla();
+            }
         });
         actionPanel.add(txtBuscar);
 
@@ -69,7 +78,7 @@ public class clientInterface extends JPanel {
         btnActualizar.addActionListener(e -> cargarDatosTabla());
         actionPanel.add(btnActualizar);
 
-        JButton btnAbono = new JButton("💳 Abonar");
+        JButton btnAbono = new JButton("💳 Abonar / Devolver");
         btnAbono.setBackground(new Color(23, 162, 184));
         btnAbono.setForeground(Color.WHITE);
         btnAbono.setFont(new Font("Segoe UI", Font.BOLD, 12));
@@ -115,7 +124,7 @@ public class clientInterface extends JPanel {
         JPanel statsPanel = new JPanel(new GridLayout(1, 3, 15, 0));
         statsPanel.setOpaque(false);
         statsPanel.setPreferredSize(new Dimension(0, 85));
-        
+
         lblTotalClientesVal = new JLabel("0");
         lblDeudaTotalVal = new JLabel("$0.00");
         lblCreditoGlobalVal = new JLabel("$0.00");
@@ -123,12 +132,21 @@ public class clientInterface extends JPanel {
         statsPanel.add(createMiniStatCardCustom("Total Clientes", lblTotalClientesVal, new Color(0, 153, 255)));
         statsPanel.add(createMiniStatCardCustom("Deuda Total en Tienda", lblDeudaTotalVal, new Color(220, 53, 69)));
         statsPanel.add(createMiniStatCardCustom("Crédito Global Disp.", lblCreditoGlobalVal, new Color(40, 167, 69)));
-        
+
         centerPanel.add(statsPanel, BorderLayout.NORTH);
 
-        // ===== TABLA DE CLIENTES (Sin la columna Estado) =====
-        String[] columnas = {"ID", "Nombre / Razón Social", "Teléfono", "Límite Crédito", "Deuda Actual (Debe)", "Crédito Disponible"};
-        
+        // ===== TABLA DE CLIENTES CON LA NUEVA COLUMNA DE DETALLE =====
+        String[] columnas = {
+            "ID",
+            "Nombre / Razón Social",
+            "Teléfono",
+            "Límite Crédito",
+            "Deuda Actual (Debe)",
+            "Crédito Disponible",
+            "Envases que Debe",
+            "Detalle de Productos Prestados"
+        };
+
         tableModel = new DefaultTableModel(null, columnas) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -155,8 +173,8 @@ public class clientInterface extends JPanel {
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
-            BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
-            BorderFactory.createEmptyBorder(10, 15, 10, 15)
+                BorderFactory.createLineBorder(new Color(220, 220, 220), 1),
+                BorderFactory.createEmptyBorder(10, 15, 10, 15)
         ));
         card.putClientProperty(FlatClientProperties.STYLE, "arc:12");
 
@@ -184,13 +202,20 @@ public class clientInterface extends JPanel {
             BigDecimal deuda = c.getDeudaActual() != null ? c.getDeudaActual() : BigDecimal.ZERO;
             BigDecimal disponible = limite.subtract(deuda);
 
+            int envasesDebe = c.getEnvasesPendientes() != null ? c.getEnvasesPendientes() : 0;
+            String detalleProd = (c.getDetalleProductos() != null && !c.getDetalleProductos().isEmpty())
+                    ? c.getDetalleProductos()
+                    : "Sin productos prestados";
+
             tableModel.addRow(new Object[]{
                 c.getId(),
                 c.getNombre(),
                 c.getTelefono() != null ? c.getTelefono() : "N/A",
                 "$" + limite,
                 "$" + deuda,
-                "$" + disponible
+                "$" + disponible,
+                envasesDebe + " pzas",
+                detalleProd
             });
 
             deudaTotalTienda = deudaTotalTienda.add(deuda);
@@ -214,13 +239,20 @@ public class clientInterface extends JPanel {
             BigDecimal deuda = c.getDeudaActual() != null ? c.getDeudaActual() : BigDecimal.ZERO;
             BigDecimal disponible = limite.subtract(deuda);
 
+            int envasesDebe = c.getEnvasesPendientes() != null ? c.getEnvasesPendientes() : 0;
+            String detalleProd = (c.getDetalleProductos() != null && !c.getDetalleProductos().isEmpty())
+                    ? c.getDetalleProductos()
+                    : "Sin productos prestados";
+
             tableModel.addRow(new Object[]{
                 c.getId(),
                 c.getNombre(),
                 c.getTelefono() != null ? c.getTelefono() : "N/A",
                 "$" + limite,
                 "$" + deuda,
-                "$" + disponible
+                "$" + disponible,
+                envasesDebe + " pzas",
+                detalleProd
             });
 
             deudaTotalTienda = deudaTotalTienda.add(deuda);
@@ -258,12 +290,12 @@ public class clientInterface extends JPanel {
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(Color.WHITE);
-        
+
         JButton btnGuardar = new JButton("Guardar Cliente");
         btnGuardar.setBackground(new Color(32, 201, 151));
         btnGuardar.setForeground(Color.WHITE);
         btnGuardar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
-        
+
         btnGuardar.addActionListener(e -> {
             try {
                 ClienteDTO nuevo = new ClienteDTO();
@@ -276,7 +308,7 @@ public class clientInterface extends JPanel {
                 clienteServicio.guardarCliente(nuevo);
                 JOptionPane.showMessageDialog(dialog, "¡Cliente guardado exitosamente!");
                 dialog.dispose();
-                cargarDatosTabla(); 
+                cargarDatosTabla();
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog, "Error: Verifique que los campos numéricos sean válidos.", "Error", JOptionPane.ERROR_MESSAGE);
             }
@@ -299,7 +331,9 @@ public class clientInterface extends JPanel {
         List<ClienteDTO> clientes = clienteServicio.obtenerTodosLosClientes();
         ClienteDTO clienteActual = clientes.stream().filter(c -> c.getId().equals(clienteId)).findFirst().orElse(null);
 
-        if (clienteActual == null) return;
+        if (clienteActual == null) {
+            return;
+        }
 
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Editar Cliente", true);
         dialog.setSize(420, 380);
@@ -326,20 +360,20 @@ public class clientInterface extends JPanel {
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(Color.WHITE);
-        
+
         JButton btnActualizar = new JButton("Actualizar Cliente");
         btnActualizar.setBackground(new Color(255, 193, 7));
         btnActualizar.setForeground(new Color(40, 40, 40));
         btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
-        
+
         btnActualizar.addActionListener(e -> {
             try {
                 clienteServicio.actualizarCliente(
-                    clienteId,
-                    txtNombre.getText().trim(),
-                    txtTelefono.getText().trim(),
-                    txtDireccion.getText().trim(),
-                    new BigDecimal(txtLimiteCredito.getText().trim())
+                        clienteId,
+                        txtNombre.getText().trim(),
+                        txtTelefono.getText().trim(),
+                        txtDireccion.getText().trim(),
+                        new BigDecimal(txtLimiteCredito.getText().trim())
                 );
                 JOptionPane.showMessageDialog(dialog, "¡Cliente actualizado correctamente!");
                 dialog.dispose();
@@ -365,10 +399,10 @@ public class clientInterface extends JPanel {
         Long clienteId = (Long) tableModel.getValueAt(filaSeleccionada, 0);
         String nombreCliente = (String) tableModel.getValueAt(filaSeleccionada, 1);
 
-        int confirmacion = JOptionPane.showConfirmDialog(this, 
-            "¿Está seguro de eliminar al cliente " + nombreCliente + "?", 
-            "Confirmar Eliminación", 
-            JOptionPane.YES_NO_OPTION);
+        int confirmacion = JOptionPane.showConfirmDialog(this,
+                "¿Está seguro de eliminar al cliente " + nombreCliente + "?",
+                "Confirmar Eliminación",
+                JOptionPane.YES_NO_OPTION);
 
         if (confirmacion == JOptionPane.YES_OPTION) {
             try {
@@ -382,12 +416,12 @@ public class clientInterface extends JPanel {
     }
 
     private void abrirModalAbono() {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono a Deuda", true);
-        dialog.setSize(420, 260);
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono y/o Devolución de Envases", true);
+        dialog.setSize(440, 300);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout());
 
-        JPanel form = new JPanel(new GridLayout(3, 2, 10, 15));
+        JPanel form = new JPanel(new GridLayout(4, 2, 10, 15));
         form.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         form.setBackground(Color.WHITE);
 
@@ -395,24 +429,28 @@ public class clientInterface extends JPanel {
         JComboBox<ItemClienteCombo> cmbClientes = new JComboBox<>();
         for (ClienteDTO c : clientes) {
             BigDecimal deuda = c.getDeudaActual() != null ? c.getDeudaActual() : BigDecimal.ZERO;
-            cmbClientes.addItem(new ItemClienteCombo(c.getId(), c.getNombre() + " (Debe: $" + deuda + ")"));
+            int envases = c.getEnvasesPendientes() != null ? c.getEnvasesPendientes() : 0;
+            cmbClientes.addItem(new ItemClienteCombo(c.getId(), c.getNombre() + " (Debe: $" + deuda + " | Envases: " + envases + ")"));
         }
 
-        JTextField txtMontoAbono = new JTextField();
+        JTextField txtMontoAbono = new JTextField("0.00");
+        JTextField txtEnvasesDevueltos = new JTextField("0");
 
         form.add(new JLabel("Seleccionar Cliente:"));
         form.add(cmbClientes);
         form.add(new JLabel("Monto a Abonar ($):"));
         form.add(txtMontoAbono);
+        form.add(new JLabel("Envases a Devolver (pzas):"));
+        form.add(txtEnvasesDevueltos);
 
         JPanel btnPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
         btnPanel.setBackground(Color.WHITE);
-        
-        JButton btnAplicar = new JButton("Aplicar Abono");
+
+        JButton btnAplicar = new JButton("Registrar Operación");
         btnAplicar.setBackground(new Color(23, 162, 184));
         btnAplicar.setForeground(Color.WHITE);
         btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
-        
+
         btnAplicar.addActionListener(e -> {
             try {
                 ItemClienteCombo seleccionado = (ItemClienteCombo) cmbClientes.getSelectedItem();
@@ -421,14 +459,16 @@ public class clientInterface extends JPanel {
                     return;
                 }
 
-                BigDecimal monto = new BigDecimal(txtMontoAbono.getText().trim());
-                clienteServicio.registrarAbono(seleccionado.getId(), monto);
+                BigDecimal monto = new BigDecimal(txtMontoAbono.getText().trim().isEmpty() ? "0" : txtMontoAbono.getText().trim());
+                int envases = Integer.parseInt(txtEnvasesDevueltos.getText().trim().isEmpty() ? "0" : txtEnvasesDevueltos.getText().trim());
 
-                JOptionPane.showMessageDialog(dialog, "¡Abono registrado correctamente! Deuda actualizada.");
+                clienteServicio.registrarAbonoYDevolucion(seleccionado.getId(), monto, envases);
+
+                JOptionPane.showMessageDialog(dialog, "¡Operación registrada correctamente!");
                 dialog.dispose();
-                cargarDatosTabla(); 
+                cargarDatosTabla();
             } catch (NumberFormatException ex) {
-                JOptionPane.showMessageDialog(dialog, "Por favor, ingrese una cantidad numérica válida.", "Error de Formato", JOptionPane.ERROR_MESSAGE);
+                JOptionPane.showMessageDialog(dialog, "Por favor, ingrese cantidades numéricas válidas.", "Error de Formato", JOptionPane.ERROR_MESSAGE);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(dialog, ex.getMessage(), "Validación", JOptionPane.WARNING_MESSAGE);
             }
@@ -441,6 +481,7 @@ public class clientInterface extends JPanel {
     }
 
     public static class ItemClienteCombo {
+
         private final Long id;
         private final String texto;
 
@@ -449,9 +490,13 @@ public class clientInterface extends JPanel {
             this.texto = texto;
         }
 
-        public Long getId() { return id; }
+        public Long getId() {
+            return id;
+        }
 
         @Override
-        public String toString() { return texto; }
+        public String toString() {
+            return texto;
+        }
     }
 }

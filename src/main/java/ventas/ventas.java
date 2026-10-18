@@ -23,6 +23,7 @@ import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.sql.Connection;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.ArrayList;
@@ -31,6 +32,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import javax.management.Notification;
+import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import productoFrom.DialogoDetalleProducto;
 import productoFrom.ItemProductoCarrito;
@@ -595,9 +597,16 @@ public class ventas extends JPanel {
             // ej: abrirConfiguracion();
         });
 
+        // --- NUEVA OPCIÓN: Historial y Devolución de Importes ---
+        JMenuItem itemImportes = new JMenuItem("Gestión de Importes...");
+        itemImportes.setFont(fontMenu);
+        itemImportes.setIconTextGap(12);
+        itemImportes.addActionListener(e -> abrirDialogoGestionImportes());
+
         // Ensamblaje ordenado del menú con separador lógico
         menu.add(itemCliente);
         menu.add(itemComentario);
+        menu.add(itemImportes); // <--- Agregado aquí
         menu.addSeparator();
         menu.add(itemCaja);
         menu.add(itemResumen);
@@ -613,6 +622,136 @@ public class ventas extends JPanel {
         gbc.weightx = 0.0;
         gbc.insets = new Insets(0, 5, 0, 20);
         panelCabecera.add(btnMas, gbc);
+    }
+
+    private void abrirDialogoGestionImportes() {
+        JDialog dialogo = new JDialog((Frame) null, "Gestión de Clientes con Importes Pendientes", true);
+        dialogo.setSize(950, 500);
+        dialogo.setLocationRelativeTo(null);
+        dialogo.setLayout(new BorderLayout(10, 10));
+
+        // Panel Superior: Búsqueda de cliente en tiempo real
+        JPanel panelFiltro = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        panelFiltro.setBackground(Color.WHITE);
+        JLabel lblBuscar = new JLabel("Filtrar por Cliente:");
+        lblBuscar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        JTextField txtBuscar = new JTextField(25);
+        txtBuscar.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        panelFiltro.add(lblBuscar);
+        panelFiltro.add(txtBuscar);
+
+        // Tabla de Importes Pendientes
+        String[] columnas = {"ID Cliente", "Cliente", "Teléfono", "Pzas", "Detalle de Importe", "Monto Total ($)"};
+        javax.swing.table.DefaultTableModel modeloTabla = new javax.swing.table.DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Solo lectura
+            }
+        };
+        JTable tablaImportes = new JTable(modeloTabla);
+        tablaImportes.setRowHeight(28);
+        tablaImportes.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaImportes.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        JScrollPane scrollTabla = new JScrollPane(tablaImportes);
+
+        // Método para cargar y filtrar los datos usando tu servicio
+        Runnable cargarDatosImportes = () -> {
+            modeloTabla.setRowCount(0);
+            String filtro = txtBuscar.getText().trim();
+
+            try {
+                // Llamamos al método que creamos en tu servicio para obtener la lista filtrada
+                List<ventaServicio.ImporteClienteDTO> listaImportes = ventaServicio.obtenerClientesConImportes(filtro);
+
+                for (ventaServicio.ImporteClienteDTO imp : listaImportes) {
+                    modeloTabla.addRow(new Object[]{
+                        imp.getClienteId(),
+                        imp.getNombre(),
+                        imp.getTelefono(),
+                        imp.getPiezas() + " pzas",
+                        imp.getDetalle(),
+                        "$" + imp.getMontoTotal()
+                    });
+                }
+            } catch (Exception ex) {
+                System.err.println("Error al cargar importes en la tabla: " + ex.getMessage());
+            }
+        };
+
+        // Carga inicial
+        cargarDatosImportes.run();
+
+        // Evento de búsqueda en tiempo real al escribir en el JTextField
+        txtBuscar.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                cargarDatosImportes.run();
+            }
+        });
+
+        // Panel Inferior: Botones de acción
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+        panelBotones.setBackground(Color.WHITE);
+
+        JButton btnAbonarLiquidar = new JButton("Abonar / Liquidar Importe");
+        btnAbonarLiquidar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnAbonarLiquidar.setBackground(new Color(13, 148, 136)); // Color verde/azulado elegante
+        btnAbonarLiquidar.setForeground(Color.WHITE);
+        btnAbonarLiquidar.setFocusPainted(false);
+
+        // Acción al presionar Abonar / Liquidar
+        btnAbonarLiquidar.addActionListener(e -> {
+            int filaSeleccionada = tablaImportes.getSelectedRow();
+            if (filaSeleccionada == -1) {
+                JOptionPane.showMessageDialog(dialogo, "Por favor, seleccione un cliente de la lista.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
+            String nombreCliente = (String) modeloTabla.getValueAt(filaSeleccionada, 1);
+            String montoStr = modeloTabla.getValueAt(filaSeleccionada, 5).toString().replace("$", "");
+            BigDecimal montoTotal = new BigDecimal(montoStr);
+
+            String inputAbono = JOptionPane.showInputDialog(dialogo,
+                    "Cliente: " + nombreCliente + "\nDeuda de Importe total: $" + montoTotal + "\n\nIngrese la cantidad a abonar o liquidar ($):",
+                    montoTotal.toString());
+
+            if (inputAbono != null && !inputAbono.trim().isEmpty()) {
+                try {
+                    BigDecimal abono = new BigDecimal(inputAbono.trim());
+                    if (abono.compareTo(BigDecimal.ZERO) <= 0) {
+                        JOptionPane.showMessageDialog(dialogo, "Ingrese un monto válido mayor a 0.", "Error", JOptionPane.ERROR_MESSAGE);
+                        return;
+                    }
+
+                    // Ejecutamos la liquidación en la base de datos y afectamos la caja mediante el servicio
+                    ventaServicio.abonarOLiquidarImporte(clienteId, abono);
+
+                    JOptionPane.showMessageDialog(dialogo, "¡Abono de $" + abono + " registrado con éxito y reflejado en caja! El importe ha sido liquidado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+
+                    // Refrescar la tabla para que el cliente desaparezca automáticamente de la lista
+                    cargarDatosImportes.run();
+
+                } catch (NumberFormatException ex) {
+                    JOptionPane.showMessageDialog(dialogo, "Por favor, ingrese un número decimal válido.", "Formato Inválido", JOptionPane.ERROR_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialogo, "Error al procesar el abono: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            }
+        });
+
+        JButton btnCerrar = new JButton("Cerrar");
+        btnCerrar.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        btnCerrar.addActionListener(e -> dialogo.dispose());
+
+        panelBotones.add(btnAbonarLiquidar);
+        panelBotones.add(btnCerrar);
+
+        dialogo.add(panelFiltro, BorderLayout.NORTH);
+        dialogo.add(scrollTabla, BorderLayout.CENTER);
+        dialogo.add(panelBotones, BorderLayout.SOUTH);
+
+        dialogo.setVisible(true);
     }
 
     private JMenuItem crearItemModerno(String texto, String icono, java.awt.event.ActionListener accion) {
@@ -1014,132 +1153,142 @@ public class ventas extends JPanel {
     }
 
     private void finalizarVenta() {
-        if (panelCarritoContenedor.getComponentCount() == 0) {
-            JOptionPane.showMessageDialog(this, "El carrito está vacío.");
-            return;
-        }
+    if (panelCarritoContenedor.getComponentCount() == 0) {
+        JOptionPane.showMessageDialog(this, "El carrito está vacío.");
+        return;
+    }
 
-        BigDecimal totalVentaActual = BigDecimal.ZERO;
-        List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
+    BigDecimal totalVentaActual = BigDecimal.ZERO;
+    List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
 
-        for (Component c : panelCarritoContenedor.getComponents()) {
-            if (c instanceof ItemProductoCarrito icv) {
-                totalVentaActual = totalVentaActual.add(
-                        icv.getProducto().getPrice().multiply(icv.getCantidad())
-                );
-                productosEnCarrito.add(icv.getProducto());
-            }
-        }
-
-        Window parentWindow = SwingUtilities.getWindowAncestor(this);
-
-        // --- OBTENCIÓN Y VALIDACIÓN REAL DEL CLIENTE SELECCIONADO ---
-        ClienteDTO clienteActual = null;
-        boolean esPublicoGeneral = true;
-        BigDecimal creditoDisponible = BigDecimal.ZERO;
-
-        try {
-            clientInterface.ItemClienteCombo itemSeleccionado
-                    = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
-
-            if (itemSeleccionado != null && itemSeleccionado.getId() != null) {
-                // Consulta a la BD por ID
-                clienteActual = clienteServicio.obtenerClientePorId(itemSeleccionado.getId());
-
-                if (clienteActual != null) {
-                    BigDecimal limite = clienteActual.getLimiteCredito() != null ? clienteActual.getLimiteCredito() : BigDecimal.ZERO;
-                    BigDecimal deuda = clienteActual.getDeudaActual() != null ? clienteActual.getDeudaActual() : BigDecimal.ZERO;
-                    creditoDisponible = limite.subtract(deuda);
-
-                    // Validamos SOLO por nombre para que el ID 1 no se bloquee como público general
-                    String nombreCliente = clienteActual.getNombre() != null ? clienteActual.getNombre().toLowerCase().trim() : "";
-                    esPublicoGeneral = nombreCliente.contains("público general")
-                            || nombreCliente.contains("publico general")
-                            || nombreCliente.isEmpty();
-                }
-            }
-        } catch (Exception ex) {
-            esPublicoGeneral = true;
-            creditoDisponible = BigDecimal.ZERO;
-        }
-
-        // Instancias el diálogo con los datos listos
-        DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
-
-        // Pasas el estado real una sola vez
-        dialogo.setClienteActual(esPublicoGeneral, creditoDisponible);
-
-        dialogo.setVisible(true);
-
-        if (dialogo.isVentaConfirmada()) {
-            try {
-
-                String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
-                Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
-                if (txtComentarios != null) {
-                    txtComentarios.setText("");
-                }
-                // Generamos el UUID / Folio único
-                String uuidGenerado = "NV-" + System.currentTimeMillis();
-
-                // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
-                BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
-
-                // Si el cliente pagó en efectivo un monto mayor al total
-                BigDecimal cambioFinal = BigDecimal.ZERO;
-                if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
-                    cambioFinal = efectivoRecibido.subtract(totalVentaActual);
-                } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
-                    // Fallback si DialogoPago ya calcula el cambio correctamente
-                    cambioFinal = dialogo.getCambio();
-                }
-
-                CambioDTO nodoCambio = new CambioDTO();
-                nodoCambio.setEfectivoRecibido(efectivoRecibido);
-                nodoCambio.setCambioDevuelto(cambioFinal);
-
-                VentaDTO ventaDto = new VentaDTO();
-                ventaDto.setUuidVenta(uuidGenerado);
-                ventaDto.setFechaVenta(LocalDate.now());
-                ventaDto.setHoraVenta(LocalTime.now());
-
-                ventaDto.setCambio(nodoCambio);
-                ventaDto.setCliente(clienteActual);
-                ventaDto.setProductos(productosEnCarrito);
-                ventaDto.setFormasPagoMap(desglosePagos);
-                ventaDto.setComentarios(comentariosVenta);
-                ventaDto.setTotalVenta(totalVentaActual);
-
-                if (clienteActual != null && clienteActual.getId() != null) {
-                    ventaDto.setClienteId(clienteActual.getId());
-                }
-
-                String folioGenerado = ventaServicio.registrarVentaCompleta(ventaDto);
-
-                // Limpieza visual de la pantalla
-                panelCarritoContenedor.removeAll();
-                panelCarritoContenedor.revalidate();
-                panelCarritoContenedor.repaint();
-                calcularTotales();
-                txtBuscador.setText("");
-
-                // --- RESTABLECER CLIENTE A PÚBLICO GENERAL ÚNICAMENTE TRAS VENTA EXITOSA ---
-                if (comboClientes != null && comboClientes.getItemCount() > 0) {
-                    comboClientes.setSelectedIndex(0);
-                }
-
-                txtBuscador.requestFocusInWindow();
-
-                // Mostramos el diálogo con el folio registrado y el cambio exacto ($450.00 en lugar de $400.00)
-                DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
-                exito.setVisible(true);
-
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Error al guardar la venta: " + ex.getMessage(), "Error Crítico", JOptionPane.ERROR_MESSAGE);
-            }
+    for (Component c : panelCarritoContenedor.getComponents()) {
+        if (c instanceof ItemProductoCarrito icv) {
+            totalVentaActual = totalVentaActual.add(
+                    icv.getProducto().getPrice().multiply(icv.getCantidad())
+            );
+            
+            // --- CORRECCIÓN AQUÍ ---
+            // Obtenemos el producto y le asignamos explícitamente su cantidad real
+            ProductoDTO productoConCantidad = icv.getProducto();
+            productoConCantidad.setCantidad(icv.getCantidad());
+            
+            productosEnCarrito.add(productoConCantidad);
         }
     }
 
+    Window parentWindow = SwingUtilities.getWindowAncestor(this);
+
+    // --- OBTENCIÓN Y VALIDACIÓN REAL DEL CLIENTE SELECCIONADO ---
+    ClienteDTO clienteActual = null;
+    boolean esPublicoGeneral = true;
+    BigDecimal creditoDisponible = BigDecimal.ZERO;
+
+    try {
+        clientInterface.ItemClienteCombo itemSeleccionado
+                = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
+
+        if (itemSeleccionado != null && itemSeleccionado.getId() != null) {
+            // Consulta a la BD por ID
+            clienteActual = clienteServicio.obtenerClientePorId(itemSeleccionado.getId());
+
+            if (clienteActual != null) {
+                BigDecimal limite = clienteActual.getLimiteCredito() != null ? clienteActual.getLimiteCredito() : BigDecimal.ZERO;
+                BigDecimal deuda = clienteActual.getDeudaActual() != null ? clienteActual.getDeudaActual() : BigDecimal.ZERO;
+                creditoDisponible = limite.subtract(deuda);
+
+                // Validamos SOLO por nombre para que el ID 1 no se bloquee como público general
+                String nombreCliente = clienteActual.getNombre() != null ? clienteActual.getNombre().toLowerCase().trim() : "";
+                esPublicoGeneral = nombreCliente.contains("público general")
+                        || nombreCliente.contains("publico general")
+                        || nombreCliente.isEmpty();
+            }
+        }
+    } catch (Exception ex) {
+        esPublicoGeneral = true;
+        creditoDisponible = BigDecimal.ZERO;
+    }
+
+    // Instancias el diálogo con los datos listos
+    DialogoPago dialogo = new DialogoPago(parentWindow, totalVentaActual, (List<?>) productosEnCarrito);
+
+    // Pasas el estado real una sola vez
+    dialogo.setClienteActual(esPublicoGeneral, creditoDisponible);
+
+    dialogo.setVisible(true);
+
+    if (dialogo.isVentaConfirmada()) {
+        try {
+
+            String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
+            Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
+            if (txtComentarios != null) {
+                txtComentarios.setText("");
+            }
+            // Generamos el UUID / Folio único
+            String uuidGenerado = "NV-" + System.currentTimeMillis();
+
+            // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
+            BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
+
+            // Si el cliente pagó en efectivo un monto mayor al total
+            BigDecimal cambioFinal = BigDecimal.ZERO;
+            if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
+                cambioFinal = efectivoRecibido.subtract(totalVentaActual);
+            } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
+                // Fallback si DialogoPago ya calcula el cambio correctamente
+                cambioFinal = dialogo.getCambio();
+            }
+
+            CambioDTO nodoCambio = new CambioDTO();
+            nodoCambio.setEfectivoRecibido(efectivoRecibido);
+            nodoCambio.setCambioDevuelto(cambioFinal);
+
+            VentaDTO ventaDto = new VentaDTO();
+            ventaDto.setUuidVenta(uuidGenerado);
+            ventaDto.setFechaVenta(LocalDate.now());
+            ventaDto.setHoraVenta(LocalTime.now());
+
+            ventaDto.setCambio(nodoCambio);
+            ventaDto.setCliente(clienteActual);
+            ventaDto.setProductos(productosEnCarrito);
+            ventaDto.setFormasPagoMap(desglosePagos);
+            ventaDto.setComentarios(comentariosVenta);
+            ventaDto.setTotalVenta(totalVentaActual);
+
+            // --- AGREGAR ESTAS LÍNEAS AQUÍ ---
+            boolean esCreditoVenta = dialogo.isEsCredito();
+            ventaDto.setEsCredito(esCreditoVenta);
+            // ---------------------------------
+
+            if (clienteActual != null && clienteActual.getId() != null) {
+                ventaDto.setClienteId(clienteActual.getId());
+            }
+
+            String folioGenerado = ventaServicio.registrarVentaCompleta(ventaDto);
+
+            // Limpieza visual de la pantalla
+            panelCarritoContenedor.removeAll();
+            panelCarritoContenedor.revalidate();
+            panelCarritoContenedor.repaint();
+            calcularTotales();
+            txtBuscador.setText("");
+
+            // --- RESTABLECER CLIENTE A PÚBLICO GENERAL ÚNICAMENTE TRAS VENTA EXITOSA ---
+            if (comboClientes != null && comboClientes.getItemCount() > 0) {
+                comboClientes.setSelectedIndex(0);
+            }
+
+            txtBuscador.requestFocusInWindow();
+
+            // Mostramos el diálogo con el folio registrado y el cambio exacto
+            DialogoExitoVenta exito = new DialogoExitoVenta(parentWindow, folioGenerado, cambioFinal);
+            exito.setVisible(true);
+
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error al guardar la venta: " + ex.getMessage(), "Error Crítico", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+}
     /* ========== TARJETA CATÁLOGO MODIFICADA ========== */
     class CardProducto extends JPanel {
 

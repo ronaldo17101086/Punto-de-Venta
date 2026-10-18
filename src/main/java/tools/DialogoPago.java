@@ -151,8 +151,7 @@ public class DialogoPago extends JDialog {
     }
 
     /**
-     * Retorna un mapa con todas las formas de pago y el monto ingresado en cada
-     * una.
+     * Retorna un mapa con todas las formas de pago y el monto ingresado en cada una.
      */
     public java.util.Map<String, BigDecimal> obtenerDesglosePagos() {
         java.util.Map<String, BigDecimal> desglose = new java.util.HashMap<>();
@@ -160,6 +159,18 @@ public class DialogoPago extends JDialog {
             desglose.put(entry.getKey().name(), obtenerNumero(entry.getValue()));
         }
         return desglose;
+    }
+
+    /**
+     * Método que detecta si la forma de pago CRÉDITO tiene un monto mayor a 0.
+     */
+    public boolean isEsCredito() {
+        JTextField txtCredito = camposPago.get(FormaPagoDto.CREDITO);
+        if (txtCredito != null) {
+            BigDecimal montoCredito = obtenerNumero(txtCredito);
+            return montoCredito.compareTo(BigDecimal.ZERO) > 0;
+        }
+        return false;
     }
 
     private JPanel crearCardPago(FormaPagoDto forma) {

@@ -13,7 +13,8 @@ public class ProductTableService {
     private DataSource dataSource;
 
     public void createTable() {
-        String sql = "CREATE TABLE IF NOT EXISTS productos (" 
+        // 1. Tabla de productos
+        String sqlProductos = "CREATE TABLE IF NOT EXISTS productos (" 
                 + "id INT AUTO_INCREMENT PRIMARY KEY, "
                 + "sku VARCHAR(50) UNIQUE, "
                 + "name VARCHAR(100) NOT NULL, "
@@ -22,11 +23,31 @@ public class ProductTableService {
                 + "is_granel BOOLEAN DEFAULT FALSE"
                 + ");";
 
+        // 2. Tabla intermedia de ventas y productos
+        String sqlVentaProductos = "CREATE TABLE IF NOT EXISTS venta_productos ("
+                + "id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "registro_venta_id INT NOT NULL, "
+                + "producto_id INT NOT NULL, "
+                + "cantidad DECIMAL(10, 3) DEFAULT 1.000"
+                + ");";
+
+        // 3. Instrucción por si la tabla ya existía pero le faltaba la columna
+        String sqlAlterVentaProductos = "ALTER TABLE venta_productos ADD COLUMN IF NOT EXISTS cantidad DECIMAL(10, 3) DEFAULT 1.000;";
+
         try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
-            stmt.executeUpdate(sql);
-            System.out.println("[DB-SERVICE] Tabla productos lista.");
+            stmt.executeUpdate(sqlProductos);
+            stmt.executeUpdate(sqlVentaProductos);
+            
+            // Intenta añadir la columna si la tabla previa no la tenía
+            try {
+                stmt.executeUpdate(sqlAlterVentaProductos);
+            } catch (Exception ex) {
+                // Si la columna ya existe, se ignora de forma segura
+            }
+            
+            System.out.println("[DB-SERVICE] Tablas y estructura de cantidades configuradas correctamente.");
         } catch (Exception e) {
-            System.err.println("[DB-SERVICE] Error: " + e.getMessage());
+            System.err.println("[DB-SERVICE] Error al configurar las tablas por código: " + e.getMessage());
         }
     }
-}
+} 

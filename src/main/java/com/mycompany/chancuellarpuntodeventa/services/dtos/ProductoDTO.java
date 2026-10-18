@@ -32,6 +32,10 @@ public class ProductoDTO implements Serializable {
     @Column(name = "is_granel")
     private boolean granel;
 
+    // --- LA VARIABLE DE CANTIDAD QUE FALTABA DECLARAR BIEN EN EL CÓDIGO ---
+    @Column(name = "cantidad")
+    private BigDecimal cantidad = BigDecimal.ONE;
+
     public ProductoDTO() {
     }
 
@@ -45,6 +49,15 @@ public class ProductoDTO implements Serializable {
     }
 
     // --- GETTERS Y SETTERS ---
+    
+    public BigDecimal getCantidad() {
+        return cantidad;
+    }
+
+    public void setCantidad(BigDecimal cantidad) {
+        this.cantidad = cantidad;
+    }
+
     public Long getId() {
         return id;
     }

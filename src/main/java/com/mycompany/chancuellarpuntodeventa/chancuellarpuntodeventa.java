@@ -20,26 +20,18 @@ import java.awt.EventQueue;
     "productoFrom",
     "producto",
     "caja",
-    "clientes" 
-})              
+    "clientes"
+})
 public class chancuellarpuntodeventa {
 
     public static void main(String[] args) {
-        // 1. Configurar el Look and Feel antes de que se creen los componentes
         setupLookAndFeel();
-
-        // 2. Arrancar Spring UNA SOLA VEZ
         ApplicationContext context = new SpringApplicationBuilder(chancuellarpuntodeventa.class)
                 .headless(false)
                 .run(args);
-
-        // 3. Ejecutar las validaciones de MySQL
         EnvirometServiceToInit setupService = context.getBean(EnvirometServiceToInit.class);
         setupService.runSetup();
-
         System.out.println("--- Proceso de inicialización terminado ---");
-
-        // 4. Lanzar la interfaz gráfica
         EventQueue.invokeLater(() -> {
             try {
                 LoginInterface login = context.getBean(LoginInterface.class);

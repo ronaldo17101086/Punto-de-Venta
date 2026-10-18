@@ -5,15 +5,12 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
-import java.awt.event.MouseAdapter;
-import java.awt.event.MouseEvent;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 @Component
 public class CajaView extends JFrame {
 
-    // --- PALETA DE COLORES PREMIUM ---
     private final Color COLOR_FONDO = new Color(241, 245, 249);
     private final Color COLOR_PRIMARIO = new Color(99, 102, 241);
     private final Color COLOR_EXITO = new Color(34, 197, 94);
@@ -27,31 +24,26 @@ public class CajaView extends JFrame {
     private DefaultTableModel modeloTabla;
     private JTable tabla;
     private JLabel lblEfectivoEsperado, lblVentasDia, lblGastos, lblMontoApertura;
-    private JButton btnIngreso, btnGasto, btnCierre;
+    private JButton btnIngreso, btnGasto, btnCierre, btnActualizar;
 
     private CajaService service;
     private final int ID_CAJA_ACTUAL = 1;
 
-// BORRA EL CONSTRUCTOR VACÍO Y EL QUE TENÍAS ANTES. 
-// DEJA SOLO ESTE:
     @Autowired
     public CajaView(CajaService service) {
-        this.service = service; // Guardamos el servicio primero
+        this.service = service;
         configurarVentana();
         initLayout();
         configurarEventos();
 
-        // Solo actualizamos si el servicio llegó bien
         if (this.service != null) {
             actualizarDataReal();
-        } else {
-            System.err.println("¡ADVERTENCIA: El servicio de caja llegó nulo!");
         }
     }
 
     private void configurarVentana() {
         setTitle("Sistema de Gestión de Caja Pro");
-        setSize(1200, 850);
+        setSize(1250, 850);
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(COLOR_FONDO);
@@ -73,19 +65,19 @@ public class CajaView extends JFrame {
     }
 
     public void actualizarDataReal() {
-        if (service == null) {
-            return;
-        }
+        if (service == null) return;
 
-        // Actualizar Tabla
         service.fetchMovimientosATabla(modeloTabla, ID_CAJA_ACTUAL);
 
-        // Actualizar Tarjetas (Kpis)
-        double total = service.getSaldoTotal(ID_CAJA_ACTUAL);
-        if (lblEfectivoEsperado != null) {
-            lblEfectivoEsperado.setText(String.format("$%.2f", total));
-        }
-        // Nota: Aquí podrías llamar a métodos de service para lblVentasDia, etc.
+        double efectivoEsperado = service.getSaldoTotal(ID_CAJA_ACTUAL);
+        double ventasDia = service.getTotalVentasDia(ID_CAJA_ACTUAL);
+        double gastosSalidas = service.getTotalGastosSalidas(ID_CAJA_ACTUAL);
+        double montoApertura = service.getMontoApertura(ID_CAJA_ACTUAL);
+
+        if (lblEfectivoEsperado != null) lblEfectivoEsperado.setText(String.format("$%.2f", efectivoEsperado));
+        if (lblVentasDia != null) lblVentasDia.setText(String.format("$%.2f", ventasDia));
+        if (lblGastos != null) lblGastos.setText(String.format("$%.2f", gastosSalidas));
+        if (lblMontoApertura != null) lblMontoApertura.setText(String.format("$%.2f", montoApertura));
     }
 
     private JPanel crearCabeceraSuperior() {
@@ -130,9 +122,7 @@ public class CajaView extends JFrame {
         String[] cols = {"ID", "FECHA/HORA", "TIPO", "COMENTARIO", "MONTO", "USUARIO"};
         modeloTabla = new DefaultTableModel(cols, 0) {
             @Override
-            public boolean isCellEditable(int r, int c) {
-                return false;
-            }
+            public boolean isCellEditable(int r, int c) { return false; }
         };
 
         tabla = new JTable(modeloTabla);
@@ -154,12 +144,10 @@ public class CajaView extends JFrame {
         tabla.setGridColor(COLOR_BORDE);
         tabla.setFont(new Font("Inter", Font.PLAIN, 13));
 
-        // Estilo de encabezado
         tabla.getTableHeader().setFont(FONT_BOLD);
         tabla.getTableHeader().setBackground(Color.WHITE);
         tabla.getTableHeader().setPreferredSize(new Dimension(0, 40));
 
-        // Renderer para el Monto
         tabla.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public java.awt.Component getTableCellRendererComponent(JTable t, Object v, boolean s, boolean f, int r, int c) {
@@ -176,14 +164,16 @@ public class CajaView extends JFrame {
     }
 
     private JPanel crearBarraHerramientas() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 25));
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 25));
         bar.setBackground(Color.WHITE);
         bar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE));
 
+        btnActualizar = new ModernActionBtn("Actualizar", COLOR_TEXTO_SOFT);
         btnIngreso = new ModernActionBtn("Nuevo Ingreso", COLOR_EXITO);
         btnGasto = new ModernActionBtn("Registrar Gasto", COLOR_PELIGRO);
         btnCierre = new ModernActionBtn("Realizar Corte", COLOR_PRIMARIO);
 
+        bar.add(btnActualizar);
         bar.add(btnIngreso);
         bar.add(btnGasto);
         bar.add(btnCierre);
@@ -191,13 +181,25 @@ public class CajaView extends JFrame {
     }
 
     private void configurarEventos() {
+        btnActualizar.addActionListener(e -> {
+            actualizarDataReal();
+            JOptionPane.showMessageDialog(this, "Información de caja actualizada.", "Actualizado", JOptionPane.INFORMATION_MESSAGE);
+        });
+
         btnIngreso.addActionListener(e -> mostrarModalMovimiento("Ingreso de Efectivo", COLOR_EXITO, true));
         btnGasto.addActionListener(e -> mostrarModalMovimiento("Egreso / Gasto", COLOR_PELIGRO, false));
+        
         btnCierre.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(this, "¿Seguro que desea cerrar la caja y generar el reporte?", "Corte de Caja", JOptionPane.YES_NO_OPTION);
+            double efectivoEsperadoActual = service.getSaldoTotal(ID_CAJA_ACTUAL);
+            int confirm = JOptionPane.showConfirmDialog(this, 
+                "¿Desea realizar el corte de caja?\nEfectivo esperado en gaveta: $" + String.format("%.2f", efectivoEsperadoActual), 
+                "Corte de Caja", JOptionPane.YES_NO_OPTION);
+                
             if (confirm == JOptionPane.YES_OPTION && service != null) {
-                service.sendRequest("POST", ID_CAJA_ACTUAL, TipoMovimiento.CIERRE, 0.0, "Corte de caja efectuado", null);
+                // Registramos el cierre de caja
+                service.sendRequest("POST", ID_CAJA_ACTUAL, TipoMovimiento.CIERRE, 0.0, "Corte de caja efectuado. Efectivo final: $" + efectivoEsperadoActual, null);
                 actualizarDataReal();
+                JOptionPane.showMessageDialog(this, "Corte de caja realizado con éxito. El turno ha concluido.");
             }
         });
     }
@@ -211,7 +213,6 @@ public class CajaView extends JFrame {
         container.setLayout(new BorderLayout());
         container.setBorder(new EmptyBorder(30, 35, 30, 35));
 
-        // Cabecera Modal
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         JLabel lblTitulo = new JLabel(titulo.toUpperCase());
@@ -227,7 +228,6 @@ public class CajaView extends JFrame {
         header.add(lblTitulo, BorderLayout.WEST);
         header.add(btnCerrar, BorderLayout.EAST);
 
-        // Formulario
         JPanel form = new JPanel(new GridBagLayout());
         form.setOpaque(false);
         GridBagConstraints gbc = new GridBagConstraints();
@@ -236,32 +236,27 @@ public class CajaView extends JFrame {
         gbc.weightx = 1;
         gbc.insets = new Insets(10, 0, 5, 0);
 
-        // Campo Monto
         form.add(new JLabel("MONTO DEL MOVIMIENTO"), gbc);
         JTextField txtMonto = new JTextField();
         txtMonto.setPreferredSize(new Dimension(0, 40));
         txtMonto.setFont(new Font("Inter", Font.BOLD, 16));
         form.add(txtMonto, gbc);
 
-        // Campo Tipo
         form.add(new JLabel("CATEGORÍA"), gbc);
         TipoMovimiento[] opciones = esIngreso
-                ? new TipoMovimiento[]{TipoMovimiento.VENTA, TipoMovimiento.INGRESO_EXTRA, TipoMovimiento.APERTURA}
+                ? new TipoMovimiento[]{TipoMovimiento.VENTA, TipoMovimiento.INGRESO_EXTRA, TipoMovimiento.APERTURA, TipoMovimiento.AJUSTE_DE_CAJA}
                 : new TipoMovimiento[]{TipoMovimiento.RETIRO_GASTO, TipoMovimiento.PAGO_PROVEEDOR, TipoMovimiento.DEVOLUCION};
         JComboBox<TipoMovimiento> combo = new JComboBox<>(opciones);
         combo.setPreferredSize(new Dimension(0, 40));
         form.add(combo, gbc);
 
-        // Campo Comentario (NUEVO)
-        form.add(new JLabel("COMENTARIO / OBSERVACIÓN"), gbc);
+        form.add(new JLabel("COMENTARIO / OBSERVACIÓN (FOLIO)"), gbc);
         JTextArea txtNota = new JTextArea(3, 20);
         txtNota.setLineWrap(true);
         txtNota.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
         form.add(new JScrollPane(txtNota), gbc);
 
-        // Botón Confirmar
         JButton btnConfirmar = new ModernActionBtn("Confirmar Movimiento", colorTema);
-        // Busca esta parte dentro de mostrarModalMovimiento y reemplázala:
         btnConfirmar.addActionListener(e -> {
             try {
                 String textoMonto = txtMonto.getText().trim();
@@ -274,19 +269,11 @@ public class CajaView extends JFrame {
                 TipoMovimiento tipo = (TipoMovimiento) combo.getSelectedItem();
                 String nota = txtNota.getText().trim().isEmpty() ? "Movimiento manual" : txtNota.getText();
 
-                System.out.println("Intentando guardar: " + tipo + " de $" + monto); // Debug en consola
-
-                if (service == null) {
-                    JOptionPane.showMessageDialog(modal, "Error: El servicio de base de datos no está inicializado.");
-                    return;
-                }
-
-                // Ejecutamos la petición
                 boolean exito = service.sendRequest("POST", ID_CAJA_ACTUAL, tipo, monto, nota, null);
 
                 if (exito) {
-                    actualizarDataReal(); // Refresca la tabla y el label azul
-                    modal.dispose();      // Cierra el modal
+                    actualizarDataReal();
+                    modal.dispose();
                     JOptionPane.showMessageDialog(this, "Movimiento registrado con éxito.");
                 } else {
                     JOptionPane.showMessageDialog(modal, "La base de datos rechazó el movimiento.");
@@ -310,9 +297,7 @@ public class CajaView extends JFrame {
         modal.setVisible(true);
     }
 
-    // --- COMPONENTES PERSONALIZADOS ---
     class ShadowPanel extends JPanel {
-
         public ShadowPanel(int w, int h) {
             setPreferredSize(new Dimension(w, h));
             setOpaque(false);
@@ -331,7 +316,6 @@ public class CajaView extends JFrame {
     }
 
     class TarjetaModerna extends JPanel {
-
         public TarjetaModerna(String title, String value, Color color, boolean highlight) {
             setLayout(new BorderLayout(0, 10));
             setBackground(Color.WHITE);
@@ -353,18 +337,23 @@ public class CajaView extends JFrame {
 
             if (title.contains("ESPERADO")) {
                 lblEfectivoEsperado = v;
+            } else if (title.contains("VENTAS")) {
+                lblVentasDia = v;
+            } else if (title.contains("GASTOS")) {
+                lblGastos = v;
+            } else if (title.contains("APERTURA")) {
+                lblMontoApertura = v;
             }
         }
     }
 
     class ModernActionBtn extends JButton {
-
         public ModernActionBtn(String text, Color bg) {
             super(text);
             setForeground(Color.WHITE);
             setBackground(bg);
             setFont(FONT_BOLD);
-            setPreferredSize(new Dimension(180, 45));
+            setPreferredSize(new Dimension(150, 45));
             setFocusPainted(false);
             setBorderPainted(false);
             setContentAreaFilled(false);
