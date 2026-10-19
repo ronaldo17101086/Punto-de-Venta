@@ -293,9 +293,17 @@ public class ventas extends JPanel {
         panelCarritoContenedor.setLayout(new BoxLayout(panelCarritoContenedor, BoxLayout.Y_AXIS));
         panelCarritoContenedor.setBackground(white);
 
-        JScrollPane scrollCarrito = new JScrollPane(panelCarritoContenedor);
+        // Creamos un wrapper para alinear los elementos arriba y evitar tirones de redibujo
+        JPanel wrapperCarrito = new JPanel(new BorderLayout());
+        wrapperCarrito.setBackground(white);
+        wrapperCarrito.add(panelCarritoContenedor, BorderLayout.NORTH);
+
+        JScrollPane scrollCarrito = new JScrollPane(wrapperCarrito);
         scrollCarrito.setBorder(null);
         scrollCarrito.getViewport().setBackground(white);
+        // Añadimos velocidad al scroll del carrito para que no se sienta pesado
+        scrollCarrito.getVerticalScrollBar().setUnitIncrement(25);
+        scrollCarrito.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
         // --- 4. PIE DE PAGO ---
         JPanel pPieVenta = new JPanel(new GridBagLayout());

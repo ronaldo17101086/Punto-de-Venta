@@ -55,7 +55,7 @@ public class LoginInterface extends JFrame {
         gbc.insets = new Insets(10, 100, 10, 100);
         gbc.gridx = 0;
 
-        JLabel mainTitle = new JLabel("Chancuellar", SwingConstants.CENTER);
+        JLabel mainTitle = new JLabel("Punto de Venta Chancuellar", SwingConstants.CENTER);
         mainTitle.setFont(new Font("Serif", Font.BOLD, 70));
         mainTitle.setForeground(new Color(40, 40, 40));
         gbc.gridy = 0;
@@ -63,7 +63,7 @@ public class LoginInterface extends JFrame {
         rightPanel.add(mainTitle, gbc);
 
         gbc.insets = new Insets(10, 100, 5, 100);
-        JLabel userLabel = new JLabel("Usuario / Correo");
+        JLabel userLabel = new JLabel("Usuario");
         userLabel.setFont(new Font("SansSerif", Font.PLAIN, 18));
         gbc.gridy = 1;
         rightPanel.add(userLabel, gbc);
@@ -108,17 +108,11 @@ public class LoginInterface extends JFrame {
             }
         });
 
-        JButton registerButton = new JButton("CREAR CUENTA");
-        registerButton.setBackground(new Color(40, 167, 69));
-        registerButton.setForeground(Color.WHITE);
-        registerButton.setFont(new Font("SansSerif", Font.BOLD, 22));
-        registerButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        registerButton.putClientProperty(FlatClientProperties.STYLE, "arc:20");
+        
 
         gbc.gridy = 6;
         gbc.ipady = 30;
         gbc.insets = new Insets(0, 100, 20, 100);
-        rightPanel.add(registerButton, gbc);
 
         container.add(rightPanel);
     }

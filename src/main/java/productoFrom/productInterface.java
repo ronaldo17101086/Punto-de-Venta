@@ -4,7 +4,7 @@ package productoFrom;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ProductoRepository;
 
-// 2. Apache POI (Excel) - Asegúrate de borrar SheetCollate e importar estas
+// 2. Apache POI (Excel)
 import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.ss.usermodel.Sheet;
 import org.apache.poi.ss.usermodel.Row;
@@ -13,10 +13,12 @@ import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.DataFormatter;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import javax.swing.JFileChooser;
+
 // 3. Swing y AWT
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.image.BufferedImage;
 
 // 4. Utilidades de Java e IO
 import java.io.File;
@@ -139,8 +141,7 @@ public class productInterface extends JPanel {
                             p.setPrice(BigDecimal.ZERO);
                         }
 
-                        // 3. LÓGICA PARA EL GRANEL (Lo que preguntaste)
-                        // Si en Excel dice 's' (o 'S'), es true (1 en DB). De lo contrario false (0).
+                        // 3. LÓGICA PARA EL GRANEL
                         boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
                         p.setGranel(esGranel);
 
@@ -179,17 +180,15 @@ public class productInterface extends JPanel {
         barraSuperior.setBackground(COLOR_PRINCIPAL);
         barraSuperior.setPreferredSize(new Dimension(0, 50));
 
-        JLabel lblModulo = new JLabel("  ☰  Producto");
+        JLabel lblModulo = new JLabel(" Producto");
         lblModulo.setForeground(COLOR_TEXTO_HEADER);
         lblModulo.setFont(new Font("Segoe UI", Font.BOLD, 16));
 
         JPanel panelAccionesHeader = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
         panelAccionesHeader.setOpaque(false);
 
-        // NUEVO BOTÓN EXCEL
         panelAccionesHeader.add(crearBotonIcono("📊", "Importar Excel", e -> importarDesdeExcel()));
         panelAccionesHeader.add(crearBotonIcono("🔄", "Actualizar", e -> cargarProductosCompletos()));
-        panelAccionesHeader.add(crearBotonIcono("⋮", "Más opciones", null));
 
         barraSuperior.add(lblModulo, BorderLayout.WEST);
         barraSuperior.add(panelAccionesHeader, BorderLayout.EAST);
@@ -230,7 +229,7 @@ public class productInterface extends JPanel {
         panelIzquierdo.add(panelBusqueda, BorderLayout.NORTH);
         panelIzquierdo.add(scrollLista, BorderLayout.CENTER);
 
-        // --- PANEL DERECHO (DETALLES) ---
+        // --- PANEL DERECHO (DETALLES MEJORADO) ---
         JPanel panelDetalleContenedor = new JPanel(new BorderLayout());
         panelDetalleContenedor.setBackground(new Color(248, 249, 250));
 
@@ -244,29 +243,19 @@ public class productInterface extends JPanel {
 
         JPanel panelIconosEdit = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 0));
         panelIconosEdit.setOpaque(false);
-        panelIconosEdit.add(crearBotonIcono("📝", "Editar", null));
-        panelIconosEdit.add(crearBotonIcono("🗑", "Eliminar", null));
-        panelIconosEdit.add(crearBotonIcono("📋", "Copiar", null));
-
         panelIconosEdit.add(crearBotonIcono("📝", "Editar", e -> {
             ProductoDTO seleccionado = listaProductos.getSelectedValue();
             if (seleccionado != null) {
-                // Obtenemos el JFrame principal (Dashboard)
                 JFrame parentFrame = (JFrame) SwingUtilities.getWindowAncestor(this);
-
-                // Ocultamos el Dashboard para dar efecto de navegación
                 parentFrame.setVisible(false);
-
-                // Abrimos el diálogo de edición
                 EditarProductoDialog dialogo = new EditarProductoDialog(parentFrame, seleccionado, productoRepository);
                 dialogo.setVisible(true);
-
-                // Al cerrar el diálogo (por guardar o regresar), refrescamos datos
                 cargarProductosCompletos();
             } else {
                 JOptionPane.showMessageDialog(this, "Seleccione un producto");
             }
         }));
+        //      panelIconosEdit.add(crearBotonIcono("🗑", "Eliminar", null));
 
         subBarra.add(lblDetalleTitulo, BorderLayout.WEST);
         subBarra.add(panelIconosEdit, BorderLayout.EAST);
@@ -276,29 +265,44 @@ public class productInterface extends JPanel {
         panelBlancoCentral.setBackground(Color.WHITE);
         panelBlancoCentral.setBorder(BorderFactory.createEmptyBorder(20, 25, 20, 25));
 
-        JPanel infoSuperior = new JPanel(new BorderLayout(25, 0));
+        JPanel infoSuperior = new JPanel(new FlowLayout(FlowLayout.LEFT, 25, 0));
         infoSuperior.setOpaque(false);
-        lblImagen = new JLabel("☕", SwingConstants.CENTER);
-        lblImagen.setFont(new Font("Segoe UI", Font.PLAIN, 50));
-        lblImagen.setPreferredSize(new Dimension(150, 150));
-        lblImagen.setBorder(BorderFactory.createLineBorder(new Color(240, 240, 240)));
+
+        lblImagen = new JLabel();
+        lblImagen.setPreferredSize(new Dimension(140, 140));
+        lblImagen.setHorizontalAlignment(SwingConstants.CENTER);
+        lblImagen.setVerticalAlignment(SwingConstants.CENTER);
+        lblImagen.setBorder(BorderFactory.createLineBorder(new Color(230, 235, 240), 1));
+
+        // Imagen por defecto estilizada sin emojis para prevenir el cuadro blanco[cite: 10]
+        lblImagen.setIcon(crearPlaceholderIcono(140, 140));
 
         JPanel datosTxt = new JPanel();
         datosTxt.setLayout(new BoxLayout(datosTxt, BoxLayout.Y_AXIS));
         datosTxt.setOpaque(false);
 
         lblCodigo = new JLabel("ID PRODUCTO");
+        lblCodigo.setFont(new Font("Segoe UI", Font.BOLD, 12));
         lblCodigo.setForeground(COLOR_ACCENTO);
+
         lblNombre = new JLabel("Seleccione un producto");
         lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lblNombre.setForeground(new Color(33, 37, 41));
+
         lblPrecioPrincipal = new JLabel("$ 0.00");
         lblPrecioPrincipal.setFont(new Font("Segoe UI", Font.BOLD, 26));
+        lblPrecioPrincipal.setForeground(new Color(33, 37, 41));
+
         lblCategoria = new JLabel("CATEGORIA");
-        lblCategoria.setForeground(Color.GRAY);
+        lblCategoria.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblCategoria.setForeground(new Color(108, 117, 125));
 
         datosTxt.add(lblCodigo);
+        datosTxt.add(Box.createVerticalStrut(4));
         datosTxt.add(lblNombre);
+        datosTxt.add(Box.createVerticalStrut(4));
         datosTxt.add(lblPrecioPrincipal);
+        datosTxt.add(Box.createVerticalStrut(2));
         datosTxt.add(lblCategoria);
         datosTxt.add(Box.createVerticalStrut(10));
 
@@ -306,12 +310,14 @@ public class productInterface extends JPanel {
         txtDescripcion.setEditable(false);
         txtDescripcion.setOpaque(false);
         txtDescripcion.setForeground(new Color(100, 100, 100));
+        txtDescripcion.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         txtDescripcion.setLineWrap(true);
         txtDescripcion.setWrapStyleWord(true);
         datosTxt.add(txtDescripcion);
 
-        infoSuperior.add(lblImagen, BorderLayout.WEST);
-        infoSuperior.add(datosTxt, BorderLayout.CENTER);
+        infoSuperior.add(lblImagen);
+        infoSuperior.add(datosTxt);
+
         panelBlancoCentral.add(infoSuperior);
         panelBlancoCentral.add(Box.createVerticalStrut(25));
 
@@ -387,21 +393,23 @@ public class productInterface extends JPanel {
         lblCodigo.setText(p.getSku());
         lblPrecioPrincipal.setText(String.format("$%.2f", p.getPrice()));
 
-        // --- LÓGICA DE IMAGEN PARA EL DETALLE ---
-        if (p.getImagePath() != null && !p.getImagePath().isEmpty()) {
+        // --- LÓGICA DE IMAGEN MEJORADA ---
+        boolean imagenCargada = false;
+        if (p.getImagePath() != null && !p.getImagePath().trim().isEmpty()) {
             File file = new File(p.getImagePath());
             if (file.exists()) {
                 ImageIcon icon = new ImageIcon(p.getImagePath());
-                Image img = icon.getImage().getScaledInstance(150, 150, Image.SCALE_SMOOTH);
+                Image img = icon.getImage().getScaledInstance(140, 140, Image.SCALE_SMOOTH);
                 lblImagen.setIcon(new ImageIcon(img));
                 lblImagen.setText("");
-            } else {
-                lblImagen.setIcon(null);
-                lblImagen.setText("☕");
+                imagenCargada = true;
             }
-        } else {
-            lblImagen.setIcon(null);
-            lblImagen.setText("☕");
+        }
+
+        // Si no hay imagen válida, cargamos un placeholder limpio y vectorial (evita el cuadro roto[cite: 10])
+        if (!imagenCargada) {
+            lblImagen.setIcon(crearPlaceholderIcono(140, 140));
+            lblImagen.setText("");
         }
 
         panelListaPrecios.removeAll();
@@ -442,5 +450,45 @@ public class productInterface extends JPanel {
         p.add(l1);
         p.add(l2);
         return p;
+    }
+
+    // --- GENERADOR DE PLACEHOLDER VECTORIAL (Evita cuadros blancos rotos[cite: 10]) ---
+    private ImageIcon crearPlaceholderIcono(int ancho, int alto) {
+        BufferedImage img = new BufferedImage(ancho, alto, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = img.createGraphics();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        // Fondo suave
+        g2.setColor(new Color(245, 247, 250));
+        g2.fillRect(0, 0, ancho, alto);
+
+        // Borde interior fino
+        g2.setColor(new Color(225, 230, 235));
+        g2.drawRect(0, 0, ancho - 1, alto - 1);
+
+        // Dibujo de icono de caja estilizado en el centro
+        int cx = ancho / 2;
+        int cy = alto / 2 - 5;
+
+        g2.setColor(new Color(180, 190, 200));
+        g2.setStroke(new BasicStroke(2.5f));
+
+        // Caja 3D simplificada
+        int w = 36;
+        int h = 30;
+        g2.drawRect(cx - w / 2, cy - h / 2 + 5, w, h);
+        g2.drawLine(cx - w / 2, cy - h / 2 + 5, cx, cy - h / 2 - 8);
+        g2.drawLine(cx + w / 2, cy - h / 2 + 5, cx, cy - h / 2 - 8);
+
+        // Texto informativo "Sin Imagen"
+        g2.setFont(new Font("Segoe UI", Font.BOLD, 11));
+        g2.setColor(new Color(150, 160, 170));
+        FontMetrics fm = g2.getFontMetrics();
+        String txt = "SIN IMAGEN";
+        int txtW = fm.stringWidth(txt);
+        g2.drawString(txt, cx - txtW / 2, cy + 32);
+
+        g2.dispose();
+        return new ImageIcon(img);
     }
 }

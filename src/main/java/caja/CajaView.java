@@ -65,7 +65,9 @@ public class CajaView extends JFrame {
     }
 
     public void actualizarDataReal() {
-        if (service == null) return;
+        if (service == null) {
+            return;
+        }
 
         service.fetchMovimientosATabla(modeloTabla, ID_CAJA_ACTUAL);
 
@@ -74,10 +76,18 @@ public class CajaView extends JFrame {
         double gastosSalidas = service.getTotalGastosSalidas(ID_CAJA_ACTUAL);
         double montoApertura = service.getMontoApertura(ID_CAJA_ACTUAL);
 
-        if (lblEfectivoEsperado != null) lblEfectivoEsperado.setText(String.format("$%.2f", efectivoEsperado));
-        if (lblVentasDia != null) lblVentasDia.setText(String.format("$%.2f", ventasDia));
-        if (lblGastos != null) lblGastos.setText(String.format("$%.2f", gastosSalidas));
-        if (lblMontoApertura != null) lblMontoApertura.setText(String.format("$%.2f", montoApertura));
+        if (lblEfectivoEsperado != null) {
+            lblEfectivoEsperado.setText(String.format("$%.2f", efectivoEsperado));
+        }
+        if (lblVentasDia != null) {
+            lblVentasDia.setText(String.format("$%.2f", ventasDia));
+        }
+        if (lblGastos != null) {
+            lblGastos.setText(String.format("$%.2f", gastosSalidas));
+        }
+        if (lblMontoApertura != null) {
+            lblMontoApertura.setText(String.format("$%.2f", montoApertura));
+        }
     }
 
     private JPanel crearCabeceraSuperior() {
@@ -94,7 +104,7 @@ public class CajaView extends JFrame {
         title.setFont(new Font("Inter", Font.BOLD, 26));
         title.setForeground(COLOR_TEXTO_DARK);
 
-        JLabel subtitle = new JLabel("Terminal: 01-PRINCIPAL | Monitoreo en vivo");
+        JLabel subtitle = new JLabel("Terminal: 01");
         subtitle.setFont(FONT_REGULAR);
         subtitle.setForeground(COLOR_TEXTO_SOFT);
 
@@ -122,7 +132,9 @@ public class CajaView extends JFrame {
         String[] cols = {"ID", "FECHA/HORA", "TIPO", "COMENTARIO", "MONTO", "USUARIO"};
         modeloTabla = new DefaultTableModel(cols, 0) {
             @Override
-            public boolean isCellEditable(int r, int c) { return false; }
+            public boolean isCellEditable(int r, int c) {
+                return false;
+            }
         };
 
         tabla = new JTable(modeloTabla);
@@ -188,13 +200,13 @@ public class CajaView extends JFrame {
 
         btnIngreso.addActionListener(e -> mostrarModalMovimiento("Ingreso de Efectivo", COLOR_EXITO, true));
         btnGasto.addActionListener(e -> mostrarModalMovimiento("Egreso / Gasto", COLOR_PELIGRO, false));
-        
+
         btnCierre.addActionListener(e -> {
             double efectivoEsperadoActual = service.getSaldoTotal(ID_CAJA_ACTUAL);
-            int confirm = JOptionPane.showConfirmDialog(this, 
-                "¿Desea realizar el corte de caja?\nEfectivo esperado en gaveta: $" + String.format("%.2f", efectivoEsperadoActual), 
-                "Corte de Caja", JOptionPane.YES_NO_OPTION);
-                
+            int confirm = JOptionPane.showConfirmDialog(this,
+                    "¿Desea realizar el corte de caja?\nEfectivo esperado en gaveta: $" + String.format("%.2f", efectivoEsperadoActual),
+                    "Corte de Caja", JOptionPane.YES_NO_OPTION);
+
             if (confirm == JOptionPane.YES_OPTION && service != null) {
                 // Registramos el cierre de caja
                 service.sendRequest("POST", ID_CAJA_ACTUAL, TipoMovimiento.CIERRE, 0.0, "Corte de caja efectuado. Efectivo final: $" + efectivoEsperadoActual, null);
@@ -244,8 +256,8 @@ public class CajaView extends JFrame {
 
         form.add(new JLabel("CATEGORÍA"), gbc);
         TipoMovimiento[] opciones = esIngreso
-                ? new TipoMovimiento[]{TipoMovimiento.VENTA, TipoMovimiento.INGRESO_EXTRA, TipoMovimiento.APERTURA, TipoMovimiento.AJUSTE_DE_CAJA}
-                : new TipoMovimiento[]{TipoMovimiento.RETIRO_GASTO, TipoMovimiento.PAGO_PROVEEDOR, TipoMovimiento.DEVOLUCION};
+                ? new TipoMovimiento[]{TipoMovimiento.ENTRADA, TipoMovimiento.APERTURA, TipoMovimiento.INGRESO_EXTRA}
+                : new TipoMovimiento[]{TipoMovimiento.PAGO_PROVEEDOR, TipoMovimiento.RETIRO_GASTO, TipoMovimiento.DEVOLUCION};
         JComboBox<TipoMovimiento> combo = new JComboBox<>(opciones);
         combo.setPreferredSize(new Dimension(0, 40));
         form.add(combo, gbc);
@@ -298,6 +310,7 @@ public class CajaView extends JFrame {
     }
 
     class ShadowPanel extends JPanel {
+
         public ShadowPanel(int w, int h) {
             setPreferredSize(new Dimension(w, h));
             setOpaque(false);
@@ -316,6 +329,7 @@ public class CajaView extends JFrame {
     }
 
     class TarjetaModerna extends JPanel {
+
         public TarjetaModerna(String title, String value, Color color, boolean highlight) {
             setLayout(new BorderLayout(0, 10));
             setBackground(Color.WHITE);
@@ -348,6 +362,7 @@ public class CajaView extends JFrame {
     }
 
     class ModernActionBtn extends JButton {
+
         public ModernActionBtn(String text, Color bg) {
             super(text);
             setForeground(Color.WHITE);
