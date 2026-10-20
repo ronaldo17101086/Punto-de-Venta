@@ -142,13 +142,13 @@ public class clientInterface extends JPanel {
         // ===== TABLA DE CLIENTES CON LA NUEVA COLUMNA DE DETALLE =====
         String[] columnas = {
             "ID",
-            "Nombre / Razón Social",
+            "Nombre",
             "Teléfono",
             "Límite Crédito",
             "Deuda Actual (Debe)",
             "Crédito Disponible",
-            "Envases que Debe",
-            "Detalle de Productos Prestados"
+            "PZAS",
+            "Detalle de Productos"
         };
 
         tableModel = new DefaultTableModel(null, columnas) {

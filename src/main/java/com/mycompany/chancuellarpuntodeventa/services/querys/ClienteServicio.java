@@ -264,14 +264,15 @@ public class ClienteServicio {
         return productosMap;
     }
 
-    public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Long productoId, int cantidadDevuelta) throws Exception {
+public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Long productoId, int cantidadDevuelta) throws Exception {
         ClienteDTO cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new Exception("El cliente no existe en la base de datos."));
 
         BigDecimal deudaActual = cliente.getDeudaActual() != null ? cliente.getDeudaActual() : BigDecimal.ZERO;
-        BigDecimal valorTotalDescuento = BigDecimal.ZERO;
+        boolean operacionRealizada = false;
 
         try (Connection conn = dataSource.getConnection()) {
+            
             // 1. Si se indicó una devolución manual de un producto específico en el modal
             if (cantidadDevuelta > 0 && productoId != null) {
                 int prestadasProducto = 0;
@@ -321,7 +322,6 @@ public class ClienteServicio {
                 }
 
                 BigDecimal valorEnvasesDevueltos = precioUnitarioReal.multiply(new BigDecimal(cantidadDevuelta));
-                valorTotalDescuento = valorTotalDescuento.add(valorEnvasesDevueltos);
 
                 String sqlIns = "INSERT INTO envases_devoluciones (cliente_id, producto_id, cantidad, monto_descontado) VALUES (?, ?, ?, ?)";
                 try (PreparedStatement pstmt = conn.prepareStatement(sqlIns)) {
@@ -331,14 +331,14 @@ public class ClienteServicio {
                     pstmt.setBigDecimal(4, valorEnvasesDevueltos);
                     pstmt.executeUpdate();
                 }
+                operacionRealizada = true;
             }
 
-            // 2. Si hay abono en dinero adicional (Opción B: al abonar dinero, se devuelven automáticamente los envases pendientes)
+            // 2. Si hay abono en dinero
             if (montoAbono != null && montoAbono.compareTo(BigDecimal.ZERO) > 0) {
                 if (montoAbono.compareTo(deudaActual) > 0) {
                     throw new Exception("El abono de $" + montoAbono + " no puede ser mayor a la deuda actual del cliente ($" + deudaActual + ").");
                 }
-                valorTotalDescuento = valorTotalDescuento.add(montoAbono);
 
                 try {
                     MovimientoCajaDto mov = new MovimientoCajaDto();
@@ -352,63 +352,67 @@ public class ClienteServicio {
                     System.err.println("[ADVERTENCIA] No se pudo registrar el abono en la caja: " + e.getMessage());
                 }
 
-                // Registrar automáticamente la devolución de todos los productos pendientes en envases_devoluciones
-                String sqlPendientes = "SELECT p.id AS producto_id, p.price, "
-                        + "(COALESCE(prestados.total_prestado, 0) - COALESCE(devueltos.total_devuelto, 0)) AS pendiente "
-                        + "FROM productos p "
-                        + "JOIN ("
-                        + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
-                        + "    FROM ventas v "
-                        + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
-                        + "    WHERE v.cliente_id = ? GROUP BY vp.producto_id"
-                        + ") prestados ON p.id = prestados.producto_id "
-                        + "LEFT JOIN ("
-                        + "    SELECT ed.producto_id, SUM(ed.cantidad) as total_devuelto "
-                        + "    FROM envases_devoluciones ed "
-                        + "    WHERE ed.cliente_id = ? GROUP BY ed.producto_id"
-                        + ") devueltos ON p.id = devueltos.producto_id "
-                        + "HAVING pendiente > 0";
+                BigDecimal nuevaDeuda = deudaActual.subtract(montoAbono);
+                if (nuevaDeuda.compareTo(BigDecimal.ZERO) < 0) {
+                    nuevaDeuda = BigDecimal.ZERO;
+                }
+                clienteRepository.actualizarDeudaPorId(clienteId, nuevaDeuda);
 
-                try (PreparedStatement psPend = conn.prepareStatement(sqlPendientes)) {
-                    psPend.setLong(1, clienteId);
-                    psPend.setLong(2, clienteId);
-                    ResultSet rsPend = psPend.executeQuery();
+                // --- CONDICIÓN NUEVA: Si el cliente liquida TODA la deuda monetaria (queda en $0.00), 
+                // liberamos automáticamente los envases pendientes que tenga ---
+                if (nuevaDeuda.compareTo(BigDecimal.ZERO) == 0) {
+                    String sqlPendientes = "SELECT p.id AS producto_id, p.price, "
+                            + "(COALESCE(prestados.total_prestado, 0) - COALESCE(devueltos.total_devuelto, 0)) AS pendiente "
+                            + "FROM productos p "
+                            + "JOIN ("
+                            + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
+                            + "    FROM ventas v "
+                            + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
+                            + "    WHERE v.cliente_id = ? GROUP BY vp.producto_id"
+                            + ") prestados ON p.id = prestados.producto_id "
+                            + "LEFT JOIN ("
+                            + "    SELECT ed.producto_id, SUM(ed.cantidad) as total_devuelto "
+                            + "    FROM envases_devoluciones ed "
+                            + "    WHERE ed.cliente_id = ? GROUP BY ed.producto_id"
+                            + ") devueltos ON p.id = devueltos.producto_id "
+                            + "HAVING pendiente > 0";
 
-                    String sqlInsAuto = "INSERT INTO envases_devoluciones (cliente_id, producto_id, cantidad, monto_descontado) VALUES (?, ?, ?, ?)";
-                    while (rsPend.next()) {
-                        Long pId = rsPend.getLong("producto_id");
-                        int cantPendiente = rsPend.getInt("pendiente");
-                        BigDecimal precioP = rsPend.getBigDecimal("price");
-                        if (precioP == null) {
-                            precioP = BigDecimal.ZERO;
-                        }
-                        BigDecimal subtotalP = precioP.multiply(new BigDecimal(cantPendiente));
+                    try (PreparedStatement psPend = conn.prepareStatement(sqlPendientes)) {
+                        psPend.setLong(1, clienteId);
+                        psPend.setLong(2, clienteId);
+                        ResultSet rsPend = psPend.executeQuery();
 
-                        try (PreparedStatement psIns = conn.prepareStatement(sqlInsAuto)) {
-                            psIns.setLong(1, clienteId);
-                            psIns.setLong(2, pId);
-                            psIns.setInt(3, cantPendiente);
-                            psIns.setBigDecimal(4, subtotalP);
-                            psIns.executeUpdate();
+                        String sqlInsAuto = "INSERT INTO envases_devoluciones (cliente_id, producto_id, cantidad, monto_descontado) VALUES (?, ?, ?, ?)";
+                        while (rsPend.next()) {
+                            Long pId = rsPend.getLong("producto_id");
+                            int cantPendiente = rsPend.getInt("pendiente");
+                            BigDecimal precioP = rsPend.getBigDecimal("price");
+                            if (precioP == null) {
+                                precioP = BigDecimal.ZERO;
+                            }
+                            BigDecimal subtotalP = precioP.multiply(new BigDecimal(cantPendiente));
+
+                            try (PreparedStatement psIns = conn.prepareStatement(sqlInsAuto)) {
+                                psIns.setLong(1, clienteId);
+                                psIns.setLong(2, pId);
+                                psIns.setInt(3, cantPendiente);
+                                psIns.setBigDecimal(4, subtotalP);
+                                psIns.executeUpdate();
+                            }
                         }
                     }
                 }
+
+                operacionRealizada = true;
+            }
+
+            if (!operacionRealizada) {
+                throw new Exception("Debe ingresar un monto de abono válido o indicar al menos 1 envase a devolver.");
             }
         }
-
-        if (valorTotalDescuento.compareTo(BigDecimal.ZERO) <= 0) {
-            throw new Exception("Debe ingresar un monto de abono válido o indicar al menos 1 envase a devolver.");
-        }
-
-        // 3. Actualizamos la deuda restando el total
-        if (valorTotalDescuento.compareTo(deudaActual) > 0) {
-            clienteRepository.actualizarDeudaPorId(clienteId, BigDecimal.ZERO);
-        } else {
-            BigDecimal nuevaDeuda = deudaActual.subtract(valorTotalDescuento);
-            clienteRepository.actualizarDeudaPorId(clienteId, nuevaDeuda);
-        }
     }
-
+  
+  
     public BigDecimal calcularDeudaTotal() {
         List<ClienteDTO> clientes = clienteRepository.findAll();
         BigDecimal total = BigDecimal.ZERO;

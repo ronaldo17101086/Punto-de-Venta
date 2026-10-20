@@ -95,67 +95,137 @@ public class productInterface extends JPanel {
     private void importarDesdeExcel() {
         JFileChooser fileChooser = new JFileChooser();
         fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
-        int seleccion = fileChooser.showOpenDialog(this);
+        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+
+        // Capturamos la referencia exacta de este panel de forma segura
+        final JPanel panelActual = this;
+
+        int seleccion = fileChooser.showOpenDialog(panelActual);
 
         if (seleccion == JFileChooser.APPROVE_OPTION) {
             File archivo = fileChooser.getSelectedFile();
-            try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
 
-                Sheet sheet = workbook.getSheetAt(0);
-                Iterator<Row> filas = sheet.iterator();
+            // Ventana de carga
+            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
+            JDialog dialogoProgreso = new JDialog(parentFrame, "Importando catálogo", true);
+            dialogoProgreso.setSize(380, 130);
+            dialogoProgreso.setLocationRelativeTo(panelActual);
+            dialogoProgreso.setLayout(new BorderLayout());
+            dialogoProgreso.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
-                if (filas.hasNext()) {
-                    filas.next(); // Saltar encabezados
+            JPanel panelContenido = new JPanel(new BorderLayout(10, 10));
+            panelContenido.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+            JLabel lblEstado = new JLabel("Analizando archivo...", JLabel.CENTER);
+            lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+
+            JProgressBar barraProgreso = new JProgressBar(0, 100);
+            barraProgreso.setStringPainted(true);
+            barraProgreso.setFont(new Font("Segoe UI", Font.BOLD, 12));
+
+            panelContenido.add(lblEstado, BorderLayout.NORTH);
+            panelContenido.add(barraProgreso, BorderLayout.CENTER);
+            dialogoProgreso.add(panelContenido);
+
+            SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
+                @Override
+                protected int[] doInBackground() throws Exception {
+                    int nuevos = 0;
+                    int actualizados = 0;
+
+                    try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
+
+                        Sheet sheet = workbook.getSheetAt(0);
+                        int totalFilas = sheet.getLastRowNum();
+
+                        if (totalFilas <= 0) {
+                            return new int[]{0, 0};
+                        }
+
+                        DataFormatter formatter = new DataFormatter();
+
+                        for (int i = 1; i <= totalFilas; i++) {
+                            Row fila = sheet.getRow(i);
+                            if (fila != null) {
+                                String skuExcel = formatter.formatCellValue(fila.getCell(0));
+                                String nombreExcel = formatter.formatCellValue(fila.getCell(1));
+                                String precioExcel = formatter.formatCellValue(fila.getCell(2));
+                                String granelExcel = formatter.formatCellValue(fila.getCell(3));
+
+                                if (skuExcel != null && !skuExcel.trim().isEmpty()) {
+                                    ProductoDTO p = productoRepository.findBySku(skuExcel);
+                                    if (p != null) {
+                                        actualizados++;
+                                    } else {
+                                        p = new ProductoDTO();
+                                        p.setSku(skuExcel);
+                                        nuevos++;
+                                    }
+
+                                    p.setName(nombreExcel);
+
+                                    try {
+                                        String limpio = precioExcel.replace(",", "").trim();
+                                        p.setPrice(limpio.isEmpty() ? BigDecimal.ZERO : new BigDecimal(limpio));
+                                    } catch (Exception e) {
+                                        p.setPrice(BigDecimal.ZERO);
+                                    }
+
+                                    boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
+                                    p.setGranel(esGranel);
+
+                                    productoRepository.save(p);
+                                }
+                            }
+
+                            int porcentaje = (int) ((double) i / totalFilas * 100);
+                            publish(porcentaje);
+                        }
+                    }
+
+                    return new int[]{nuevos, actualizados};
                 }
 
-                DataFormatter formatter = new DataFormatter();
-                int nuevos = 0;
-                int actualizados = 0;
+                @Override
+                protected void process(java.util.List<Integer> chunks) {
+                    int ultimoPorcentaje = chunks.get(chunks.size() - 1);
+                    barraProgreso.setValue(ultimoPorcentaje);
+                    lblEstado.setText("Procesando productos... " + ultimoPorcentaje + "%");
+                }
 
-                while (filas.hasNext()) {
-                    Row fila = filas.next();
+                @Override
+                protected void done() {
+                    dialogoProgreso.dispose();
 
-                    // 1. LEER COLUMNAS (Agregamos la columna 3 para el Granel)
-                    String skuExcel = formatter.formatCellValue(fila.getCell(0));
-                    String nombreExcel = formatter.formatCellValue(fila.getCell(1));
-                    String precioExcel = formatter.formatCellValue(fila.getCell(2));
-                    String granelExcel = formatter.formatCellValue(fila.getCell(3)); // Columna D (s/n)
+                    try {
+                        int[] resultados = get();
+                        int nuevos = resultados[0];
+                        int actualizados = resultados[1];
 
-                    if (skuExcel != null && !skuExcel.trim().isEmpty()) {
-                        ProductoDTO p = productoRepository.findBySku(skuExcel);
-                        if (p != null) {
-                            actualizados++;
-                        } else {
-                            p = new ProductoDTO();
-                            p.setSku(skuExcel);
-                            nuevos++;
-                        }
+                        // Usamos panelActual en lugar de PanelProductos.this
+                        JOptionPane.showMessageDialog(
+                                panelActual,
+                                "¡Catálogo actualizado!\nNuevos: " + nuevos + "\nActualizados: " + actualizados,
+                                "Importación Exitosa",
+                                JOptionPane.INFORMATION_MESSAGE
+                        );
 
-                        p.setName(nombreExcel);
+                        cargarProductosCompletos();
 
-                        // 2. LÓGICA PARA EL PRECIO
-                        try {
-                            String limpio = precioExcel.replace(",", "").trim();
-                            p.setPrice(limpio.isEmpty() ? BigDecimal.ZERO : new BigDecimal(limpio));
-                        } catch (Exception e) {
-                            p.setPrice(BigDecimal.ZERO);
-                        }
-
-                        // 3. LÓGICA PARA EL GRANEL
-                        boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
-                        p.setGranel(esGranel);
-
-                        productoRepository.save(p);
+                    } catch (Exception e) {
+                        JOptionPane.showMessageDialog(
+                                panelActual,
+                                "Error en el proceso: " + e.getMessage(),
+                                "Error de Importación",
+                                JOptionPane.ERROR_MESSAGE
+                        );
+                        e.printStackTrace();
                     }
                 }
+            };
 
-                JOptionPane.showMessageDialog(this, "¡Catálogo actualizado!\nNuevos: " + nuevos + "\nActualizados: " + actualizados);
-                cargarProductosCompletos();
-
-            } catch (Exception e) {
-                JOptionPane.showMessageDialog(this, "Error en el proceso: " + e.getMessage());
-                e.printStackTrace();
-            }
+            worker.execute();
+            dialogoProgreso.setVisible(true);
         }
     }
 

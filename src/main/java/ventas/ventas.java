@@ -5,6 +5,7 @@ import com.formdev.flatlaf.icons.FlatSearchIcon;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.CambioDTO;
 import com.mycompany.chancuellarpuntodeventa.services.querys.ventaServicio;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ClienteDTO;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.EnvasePrestadoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ProductoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.VentaDTO;
 import com.mycompany.chancuellarpuntodeventa.services.querys.ClienteServicio;
@@ -739,6 +740,11 @@ public class ventas extends JPanel {
         estilizarItemModoClaro(itemImportes, fontMenu);
         itemImportes.addActionListener(e -> abrirDialogoGestionImportes());
 
+        // --- OPCIÓN: Gestión de Envases Prestados ---
+        JMenuItem itemEnvasesPrestados = new JMenuItem("Gestión de Envases Prestados", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
+        estilizarItemModoClaro(itemEnvasesPrestados, fontMenu); // Descomenta si usas este método en tu menú
+        itemEnvasesPrestados.addActionListener(e -> abrirDialogoGestionEnvasesPrestados());
+
         // --- OPCIÓN 4: Control de Caja ---
         JMenuItem itemCaja = new JMenuItem("Control de Caja");
         estilizarItemModoClaro(itemCaja, fontMenu);
@@ -755,6 +761,7 @@ public class ventas extends JPanel {
         menu.add(itemCliente);
         menu.add(itemComentario);
         menu.add(itemImportes);
+        menu.add(itemEnvasesPrestados);
         menu.addSeparator();
         menu.add(itemCaja);
 
@@ -782,7 +789,7 @@ public class ventas extends JPanel {
 
     private void abrirDialogoGestionImportes() {
         JDialog dialogo = new JDialog((Frame) null, "Gestión de Clientes con Importes Pendientes", true);
-        dialogo.setSize(950, 500);
+        dialogo.setSize(1000, 550);
         dialogo.setLocationRelativeTo(null);
         dialogo.setLayout(new BorderLayout(10, 10));
 
@@ -810,13 +817,66 @@ public class ventas extends JPanel {
         tablaImportes.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
         JScrollPane scrollTabla = new JScrollPane(tablaImportes);
 
+        // --- EVENTO DE DOBLE CLIC PARA VER EL DETALLE EN FORMATO DE LISTA CON SCROLL ---
+        tablaImportes.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int filaSeleccionada = tablaImportes.getSelectedRow();
+                    if (filaSeleccionada != -1) {
+                        String nombreCliente = (String) modeloTabla.getValueAt(filaSeleccionada, 1);
+                        String piezasTotal = modeloTabla.getValueAt(filaSeleccionada, 3).toString();
+                        String detalleCompleto = (String) modeloTabla.getValueAt(filaSeleccionada, 4);
+                        String montoTotal = modeloTabla.getValueAt(filaSeleccionada, 5).toString();
+
+                        StringBuilder listaFormateada = new StringBuilder();
+                        if (detalleCompleto != null && !detalleCompleto.isEmpty()) {
+                            String[] items = detalleCompleto.split(",");
+                            for (String item : items) {
+                                listaFormateada.append(" • ").append(item.trim()).append("\n\n");
+                            }
+                        } else {
+                            listaFormateada.append("Sin detalles registrados.");
+                        }
+
+                        JTextArea txtAreaDetalle = new JTextArea(listaFormateada.toString());
+                        txtAreaDetalle.setEditable(false);
+                        txtAreaDetalle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                        txtAreaDetalle.setForeground(new Color(33, 37, 41));
+                        txtAreaDetalle.setBackground(new Color(250, 250, 250));
+                        txtAreaDetalle.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+                        JScrollPane scrollDetalle = new JScrollPane(txtAreaDetalle);
+                        scrollDetalle.setPreferredSize(new Dimension(480, 220));
+                        scrollDetalle.setBorder(BorderFactory.createLineBorder(new Color(220, 225, 230), 1));
+
+                        JPanel panelContenedor = new JPanel(new BorderLayout(10, 10));
+                        panelContenedor.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+                        JLabel lblHeader = new JLabel("<html><b>Cliente:</b> " + nombreCliente + " &nbsp;|&nbsp; <b>Pzas:</b> " + piezasTotal + " &nbsp;|&nbsp; <b>Total:</b> " + montoTotal + "</html>");
+                        lblHeader.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                        lblHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+
+                        panelContenedor.add(lblHeader, BorderLayout.NORTH);
+                        panelContenedor.add(scrollDetalle, BorderLayout.CENTER);
+
+                        JOptionPane.showMessageDialog(
+                                dialogo,
+                                panelContenedor,
+                                "Detalle Completo de Importes",
+                                JOptionPane.PLAIN_MESSAGE
+                        );
+                    }
+                }
+            }
+        });
+
         // Método para cargar y filtrar los datos usando tu servicio
         Runnable cargarDatosImportes = () -> {
             modeloTabla.setRowCount(0);
             String filtro = txtBuscar.getText().trim();
 
             try {
-                // Llamamos al método que creamos en tu servicio para obtener la lista filtrada
                 List<ventaServicio.ImporteClienteDTO> listaImportes = ventaServicio.obtenerClientesConImportes(filtro);
 
                 for (ventaServicio.ImporteClienteDTO imp : listaImportes) {
@@ -834,7 +894,7 @@ public class ventas extends JPanel {
             }
         };
 
-        // Carga inicial
+        // Carga inicial y automática al abrir
         cargarDatosImportes.run();
 
         // Evento de búsqueda en tiempo real al escribir en el JTextField
@@ -855,7 +915,7 @@ public class ventas extends JPanel {
         btnAbonarLiquidar.setForeground(Color.WHITE);
         btnAbonarLiquidar.setFocusPainted(false);
 
-        // Acción al presionar Abonar / Liquidar
+        // Acción al presionar Abonar / Liquidar (Abre ventana interactiva por piezas/productos)
         btnAbonarLiquidar.addActionListener(e -> {
             int filaSeleccionada = tablaImportes.getSelectedRow();
             if (filaSeleccionada == -1) {
@@ -865,35 +925,139 @@ public class ventas extends JPanel {
 
             Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
             String nombreCliente = (String) modeloTabla.getValueAt(filaSeleccionada, 1);
-            String montoStr = modeloTabla.getValueAt(filaSeleccionada, 5).toString().replace("$", "");
-            BigDecimal montoTotal = new BigDecimal(montoStr);
 
-            String inputAbono = JOptionPane.showInputDialog(dialogo,
-                    "Cliente: " + nombreCliente + "\nDeuda de Importe total: $" + montoTotal + "\n\nIngrese la cantidad a abonar o liquidar ($):",
-                    montoTotal.toString());
+            // Crear diálogo interactivo de devolución de importes por producto
+            JDialog dialogoDevolucion = new JDialog(dialogo, "Abonar o Liquidar Importe - " + nombreCliente, true);
+            dialogoDevolucion.setSize(650, 400);
+            dialogoDevolucion.setLocationRelativeTo(dialogo);
+            dialogoDevolucion.setLayout(new BorderLayout(10, 10));
 
-            if (inputAbono != null && !inputAbono.trim().isEmpty()) {
+            List<ventaServicio.DetalleImporteDTO> listaDetalle = ventaServicio.obtenerDetalleImportesCliente(clienteId);
+
+            if (listaDetalle.isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "Este cliente no tiene importes pendientes registrados.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            String[] colDev = {"ID Prod", "Producto", "Pendientes", "Monto Unit.", "Cantidad a Devolver"};
+            javax.swing.table.DefaultTableModel modeloDev = new javax.swing.table.DefaultTableModel(colDev, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return column == 4; // Solo la columna "Cantidad a Devolver" es editable
+                }
+            };
+
+            for (ventaServicio.DetalleImporteDTO det : listaDetalle) {
+                BigDecimal unitario = det.getCantidadPendiente().compareTo(BigDecimal.ZERO) > 0
+                        ? det.getMontoTotal().divide(det.getCantidadPendiente(), 2, java.math.RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO;
+
+                modeloDev.addRow(new Object[]{
+                    det.getProductoId(),
+                    det.getNombreProducto(),
+                    det.getCantidadPendiente(),
+                    "$" + unitario,
+                    BigDecimal.ZERO // Valor inicial
+                });
+            }
+
+            JTable tablaDev = new JTable(modeloDev);
+            tablaDev.setRowHeight(30);
+            tablaDev.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            tablaDev.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+            JScrollPane scrollDev = new JScrollPane(tablaDev);
+
+            JPanel pnlBotonesDev = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+            pnlBotonesDev.setBackground(Color.WHITE);
+
+            JButton btnLiquidarTodo = new JButton("Liquidar Todo");
+            btnLiquidarTodo.setBackground(new Color(220, 53, 69));
+            btnLiquidarTodo.setForeground(Color.WHITE);
+            btnLiquidarTodo.setFocusPainted(false);
+
+            JButton btnConfirmarDev = new JButton("Confirmar Abono / Salida");
+            btnConfirmarDev.setBackground(new Color(13, 148, 136));
+            btnConfirmarDev.setForeground(Color.WHITE);
+            btnConfirmarDev.setFocusPainted(false);
+
+            btnLiquidarTodo.addActionListener(ev -> {
+                int confirm = JOptionPane.showConfirmDialog(dialogoDevolucion, "¿Desea liquidar TODOS los importes y retirar el efectivo completo de caja para este cliente?", "Confirmar Liquidación Total", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    try {
+                        Map<Long, BigDecimal> devolucionesMap = new java.util.HashMap<>();
+                        for (int i = 0; i < modeloDev.getRowCount(); i++) {
+                            Long prodId = (Long) modeloDev.getValueAt(i, 0);
+                            BigDecimal pendiente = (BigDecimal) modeloDev.getValueAt(i, 2);
+                            devolucionesMap.put(prodId, pendiente);
+                        }
+
+                        ventaServicio.abonarOLiquidarImportePorProducto(clienteId, devolucionesMap);
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "¡Importes liquidados con éxito y salida registrada en caja!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                        dialogoDevolucion.dispose();
+                        cargarDatosImportes.run();
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "Error al liquidar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            });
+
+            btnConfirmarDev.addActionListener(ev -> {
+                if (tablaDev.isEditing()) {
+                    tablaDev.getCellEditor().stopCellEditing();
+                }
+
                 try {
-                    BigDecimal abono = new BigDecimal(inputAbono.trim());
-                    if (abono.compareTo(BigDecimal.ZERO) <= 0) {
-                        JOptionPane.showMessageDialog(dialogo, "Ingrese un monto válido mayor a 0.", "Error", JOptionPane.ERROR_MESSAGE);
+                    Map<Long, BigDecimal> devolucionesMap = new java.util.HashMap<>();
+                    for (int i = 0; i < modeloDev.getRowCount(); i++) {
+                        Long prodId = (Long) modeloDev.getValueAt(i, 0);
+                        BigDecimal pendiente = (BigDecimal) modeloDev.getValueAt(i, 2);
+
+                        Object valDev = modeloDev.getValueAt(i, 4);
+                        BigDecimal aDevolver = BigDecimal.ZERO;
+                        if (valDev != null && !valDev.toString().trim().isEmpty()) {
+                            aDevolver = new BigDecimal(valDev.toString().trim());
+                        }
+
+                        if (aDevolver.compareTo(BigDecimal.ZERO) > 0) {
+                            if (aDevolver.compareTo(pendiente) > 0) {
+                                JOptionPane.showMessageDialog(dialogoDevolucion, "No puede abonar más de las piezas pendientes en la fila " + (i + 1), "Error", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                            devolucionesMap.put(prodId, aDevolver);
+                        }
+                    }
+
+                    if (devolucionesMap.isEmpty()) {
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "Ingrese al menos una cantidad mayor a 0 para abonar.", "Aviso", JOptionPane.WARNING_MESSAGE);
                         return;
                     }
 
-                    // Ejecutamos la liquidación en la base de datos y afectamos la caja mediante el servicio
-                    ventaServicio.abonarOLiquidarImporte(clienteId, abono);
+                    // Registra el abono, actualiza las piezas y genera la salida de dinero en caja automáticamente
+                    ventaServicio.abonarOLiquidarImportePorProducto(clienteId, devolucionesMap);
 
-                    JOptionPane.showMessageDialog(dialogo, "¡Abono de $" + abono + " registrado con éxito y reflejado en caja! El importe ha sido liquidado.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-
-                    // Refrescar la tabla para que el cliente desaparezca automáticamente de la lista
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "¡Abono registrado con éxito y salida reflejada en caja!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    dialogoDevolucion.dispose();
                     cargarDatosImportes.run();
 
-                } catch (NumberFormatException ex) {
-                    JOptionPane.showMessageDialog(dialogo, "Por favor, ingrese un número decimal válido.", "Formato Inválido", JOptionPane.ERROR_MESSAGE);
+                } catch (NumberFormatException nfe) {
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "Por favor, ingrese números válidos en las cantidades.", "Formato Inválido", JOptionPane.ERROR_MESSAGE);
                 } catch (Exception ex) {
-                    JOptionPane.showMessageDialog(dialogo, "Error al procesar el abono: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "Error al procesar el abono: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
-            }
+            });
+
+            pnlBotonesDev.add(btnLiquidarTodo);
+            pnlBotonesDev.add(btnConfirmarDev);
+
+            JPanel pnlNorteDev = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            pnlNorteDev.setBackground(Color.WHITE);
+            pnlNorteDev.add(new JLabel("<html><b>Edite la columna 'Cantidad a Devolver' para abonar por piezas:</b></html>"));
+
+            dialogoDevolucion.add(pnlNorteDev, BorderLayout.NORTH);
+            dialogoDevolucion.add(scrollDev, BorderLayout.CENTER);
+            dialogoDevolucion.add(pnlBotonesDev, BorderLayout.SOUTH);
+
+            dialogoDevolucion.setVisible(true);
         });
 
         JButton btnCerrar = new JButton("Cerrar");
@@ -901,6 +1065,287 @@ public class ventas extends JPanel {
         btnCerrar.addActionListener(e -> dialogo.dispose());
 
         panelBotones.add(btnAbonarLiquidar);
+        panelBotones.add(btnCerrar);
+
+        dialogo.add(panelFiltro, BorderLayout.NORTH);
+        dialogo.add(scrollTabla, BorderLayout.CENTER);
+        dialogo.add(panelBotones, BorderLayout.SOUTH);
+
+        dialogo.setVisible(true);
+    }
+
+    private void abrirDialogoGestionEnvasesPrestados() {
+        JDialog dialogo = new JDialog((Frame) null, "Control y Devolución de Envases Prestados", true);
+        dialogo.setSize(1000, 550);
+        dialogo.setLocationRelativeTo(null);
+        dialogo.setLayout(new BorderLayout(10, 10));
+
+        // Panel Superior: Búsqueda de cliente en tiempo real
+        JPanel panelFiltro = new JPanel(new FlowLayout(FlowLayout.LEFT, 15, 10));
+        panelFiltro.setBackground(Color.WHITE);
+        JLabel lblBuscar = new JLabel("Filtrar por Cliente:");
+        lblBuscar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        JTextField txtBuscar = new JTextField(25);
+        txtBuscar.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        panelFiltro.add(lblBuscar);
+        panelFiltro.add(txtBuscar);
+
+        // Tabla principal de Envases Prestados Pendientes
+        String[] columnas = {"ID Cliente", "Cliente", "Teléfono", "Pzas Prestadas", "Detalle de Envases", "Estado"};
+        javax.swing.table.DefaultTableModel modeloTabla = new javax.swing.table.DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Solo lectura
+            }
+        };
+        JTable tablaEnvases = new JTable(modeloTabla);
+        tablaEnvases.setRowHeight(28);
+        tablaEnvases.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaEnvases.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+        JScrollPane scrollTabla = new JScrollPane(tablaEnvases);
+
+        // --- EVENTO DE DOBLE CLIC FORMATO LISTA CON SCROLL PARA VER DETALLES ---
+        tablaEnvases.addMouseListener(new java.awt.event.MouseAdapter() {
+            @Override
+            public void mouseClicked(java.awt.event.MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int filaSeleccionada = tablaEnvases.getSelectedRow();
+                    if (filaSeleccionada != -1) {
+                        String nombreCliente = (String) modeloTabla.getValueAt(filaSeleccionada, 1);
+                        String piezasTotal = modeloTabla.getValueAt(filaSeleccionada, 3).toString();
+                        String detalleCompleto = (String) modeloTabla.getValueAt(filaSeleccionada, 4);
+
+                        StringBuilder listaFormateada = new StringBuilder();
+                        if (detalleCompleto != null && !detalleCompleto.isEmpty()) {
+                            String[] items = detalleCompleto.split(",");
+                            for (String item : items) {
+                                listaFormateada.append(" • ").append(item.trim()).append("\n\n");
+                            }
+                        } else {
+                            listaFormateada.append("Sin detalles registrados.");
+                        }
+
+                        JTextArea txtAreaDetalle = new JTextArea(listaFormateada.toString());
+                        txtAreaDetalle.setEditable(false);
+                        txtAreaDetalle.setFont(new Font("Segoe UI", Font.BOLD, 14));
+                        txtAreaDetalle.setForeground(new Color(33, 37, 41));
+                        txtAreaDetalle.setBackground(new Color(250, 250, 250));
+                        txtAreaDetalle.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+
+                        JScrollPane scrollDetalle = new JScrollPane(txtAreaDetalle);
+                        scrollDetalle.setPreferredSize(new Dimension(480, 220));
+                        scrollDetalle.setBorder(BorderFactory.createLineBorder(new Color(220, 225, 230), 1));
+
+                        JPanel panelContenedor = new JPanel(new BorderLayout(10, 10));
+                        panelContenedor.setBorder(BorderFactory.createEmptyBorder(5, 5, 5, 5));
+
+                        JLabel lblHeader = new JLabel("<html><b>Cliente:</b> " + nombreCliente + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total prestado:</b> " + piezasTotal + "</html>");
+                        lblHeader.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+                        lblHeader.setBorder(BorderFactory.createEmptyBorder(0, 0, 10, 0));
+
+                        panelContenedor.add(lblHeader, BorderLayout.NORTH);
+                        panelContenedor.add(scrollDetalle, BorderLayout.CENTER);
+
+                        JOptionPane.showMessageDialog(
+                                dialogo,
+                                panelContenedor,
+                                "Detalle de Envases Prestados",
+                                JOptionPane.PLAIN_MESSAGE
+                        );
+                    }
+                }
+            }
+        });
+
+        // Método para cargar y actualizar los datos al instante
+        Runnable cargarDatosEnvases = () -> {
+            modeloTabla.setRowCount(0);
+            String filtro = txtBuscar.getText().trim();
+
+            try {
+                List<EnvasePrestadoDTO> listaEnvases = ventaServicio.obtenerClientesConEnvasesPrestados(filtro);
+
+                for (EnvasePrestadoDTO env : listaEnvases) {
+                    modeloTabla.addRow(new Object[]{
+                        env.getClienteId(),
+                        env.getNombre(),
+                        env.getTelefono(),
+                        env.getPiezasPendientes() + " pzas",
+                        env.getDetalleEnvases(),
+                        "Pendiente de devolución"
+                    });
+                }
+            } catch (Exception ex) {
+                System.err.println("Error al cargar envases en la tabla: " + ex.getMessage());
+            }
+        };
+
+        // Carga inicial y automática al abrir la ventana
+        cargarDatosEnvases.run();
+
+        // Evento de búsqueda en tiempo real al escribir
+        txtBuscar.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                cargarDatosEnvases.run();
+            }
+        });
+
+        // Panel Inferior: Botones de acción
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 10));
+        panelBotones.setBackground(Color.WHITE);
+
+        JButton btnRegistrarDevolucion = new JButton("Registrar Devolución / Liberar");
+        btnRegistrarDevolucion.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnRegistrarDevolucion.setBackground(new Color(40, 167, 69));
+        btnRegistrarDevolucion.setForeground(Color.WHITE);
+        btnRegistrarDevolucion.setFocusPainted(false);
+
+        // --- ACCIÓN DE DEVOLUCIÓN MEDIANTE VENTANA DE SELECCIÓN DE PRODUCTOS ---
+        btnRegistrarDevolucion.addActionListener(e -> {
+            int filaSeleccionada = tablaEnvases.getSelectedRow();
+            if (filaSeleccionada == -1) {
+                JOptionPane.showMessageDialog(dialogo, "Por favor, seleccione un cliente de la lista.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                return;
+            }
+
+            Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
+            String nombreCliente = (String) modeloTabla.getValueAt(filaSeleccionada, 1);
+
+            // Crear diálogo personalizado con tabla de productos a devolver
+            JDialog dialogoDevolucion = new JDialog(dialogo, "Control de Devolución - " + nombreCliente, true);
+            dialogoDevolucion.setSize(600, 400);
+            dialogoDevolucion.setLocationRelativeTo(dialogo);
+            dialogoDevolucion.setLayout(new BorderLayout(10, 10));
+
+            List<ventaServicio.DetalleEnvaseDTO> listaDetalle = ventaServicio.obtenerDetalleEnvasesCliente(clienteId);
+
+            if (listaDetalle.isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "Este cliente no tiene envases pendientes registrados.", "Aviso", JOptionPane.INFORMATION_MESSAGE);
+                return;
+            }
+
+            String[] colDev = {"ID Prod", "Producto", "Pendientes", "Cantidad a Devolver"};
+            javax.swing.table.DefaultTableModel modeloDev = new javax.swing.table.DefaultTableModel(colDev, 0) {
+                @Override
+                public boolean isCellEditable(int row, int column) {
+                    return column == 3; // Solo la columna "Cantidad a Devolver" es editable
+                }
+            };
+
+            for (ventaServicio.DetalleEnvaseDTO det : listaDetalle) {
+                modeloDev.addRow(new Object[]{
+                    det.getProductoId(),
+                    det.getNombreProducto(),
+                    det.getCantidadPendiente(),
+                    BigDecimal.ZERO // Valor inicial a devolver
+                });
+            }
+
+            JTable tablaDev = new JTable(modeloDev);
+            tablaDev.setRowHeight(30);
+            tablaDev.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            tablaDev.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 13));
+            JScrollPane scrollDev = new JScrollPane(tablaDev);
+
+            JPanel pnlBotonesDev = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+            pnlBotonesDev.setBackground(Color.WHITE);
+
+            JButton btnLiberarTodo = new JButton("Liberar Todo");
+            btnLiberarTodo.setBackground(new Color(220, 53, 69));
+            btnLiberarTodo.setForeground(Color.WHITE);
+            btnLiberarTodo.setFocusPainted(false);
+
+            JButton btnConfirmarDev = new JButton("Confirmar Devolución");
+            btnConfirmarDev.setBackground(new Color(40, 167, 69));
+            btnConfirmarDev.setForeground(Color.WHITE);
+            btnConfirmarDev.setFocusPainted(false);
+
+            btnLiberarTodo.addActionListener(ev -> {
+                int confirm = JOptionPane.showConfirmDialog(dialogoDevolucion, "¿Desea liberar TODOS los envases pendientes de este cliente?", "Confirmar Liberación Total", JOptionPane.YES_NO_OPTION);
+                if (confirm == JOptionPane.YES_OPTION) {
+                    try {
+                        ventaServicio.registrarDevolucionEnvases(clienteId, "TODO");
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "¡Todos los envases han sido liberados con éxito!", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                        dialogoDevolucion.dispose();
+                        cargarDatosEnvases.run();
+                    } catch (Exception ex) {
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "Error al liberar: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                    }
+                }
+            });
+
+            btnConfirmarDev.addActionListener(ev -> {
+                // --- CORRECCIÓN CLAVE: Detener edición de la celda activa para tomar el valor recién escrito ---
+                if (tablaDev.isEditing()) {
+                    tablaDev.getCellEditor().stopCellEditing();
+                }
+
+                try {
+                    Map<Long, BigDecimal> devolucionesMap = new java.util.HashMap<>();
+                    for (int i = 0; i < modeloDev.getRowCount(); i++) {
+                        Long prodId = (Long) modeloDev.getValueAt(i, 0);
+                        BigDecimal pendiente = new BigDecimal(modeloDev.getValueAt(i, 2).toString());
+
+                        Object valDev = modeloDev.getValueAt(i, 3);
+                        BigDecimal aDevolver = BigDecimal.ZERO;
+
+                        if (valDev != null && !valDev.toString().trim().isEmpty()) {
+                            aDevolver = new BigDecimal(valDev.toString().trim());
+                        }
+
+                        if (aDevolver.compareTo(BigDecimal.ZERO) > 0) {
+                            if (aDevolver.compareTo(pendiente) > 0) {
+                                JOptionPane.showMessageDialog(dialogoDevolucion,
+                                        "No puede devolver más de lo pendiente (" + pendiente + ") en el producto de la fila " + (i + 1),
+                                        "Cantidad Excedida", JOptionPane.ERROR_MESSAGE);
+                                return;
+                            }
+                            devolucionesMap.put(prodId, aDevolver);
+                        }
+                    }
+
+                    if (devolucionesMap.isEmpty()) {
+                        JOptionPane.showMessageDialog(dialogoDevolucion, "Ingrese al menos una cantidad mayor a 0 para devolver.", "Aviso", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+
+                    // Guardar devolución parcial
+                    ventaServicio.registrarDevolucionEnvasesPorProducto(clienteId, devolucionesMap);
+
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "¡Devolución registrada con éxito! Se actualizaron las piezas pendientes.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+
+                    dialogoDevolucion.dispose();
+
+                    // Refrescar la tabla principal para que Ronaldo ahora muestre 3 pzas (1 Galón + 2 Caguamas)
+                    cargarDatosEnvases.run();
+
+                } catch (NumberFormatException nfe) {
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "Por favor, ingrese números válidos en las cantidades a devolver.", "Formato Inválido", JOptionPane.ERROR_MESSAGE);
+                } catch (Exception ex) {
+                    JOptionPane.showMessageDialog(dialogoDevolucion, "Error al registrar la devolución: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
+            });
+
+            pnlBotonesDev.add(btnLiberarTodo);
+            pnlBotonesDev.add(btnConfirmarDev);
+
+            JPanel pnlNorteDev = new JPanel(new FlowLayout(FlowLayout.LEFT));
+            pnlNorteDev.setBackground(Color.WHITE);
+            pnlNorteDev.add(new JLabel("<html><b>Edite la columna 'Cantidad a Devolver' según lo que trajo el cliente:</b></html>"));
+
+            dialogoDevolucion.add(pnlNorteDev, BorderLayout.NORTH);
+            dialogoDevolucion.add(scrollDev, BorderLayout.CENTER);
+            dialogoDevolucion.add(pnlBotonesDev, BorderLayout.SOUTH);
+
+            dialogoDevolucion.setVisible(true);
+        });
+
+        JButton btnCerrar = new JButton("Cerrar");
+        btnCerrar.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        btnCerrar.addActionListener(e -> dialogo.dispose());
+
+        panelBotones.add(btnRegistrarDevolucion);
         panelBotones.add(btnCerrar);
 
         dialogo.add(panelFiltro, BorderLayout.NORTH);
@@ -1374,24 +1819,52 @@ public class ventas extends JPanel {
 
         if (dialogo.isVentaConfirmada()) {
             try {
-
                 String comentariosVenta = txtComentarios.getText().isEmpty() ? "Venta en mostrador" : txtComentarios.getText();
                 Map<String, BigDecimal> desglosePagos = dialogo.obtenerDesglosePagos();
+
                 if (txtComentarios != null) {
                     txtComentarios.setText("");
                 }
+
                 // Generamos el UUID / Folio único
                 String uuidGenerado = "NV-" + System.currentTimeMillis();
+
+                // --- 1. OBTENER Y VALIDAR EL MONTO A CRÉDITO (CORREGIDO PARA LIMITAR AL TOTAL) ---
+                BigDecimal montoCredito = desglosePagos.getOrDefault("CREDITO", BigDecimal.ZERO);
+
+                // Si el monto a crédito ingresado es mayor al total de la venta, lo ajustamos al total exacto
+                if (montoCredito.compareTo(totalVentaActual) > 0) {
+                    montoCredito = totalVentaActual;
+                    desglosePagos.put("CREDITO", montoCredito); // Actualizamos el mapa de pagos
+                }
+
+                // Validación A: ¿Intenta comprar a crédito el Público General?
+                if (montoCredito.compareTo(BigDecimal.ZERO) > 0 && esPublicoGeneral) {
+                    JOptionPane.showMessageDialog(parentWindow,
+                            "No se puede registrar saldo a crédito para 'Público General'. Por favor, selecciona un cliente válido.",
+                            "Restricción de Crédito", JOptionPane.WARNING_MESSAGE);
+                    return;
+                }
+
+                // Validación B: ¿El monto a crédito supera el crédito disponible del cliente?
+                if (montoCredito.compareTo(BigDecimal.ZERO) > 0) {
+                    if (montoCredito.compareTo(creditoDisponible) > 0) {
+                        JOptionPane.showMessageDialog(parentWindow,
+                                "El monto a crédito ($" + montoCredito + ") supera el límite disponible del cliente ($" + creditoDisponible + ").",
+                                "Crédito Insuficiente", JOptionPane.WARNING_MESSAGE);
+                        return;
+                    }
+                }
+                // ------------------------------------------------------------------
 
                 // --- CÁLCULO PRECISO Y CORREGIDO DEL EFECTIVO Y CAMBIO ---
                 BigDecimal efectivoRecibido = desglosePagos.getOrDefault("EFECTIVO", BigDecimal.ZERO);
 
-                // Si el cliente pagó en efectivo un monto mayor al total
+                // Si el cliente pagó en efectivo un monto mayor al total (o al resto que no fue a crédito)
                 BigDecimal cambioFinal = BigDecimal.ZERO;
                 if (efectivoRecibido.compareTo(totalVentaActual) > 0) {
                     cambioFinal = efectivoRecibido.subtract(totalVentaActual);
                 } else if (dialogo.getCambio() != null && dialogo.getCambio().compareTo(BigDecimal.ZERO) > 0) {
-                    // Fallback si DialogoPago ya calcula el cambio correctamente
                     cambioFinal = dialogo.getCambio();
                 }
 
@@ -1411,10 +1884,10 @@ public class ventas extends JPanel {
                 ventaDto.setComentarios(comentariosVenta);
                 ventaDto.setTotalVenta(totalVentaActual);
 
-                // --- AGREGAR ESTAS LÍNEAS AQUÍ ---
-                boolean esCreditoVenta = dialogo.isEsCredito();
+                // --- CONFIGURAR SI LA VENTA ES A CRÉDITO (Si lleva parte o todo en crédito) ---
+                boolean esCreditoVenta = montoCredito.compareTo(BigDecimal.ZERO) > 0 || dialogo.isEsCredito();
                 ventaDto.setEsCredito(esCreditoVenta);
-                // ---------------------------------
+                // -----------------------------------------------------------------------------
 
                 if (clienteActual != null && clienteActual.getId() != null) {
                     ventaDto.setClienteId(clienteActual.getId());
