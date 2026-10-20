@@ -43,7 +43,7 @@ public class clientInterface extends JPanel {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
 
-        JLabel lblTitulo = new JLabel("Gestión de Clientes y Créditos (Fíados)");
+        JLabel lblTitulo = new JLabel("Gestión de Clientes y Créditos");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitulo.setForeground(new Color(28, 35, 49));
         topPanel.add(lblTitulo, BorderLayout.WEST);
@@ -147,7 +147,6 @@ public class clientInterface extends JPanel {
             "Límite Crédito",
             "Deuda Actual (Debe)",
             "Crédito Disponible",
-            "PZAS",
             "Detalle de Productos"
         };
 
@@ -172,7 +171,7 @@ public class clientInterface extends JPanel {
                     int fila = tableClientes.getSelectedRow();
                     if (fila != -1) {
                         String nombreCliente = (String) tableModel.getValueAt(fila, 1);
-                        String detalleCompleto = (String) tableModel.getValueAt(fila, 7);
+                        String detalleCompleto = (String) tableModel.getValueAt(fila, 6);
                         mostrarDialogoDetalleEnvases(nombreCliente, detalleCompleto);
                     }
                 }
@@ -272,7 +271,6 @@ public class clientInterface extends JPanel {
             BigDecimal deuda = c.getDeudaActual() != null ? c.getDeudaActual() : BigDecimal.ZERO;
             BigDecimal disponible = limite.subtract(deuda);
 
-            int envasesDebe = c.getEnvasesPendientes() != null ? c.getEnvasesPendientes() : 0;
             String detalleProd = (c.getDetalleProductos() != null && !c.getDetalleProductos().isEmpty())
                     ? c.getDetalleProductos()
                     : "Sin productos prestados";
@@ -284,7 +282,6 @@ public class clientInterface extends JPanel {
                 "$" + limite,
                 "$" + deuda,
                 "$" + disponible,
-                envasesDebe + " pzas",
                 detalleProd
             });
 
@@ -423,7 +420,7 @@ public class clientInterface extends JPanel {
         // Agregar Componentes al Formulario
         gbc.gridx = 0;
         gbc.gridy = 0;
-        form.add(crearEtiqueta("Nombre / Razón Social *:", fontLabel, colorLabel), gbc);
+        form.add(crearEtiqueta("Nombre *:", fontLabel, colorLabel), gbc);
         gbc.gridy = 1;
         form.add(txtNombre, gbc);
 
@@ -654,7 +651,7 @@ public class clientInterface extends JPanel {
         }
     }
 
-    private void abrirModalAbono() {
+  private void abrirModalAbono() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -668,9 +665,9 @@ public class clientInterface extends JPanel {
             }
         }
 
-        // 2. Configuración del diálogo
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono y/o Devolución de Envases", true);
-        dialog.setSize(640, 620);
+        // 2. Configuración del diálogo (ajustamos la altura ya que hay menos elementos)
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono a Deuda", true);
+        dialog.setSize(640, 480);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout(0, 0));
 
@@ -682,7 +679,7 @@ public class clientInterface extends JPanel {
         JPanel panelNorte = new JPanel(new BorderLayout(8, 8));
         panelNorte.setOpaque(false);
 
-        JLabel lblTituloModal = new JLabel("Control de Cartera y Envases - Búsqueda de Cliente");
+        JLabel lblTituloModal = new JLabel("Control de Cartera - Búsqueda de Cliente");
         lblTituloModal.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTituloModal.setForeground(new Color(30, 41, 59));
 
@@ -711,24 +708,9 @@ public class clientInterface extends JPanel {
         tablaClientes.setSelectionMode(javax.swing.ListSelectionModel.SINGLE_SELECTION);
         tablaClientes.getColumnModel().getColumn(0).setMaxWidth(60);
 
-        JComboBox<ItemCombo> cmbProductosPrestados = new JComboBox<>();
-        cmbProductosPrestados.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-
         JTextField txtMontoAbono = new JTextField("0.00");
         txtMontoAbono.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtMontoAbono.putClientProperty("JTextField.showClearButton", true);
-
-        JTextField txtEnvasesDevueltos = new JTextField("0");
-        txtEnvasesDevueltos.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtEnvasesDevueltos.putClientProperty("JTextField.showClearButton", true);
-
-        // Función para actualizar los campos según el cliente seleccionado en la tabla (Ya no sobreescribe el abono con la deuda)
-        Runnable actualizarCamposClienteSeleccionado = () -> {
-            int filaSel = tablaClientes.getSelectedRow();
-            if (filaSel != -1) {
-                cargarProductosEnCombo(tablaClientes, modeloTabla, cmbProductosPrestados);
-            }
-        };
 
         // Función para filtrar y llenar la tabla
         Runnable actualizarTabla = () -> {
@@ -747,20 +729,10 @@ public class clientInterface extends JPanel {
             }
             if (modeloTabla.getRowCount() > 0) {
                 tablaClientes.setRowSelectionInterval(0, 0);
-                actualizarCamposClienteSeleccionado.run();
-            } else {
-                cmbProductosPrestados.removeAllItems();
             }
         };
 
         actualizarTabla.run();
-
-        // Listener cuando el usuario selecciona otro cliente en la tabla
-        tablaClientes.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting() && tablaClientes.getSelectedRow() != -1) {
-                actualizarCamposClienteSeleccionado.run();
-            }
-        });
 
         txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
             public void insertUpdate(javax.swing.event.DocumentEvent e) {
@@ -778,10 +750,10 @@ public class clientInterface extends JPanel {
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
-        scrollPane.setPreferredSize(new Dimension(0, 160));
+        scrollPane.setPreferredSize(new Dimension(0, 180));
 
-        // --- PANEL DE FORMULARIO ---
-        JPanel panelFormulario = new JPanel(new GridLayout(3, 2, 12, 10));
+        // --- PANEL DE FORMULARIO (Diseño limpio de 1 fila, 2 columnas) ---
+        JPanel panelFormulario = new JPanel(new GridLayout(1, 2, 12, 10));
         panelFormulario.setOpaque(false);
         panelFormulario.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
@@ -792,20 +764,8 @@ public class clientInterface extends JPanel {
         lblMonto.setFont(fontLabel);
         lblMonto.setForeground(colorLabel);
 
-        JLabel lblProductoDev = new JLabel("Artículo a Devolver:");
-        lblProductoDev.setFont(fontLabel);
-        lblProductoDev.setForeground(colorLabel);
-
-        JLabel lblEnvases = new JLabel("Cantidad a Devolver (pzas):");
-        lblEnvases.setFont(fontLabel);
-        lblEnvases.setForeground(colorLabel);
-
         panelFormulario.add(lblMonto);
-        panelFormulario.add(lblProductoDev);
         panelFormulario.add(txtMontoAbono);
-        panelFormulario.add(cmbProductosPrestados);
-        panelFormulario.add(lblEnvases);
-        panelFormulario.add(txtEnvasesDevueltos);
 
         // --- BOTÓN DE ACCIÓN ---
         JPanel btnPanel = new JPanel(new BorderLayout());
@@ -829,19 +789,11 @@ public class clientInterface extends JPanel {
 
                 Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
                 BigDecimal monto = new BigDecimal(txtMontoAbono.getText().trim().isEmpty() ? "0" : txtMontoAbono.getText().trim());
-                int envases = Integer.parseInt(txtEnvasesDevueltos.getText().trim().isEmpty() ? "0" : txtEnvasesDevueltos.getText().trim());
 
-                ItemCombo itemSeleccionado = (ItemCombo) cmbProductosPrestados.getSelectedItem();
-                Long productoId = (itemSeleccionado != null) ? itemSeleccionado.getId() : null;
+                // Al ya no usar selectores en este modal, enviamos null para producto y 0 para cantidad
+                clienteServicio.registrarAbonoYDevolucion(clienteId, monto, null, 0);
 
-                if (envases > 0 && productoId == null) {
-                    JOptionPane.showMessageDialog(dialog, "Debe seleccionar el producto específico que está devolviendo.", "Aviso", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                clienteServicio.registrarAbonoYDevolucion(clienteId, monto, productoId, envases);
-
-                JOptionPane.showMessageDialog(dialog, "¡Operación registrada correctamente!");
+                JOptionPane.showMessageDialog(dialog, "¡Abono registrado correctamente!");
                 dialog.dispose();
                 cargarDatosTabla();
             } catch (NumberFormatException ex) {
@@ -882,27 +834,6 @@ public class clientInterface extends JPanel {
         @Override
         public String toString() {
             return nombre;
-        }
-    }
-
-    // Método auxiliar para llenar el ComboBox de productos prestados del cliente seleccionado
-    private void cargarProductosEnCombo(javax.swing.JTable tablaClientes, javax.swing.table.DefaultTableModel modeloTabla, JComboBox<ItemCombo> cmbProductosPrestados) {
-        cmbProductosPrestados.removeAllItems();
-        cmbProductosPrestados.addItem(new ItemCombo(null, "-- Seleccione producto (Opcional) --"));
-
-        int filaSel = tablaClientes.getSelectedRow();
-        if (filaSel != -1) {
-            Long cliId = (Long) modeloTabla.getValueAt(filaSel, 0);
-            if (clienteServicio != null) {
-                try {
-                    java.util.Map<Long, String> productosMap = clienteServicio.obtenerProductosPrestadosCliente(cliId);
-                    for (java.util.Map.Entry<Long, String> entry : productosMap.entrySet()) {
-                        cmbProductosPrestados.addItem(new ItemCombo(entry.getKey(), entry.getValue()));
-                    }
-                } catch (Exception ex) {
-                    System.err.println("Error al cargar productos del cliente: " + ex.getMessage());
-                }
-            }
         }
     }
 

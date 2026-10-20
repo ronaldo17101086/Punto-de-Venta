@@ -736,12 +736,12 @@ public class ventas extends JPanel {
         itemComentario.addActionListener(e -> abrirDialogoComentario());
 
         // --- OPCIÓN 3: Gestión de Importes ---
-        JMenuItem itemImportes = new JMenuItem("Gestión de Importes", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
+        JMenuItem itemImportes = new JMenuItem("Importes", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
         estilizarItemModoClaro(itemImportes, fontMenu);
         itemImportes.addActionListener(e -> abrirDialogoGestionImportes());
 
         // --- OPCIÓN: Gestión de Envases Prestados ---
-        JMenuItem itemEnvasesPrestados = new JMenuItem("Gestión de Envases Prestados", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
+        JMenuItem itemEnvasesPrestados = new JMenuItem("Prestados", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
         estilizarItemModoClaro(itemEnvasesPrestados, fontMenu); // Descomenta si usas este método en tu menú
         itemEnvasesPrestados.addActionListener(e -> abrirDialogoGestionEnvasesPrestados());
 
