@@ -22,6 +22,7 @@ import java.awt.datatransfer.Clipboard;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
+import java.io.File;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.sql.Connection;
@@ -1623,6 +1624,9 @@ public class ventas extends JPanel {
                 // Importante: Si tu ProductoDTO tiene el booleano isGranel, asegúrate de pasarlo también
                 item.setGranel(p.isGranel());
 
+                // Aseguramos que la ruta de la imagen se mantenga asignada en el DTO del item
+                item.setImagePath(p.getImagePath());
+
                 listaProductos.add(item);
             }
             renderizarCards(listaProductos);
@@ -2066,28 +2070,62 @@ public class ventas extends JPanel {
     }
 
     public static ImageIcon cargarImagen(String ruta, int w, int h, String t) {
-        if (ruta != null && !ruta.isEmpty()) {
-            try {
-                Image imgEscalada;
-                if (ruta.startsWith("http")) {
-                    // CARGAR DESDE URL (Internet)
-                    ImageIcon iconWeb = new ImageIcon(new java.net.URL(ruta));
-                    imgEscalada = iconWeb.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-                    return new ImageIcon(imgEscalada);
-                } else {
-                    // CARGAR DESDE ARCHIVO LOCAL (Tu código actual [cite: 432])
-                    java.io.File archivo = new java.io.File(ruta);
-                    if (archivo.exists()) {
-                        ImageIcon iconOriginal = new ImageIcon(ruta);
-                        imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-                        return new ImageIcon(imgEscalada);
-                    }
-                }
-            } catch (Exception e) {
-                System.err.println("Error cargando imagen: " + e.getMessage());
+        File archivo = null;
+
+        // 1. Intentar con la ruta directa si viene especificada
+        if (ruta != null && !ruta.trim().isEmpty()) {
+            String rutaLimpia = ruta.trim().replace("\"", "");
+            File fDirecto = new File(rutaLimpia);
+            if (fDirecto.exists() && fDirecto.isFile()) {
+                archivo = fDirecto;
             }
         }
-        // Si falla, se mantiene tu diseño de inicial con fondo gris [cite: 435, 436]
+
+        // 2. Si no se encontró por ruta directa, buscar usando el SKU o nombre base en las carpetas reales del proyecto
+        if (archivo == null && t != null && !t.trim().isEmpty()) {
+            String nombreBuscado = new File(ruta != null && !ruta.isEmpty() ? ruta : t).getName();
+            // Si 't' es la inicial o texto, aseguramos buscar por el nombre base o SKU
+            String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
+
+            // Carpetas reales donde están tus imágenes
+            File[] carpetasPosibles = {
+                new File("imagenes"),
+                new File("src/main/resources/images"),
+                new File(System.getProperty("user.dir"), "imagenes"),
+                new File(System.getProperty("user.dir"), "src/main/resources/images")
+            };
+
+            for (File carpeta : carpetasPosibles) {
+                if (carpeta.exists() && carpeta.isDirectory()) {
+                    // Probamos si el archivo se llama exactamente como la ruta traía o como el SKU/nombre
+                    for (String ext : extensiones) {
+                        File fPrueba = new File(carpeta, nombreBuscado.contains(".") ? nombreBuscado : nombreBuscado + ext);
+                        if (fPrueba.exists() && fPrueba.isFile()) {
+                            archivo = fPrueba;
+                            break;
+                        }
+                    }
+                }
+                if (archivo != null) {
+                    break;
+                }
+            }
+        }
+
+        // 3. Si el archivo físico por fin existe, lo cargamos y escalamos
+        if (archivo != null && archivo.exists() && archivo.isFile()) {
+            try {
+                ImageIcon iconOriginal = new ImageIcon(archivo.getAbsolutePath());
+                if (iconOriginal.getIconWidth() > 0) {
+                    Image imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
+                    return new ImageIcon(imgEscalada);
+                }
+            } catch (Exception e) {
+                System.err.println("Error cargando imagen desde archivo [" + archivo.getAbsolutePath() + "]: " + e.getMessage());
+            }
+        }
+
+        // Si de plano no se encontró nada, genera el placeholder vectorial
         return generarImagenPlaceholder(w, h, t);
     }
 

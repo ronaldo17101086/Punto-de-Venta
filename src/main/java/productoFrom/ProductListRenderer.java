@@ -10,7 +10,7 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
     private JLabel lblNombre = new JLabel();
     private JLabel lblPrecio = new JLabel();
     private JLabel lblSku = new JLabel();
-    private JLabel lblFoto = new JLabel(); // Nuevo Label para la imagen
+    private JLabel lblFoto = new JLabel(); // Label para la imagen
 
     public ProductListRenderer() {
         setLayout(new BorderLayout(15, 5));
@@ -19,6 +19,7 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
         // Configuración de la miniatura de la foto
         lblFoto.setPreferredSize(new Dimension(50, 50));
         lblFoto.setHorizontalAlignment(SwingConstants.CENTER);
+        lblFoto.setVerticalAlignment(SwingConstants.CENTER);
         lblFoto.setBorder(BorderFactory.createLineBorder(new Color(230, 230, 230)));
 
         // Panel para los textos (Nombre y SKU)
@@ -43,7 +44,7 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
     }
 
     @Override
-    public java.awt.Component getListCellRendererComponent(
+    public Component getListCellRendererComponent(
             JList<? extends ProductoDTO> list,
             ProductoDTO value,
             int index,
@@ -55,22 +56,49 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
         lblSku.setText("SKU: " + value.getSku());
         lblPrecio.setText("$" + String.format("%.2f", value.getPrice()));
 
-        // 2. Lógica para cargar la imagen en la lista
-        if (value.getImagePath() != null && !value.getImagePath().isEmpty()) {
-            File file = new File(value.getImagePath());
-            if (file.exists()) {
-                ImageIcon icon = new ImageIcon(value.getImagePath());
-                // Escalamos la imagen a 50x50 para la lista
+        // 2. BÚSQUEDA BLINDADA: Ruta guardada O búsqueda directa por SKU en la carpeta imgTienda
+        File archivoImagen = null;
+
+        // Intentar con la ruta que trae el DTO
+        if (value.getImagePath() != null && !value.getImagePath().trim().isEmpty()) {
+            File f = new File(value.getImagePath().trim().replace("\"", ""));
+            if (f.exists()) {
+                archivoImagen = f;
+            }
+        }
+
+        // Si no existe, buscar directamente por el SKU en la carpeta "imgTienda" (ej: 1.png, 1.jpg)
+        if (archivoImagen == null && value.getSku() != null && !value.getSku().trim().isEmpty()) {
+            String skuLimpio = value.getSku().trim();
+            String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif"};
+            File carpetaTienda = new File("imgTienda");
+
+            if (carpetaTienda.exists() && carpetaTienda.isDirectory()) {
+                for (String ext : extensiones) {
+                    File f = new File(carpetaTienda, skuLimpio + ext);
+                    if (f.exists()) {
+                        archivoImagen = f;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 3. Renderizar la miniatura si se encontró el archivo físico
+        if (archivoImagen != null && archivoImagen.exists()) {
+            try {
+                ImageIcon icon = new ImageIcon(archivoImagen.getAbsolutePath());
                 Image img = icon.getImage().getScaledInstance(50, 50, Image.SCALE_SMOOTH);
                 lblFoto.setIcon(new ImageIcon(img));
                 lblFoto.setText("");
-            } else {
+            } catch (Exception e) {
                 setIconDefault();
             }
         } else {
             setIconDefault();
         }
 
+        // Colores de selección de la celda
         if (isSelected) {
             setBackground(new Color(232, 240, 254));
             lblNombre.setForeground(new Color(28, 78, 134));
@@ -85,7 +113,7 @@ class ProductListRenderer extends JPanel implements ListCellRenderer<ProductoDTO
     // Método auxiliar para poner un icono por defecto si no hay imagen
     private void setIconDefault() {
         lblFoto.setIcon(null);
-        lblFoto.setText("📦"); // Emoji o puedes usar una imagen default
+        lblFoto.setText("📦"); 
         lblFoto.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 20));
     }
 }

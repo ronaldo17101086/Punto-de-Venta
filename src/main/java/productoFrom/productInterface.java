@@ -97,17 +97,14 @@ public class productInterface extends JPanel {
         fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
         fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
 
-        // Capturamos la referencia exacta de este panel de forma segura
         final JPanel panelActual = this;
-
         int seleccion = fileChooser.showOpenDialog(panelActual);
 
         if (seleccion == JFileChooser.APPROVE_OPTION) {
             File archivo = fileChooser.getSelectedFile();
 
-            // Ventana de carga
             Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
-            JDialog dialogoProgreso = new JDialog(parentFrame, "Importando catálogo", true);
+            JDialog dialogoProgreso = new JDialog(parentFrame, "Sincronizando Catálogo e Imágenes", true);
             dialogoProgreso.setSize(380, 130);
             dialogoProgreso.setLocationRelativeTo(panelActual);
             dialogoProgreso.setLayout(new BorderLayout());
@@ -116,7 +113,7 @@ public class productInterface extends JPanel {
             JPanel panelContenido = new JPanel(new BorderLayout(10, 10));
             panelContenido.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-            JLabel lblEstado = new JLabel("Analizando archivo...", JLabel.CENTER);
+            JLabel lblEstado = new JLabel("Importando productos y vinculando imágenes...", JLabel.CENTER);
             lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 
             JProgressBar barraProgreso = new JProgressBar(0, 100);
@@ -126,6 +123,9 @@ public class productInterface extends JPanel {
             panelContenido.add(lblEstado, BorderLayout.NORTH);
             panelContenido.add(barraProgreso, BorderLayout.CENTER);
             dialogoProgreso.add(panelContenido);
+
+            // Apunta a la carpeta "imagenes" dentro del proyecto
+            File carpetaImagenes = new File("imagenes");
 
             SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
                 @Override
@@ -153,7 +153,9 @@ public class productInterface extends JPanel {
                                 String granelExcel = formatter.formatCellValue(fila.getCell(3));
 
                                 if (skuExcel != null && !skuExcel.trim().isEmpty()) {
+                                    skuExcel = skuExcel.trim();
                                     ProductoDTO p = productoRepository.findBySku(skuExcel);
+
                                     if (p != null) {
                                         actualizados++;
                                     } else {
@@ -166,13 +168,23 @@ public class productInterface extends JPanel {
 
                                     try {
                                         String limpio = precioExcel.replace(",", "").trim();
-                                        p.setPrice(limpio.isEmpty() ? BigDecimal.ZERO : new BigDecimal(limpio));
+                                        p.setPrice(limpio.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(limpio));
                                     } catch (Exception e) {
-                                        p.setPrice(BigDecimal.ZERO);
+                                        p.setPrice(java.math.BigDecimal.ZERO);
                                     }
 
                                     boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
                                     p.setGranel(esGranel);
+
+                                    // --- VINCULACIÓN MASIVA POR SKU ---
+                                    String rutaEncontrada = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
+
+                                    if (rutaEncontrada != null) {
+                                        p.setImagePath(rutaEncontrada);
+                                        System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaEncontrada);
+                                    } else {
+                                        p.setImagePath(null);
+                                    }
 
                                     productoRepository.save(p);
                                 }
@@ -190,7 +202,7 @@ public class productInterface extends JPanel {
                 protected void process(java.util.List<Integer> chunks) {
                     int ultimoPorcentaje = chunks.get(chunks.size() - 1);
                     barraProgreso.setValue(ultimoPorcentaje);
-                    lblEstado.setText("Procesando productos... " + ultimoPorcentaje + "%");
+                    lblEstado.setText("Procesando... " + ultimoPorcentaje + "%");
                 }
 
                 @Override
@@ -199,24 +211,21 @@ public class productInterface extends JPanel {
 
                     try {
                         int[] resultados = get();
-                        int nuevos = resultados[0];
-                        int actualizados = resultados[1];
-
-                        // Usamos panelActual en lugar de PanelProductos.this
                         JOptionPane.showMessageDialog(
                                 panelActual,
-                                "¡Catálogo actualizado!\nNuevos: " + nuevos + "\nActualizados: " + actualizados,
+                                "¡Catálogo e imágenes sincronizados masivamente con éxito!\nNuevos: " + resultados[0] + "\nActualizados: " + resultados[1],
                                 "Importación Exitosa",
                                 JOptionPane.INFORMATION_MESSAGE
                         );
 
+                        // Refresca la lista visual
                         cargarProductosCompletos();
 
                     } catch (Exception e) {
                         JOptionPane.showMessageDialog(
                                 panelActual,
-                                "Error en el proceso: " + e.getMessage(),
-                                "Error de Importación",
+                                "Error al finalizar importación: " + e.getMessage(),
+                                "Error",
                                 JOptionPane.ERROR_MESSAGE
                         );
                         e.printStackTrace();
@@ -227,6 +236,39 @@ public class productInterface extends JPanel {
             worker.execute();
             dialogoProgreso.setVisible(true);
         }
+    }
+
+    // Método auxiliar de búsqueda masiva por SKU apuntando a "imagenes"
+    private String buscarImagenMasivaPorSku(File carpetaDefault, String sku) {
+        if (sku == null || sku.trim().isEmpty()) {
+            return null;
+        }
+
+        String skuLimpio = sku.trim();
+        String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
+
+        List<File> carpetasABuscar = new ArrayList<>();
+        if (carpetaDefault != null) {
+            carpetasABuscar.add(carpetaDefault);
+        }
+        // Agregamos las rutas reales detectadas
+        carpetasABuscar.add(new File("imagenes"));
+        carpetasABuscar.add(new File("src/main/resources/images"));
+        carpetasABuscar.add(new File("imgTienda"));
+        carpetasABuscar.add(new File(System.getProperty("user.dir"), "imagenes"));
+        carpetasABuscar.add(new File(System.getProperty("user.dir"), "src/main/resources/images"));
+
+        for (File carpeta : carpetasABuscar) {
+            if (carpeta.exists() && carpeta.isDirectory()) {
+                for (String ext : extensiones) {
+                    File archivoImg = new File(carpeta, skuLimpio + ext);
+                    if (archivoImg.exists()) {
+                        return archivoImg.getAbsolutePath();
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     private void actualizarLista(List<ProductoDTO> productos) {
@@ -463,20 +505,49 @@ public class productInterface extends JPanel {
         lblCodigo.setText(p.getSku());
         lblPrecioPrincipal.setText(String.format("$%.2f", p.getPrice()));
 
-        // --- LÓGICA DE IMAGEN MEJORADA ---
+        // --- BUSQUEDA BLINDADA DE IMAGEN (POR PATH O DIRECTA POR SKU EN imgTienda) ---
         boolean imagenCargada = false;
+        File archivoImagen = null;
+
+        // Intentar 1: Usar la ruta guardada en el DTO
         if (p.getImagePath() != null && !p.getImagePath().trim().isEmpty()) {
-            File file = new File(p.getImagePath());
-            if (file.exists()) {
-                ImageIcon icon = new ImageIcon(p.getImagePath());
+            File f = new File(p.getImagePath());
+            if (f.exists()) {
+                archivoImagen = f;
+            }
+        }
+
+        // Intentar 2: Si la ruta guardada falló, buscar directamente en imgTienda usando el SKU (ej: 1.png, 1.jpg)
+        if (archivoImagen == null && p.getSku() != null && !p.getSku().trim().isEmpty()) {
+            String skuLimpio = p.getSku().trim();
+            String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif"};
+            File carpetaTienda = new File("imgTienda");
+
+            if (carpetaTienda.exists() && carpetaTienda.isDirectory()) {
+                for (String ext : extensiones) {
+                    File f = new File(carpetaTienda, skuLimpio + ext);
+                    if (f.exists()) {
+                        archivoImagen = f;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Renderizar la imagen si la encontró por cualquiera de las dos vías
+        if (archivoImagen != null && archivoImagen.exists()) {
+            try {
+                ImageIcon icon = new ImageIcon(archivoImagen.getAbsolutePath());
                 Image img = icon.getImage().getScaledInstance(140, 140, Image.SCALE_SMOOTH);
                 lblImagen.setIcon(new ImageIcon(img));
                 lblImagen.setText("");
                 imagenCargada = true;
+            } catch (Exception e) {
+                System.err.println("Error al escalar imagen: " + e.getMessage());
             }
         }
 
-        // Si no hay imagen válida, cargamos un placeholder limpio y vectorial (evita el cuadro roto[cite: 10])
+        // Si de plano no existe archivo en imgTienda ni en ruta, muestra el placeholder
         if (!imagenCargada) {
             lblImagen.setIcon(crearPlaceholderIcono(140, 140));
             lblImagen.setText("");
