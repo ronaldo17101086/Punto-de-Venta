@@ -43,7 +43,7 @@ public class clientInterface extends JPanel {
         JPanel topPanel = new JPanel(new BorderLayout());
         topPanel.setOpaque(false);
 
-        JLabel lblTitulo = new JLabel("Gestión de Clientes y Créditos");
+        JLabel lblTitulo = new JLabel(" Clientes y Créditos");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitulo.setForeground(new Color(28, 35, 49));
         topPanel.add(lblTitulo, BorderLayout.WEST);
@@ -52,9 +52,13 @@ public class clientInterface extends JPanel {
         JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
         actionPanel.setOpaque(false);
 
-        txtBuscar = new JTextField(16);
-        txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar cliente...");
-        txtBuscar.putClientProperty(FlatClientProperties.STYLE, "arc:10");
+        // ===== BUSCADOR =====
+        txtBuscar = new JTextField();
+        txtBuscar.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
+        txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "🔍 Buscar cliente por nombre o teléfono...");
+        txtBuscar.putClientProperty(FlatClientProperties.STYLE, "arc: 18; margin: 4, 12, 4, 12");
+        txtBuscar.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
+        txtBuscar.setPreferredSize(new Dimension(300, 38));
 
         txtBuscar.addActionListener(e -> filtrarClientesTabla());
         txtBuscar.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
@@ -76,45 +80,54 @@ public class clientInterface extends JPanel {
         JButton btnActualizar = new JButton("🔄 Actualizar");
         btnActualizar.setBackground(new Color(108, 117, 125));
         btnActualizar.setForeground(Color.WHITE);
-        btnActualizar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnActualizar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
+        btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
+        btnActualizar.setPreferredSize(new Dimension(120, 38)); // Altura unificada
         btnActualizar.addActionListener(e -> cargarDatosTabla());
         actionPanel.add(btnActualizar);
 
+        // ===== BOTÓN ABONO =====
         JButton btnAbono = new JButton("💳 Abonar / Devolver");
         btnAbono.setBackground(new Color(23, 162, 184));
         btnAbono.setForeground(Color.WHITE);
-        btnAbono.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnAbono.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnAbono.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnAbono.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
+        btnAbono.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
+        btnAbono.setPreferredSize(new Dimension(175, 38)); // Altura unificada
         btnAbono.addActionListener(e -> abrirModalAbono());
         actionPanel.add(btnAbono);
 
+        // ===== BOTÓN EDITAR =====
         JButton btnEditar = new JButton("✏️ Editar");
         btnEditar.setBackground(new Color(255, 193, 7));
         btnEditar.setForeground(new Color(40, 40, 40));
-        btnEditar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnEditar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnEditar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnEditar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
+        btnEditar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
+        btnEditar.setPreferredSize(new Dimension(100, 38)); // Altura unificada
         btnEditar.addActionListener(e -> abrirModalEditarCliente());
         actionPanel.add(btnEditar);
 
+        // ===== BOTÓN ELIMINAR =====
         JButton btnEliminar = new JButton("🗑️ Eliminar");
         btnEliminar.setBackground(new Color(220, 53, 69));
         btnEliminar.setForeground(Color.WHITE);
-        btnEliminar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnEliminar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnEliminar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnEliminar.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
+        btnEliminar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
+        btnEliminar.setPreferredSize(new Dimension(110, 38)); // Altura unificada
         btnEliminar.addActionListener(e -> eliminarClienteSeleccionado());
         actionPanel.add(btnEliminar);
 
-        JButton btnNuevo = new JButton("+ Nuevo Cliente");
+        // ===== BOTÓN NUEVO CLIENTE =====
+        JButton btnNuevo = new JButton("➕ Nuevo Cliente");
         btnNuevo.setBackground(new Color(32, 201, 151));
         btnNuevo.setForeground(Color.WHITE);
-        btnNuevo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnNuevo.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnNuevo.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnNuevo.putClientProperty(FlatClientProperties.STYLE, "arc:10; borderWidth:0");
+        btnNuevo.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
+        btnNuevo.setPreferredSize(new Dimension(145, 38)); // Altura unificada
         btnNuevo.addActionListener(e -> abrirModalNuevoCliente());
         actionPanel.add(btnNuevo);
 
@@ -651,7 +664,7 @@ public class clientInterface extends JPanel {
         }
     }
 
-  private void abrirModalAbono() {
+    private void abrirModalAbono() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -817,6 +830,7 @@ public class clientInterface extends JPanel {
         dialog.add(panelPrincipal);
         dialog.setVisible(true);
     }
+
     private static class ItemCombo {
 
         private final Long id;

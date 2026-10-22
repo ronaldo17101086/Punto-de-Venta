@@ -38,6 +38,7 @@ import javax.sql.DataSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import productoFrom.DialogoDetalleProducto;
 import productoFrom.ItemProductoCarrito;
+import productoFrom.productInterface;
 import tools.DialogoPago;
 import tools.DialogoPago.DialogoExitoVenta;
 
@@ -204,7 +205,7 @@ public class ventas extends JPanel {
         txtBuscadorDirecto.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 15));
         txtBuscadorDirecto.setForeground(emeraldText);
         txtBuscadorDirecto.setBackground(emeraldBG);
-        txtBuscadorDirecto.putClientProperty("JTextField.placeholderText", "MODO SCANNER: Ingrese código de barras...");
+        txtBuscadorDirecto.putClientProperty("JTextField.placeholderText", "Ingrese el SKU");
         txtBuscadorDirecto.putClientProperty("JTextField.leadingIcon", new com.formdev.flatlaf.icons.FlatSearchWithHistoryIcon());
         txtBuscadorDirecto.putClientProperty("JComponent.roundRect", true);
         txtBuscadorDirecto.putClientProperty("JTextField.outlineColor", emeraldBorder);
@@ -2070,62 +2071,93 @@ public class ventas extends JPanel {
     }
 
     public static ImageIcon cargarImagen(String ruta, int w, int h, String t) {
-        File archivo = null;
+        ImageIcon iconoCargado = null;
 
-        // 1. Intentar con la ruta directa si viene especificada
-        if (ruta != null && !ruta.trim().isEmpty()) {
-            String rutaLimpia = ruta.trim().replace("\"", "");
-            File fDirecto = new File(rutaLimpia);
-            if (fDirecto.exists() && fDirecto.isFile()) {
-                archivo = fDirecto;
+        try {
+            // 1. Intentar buscar en disco duro (Ruta directa o carpetas relativas del equipo)
+            File archivo = null;
+            if (ruta != null && !ruta.trim().isEmpty()) {
+                String rutaLimpia = ruta.trim().replace("\"", "");
+                File fDirecto = new File(rutaLimpia);
+                if (fDirecto.exists() && fDirecto.isFile()) {
+                    archivo = fDirecto;
+                }
             }
-        }
 
-        // 2. Si no se encontró por ruta directa, buscar usando el SKU o nombre base en las carpetas reales del proyecto
-        if (archivo == null && t != null && !t.trim().isEmpty()) {
-            String nombreBuscado = new File(ruta != null && !ruta.isEmpty() ? ruta : t).getName();
-            // Si 't' es la inicial o texto, aseguramos buscar por el nombre base o SKU
-            String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
+            // Si no está por ruta directa, buscar por SKU/nombre en carpetas relativas portables
+            if (archivo == null && t != null && !t.trim().isEmpty()) {
+                String nombreBuscado = new File(ruta != null && !ruta.isEmpty() ? ruta : t).getName();
+                String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
 
-            // Carpetas reales donde están tus imágenes
-            File[] carpetasPosibles = {
-                new File("imagenes"),
-                new File("src/main/resources/images"),
-                new File(System.getProperty("user.dir"), "imagenes"),
-                new File(System.getProperty("user.dir"), "src/main/resources/images")
-            };
+                // Usar siempre directorios relativos al directorio de ejecución actual (funciona en cualquier PC)
+                File directorioActual = new File(System.getProperty("user.dir"));
+                File[] carpetasPosibles = {
+                    new File(directorioActual, "imagenes"),
+                    new File(directorioActual, "src/main/resources/images"),
+                    new File("imagenes")
+                };
 
-            for (File carpeta : carpetasPosibles) {
-                if (carpeta.exists() && carpeta.isDirectory()) {
-                    // Probamos si el archivo se llama exactamente como la ruta traía o como el SKU/nombre
-                    for (String ext : extensiones) {
-                        File fPrueba = new File(carpeta, nombreBuscado.contains(".") ? nombreBuscado : nombreBuscado + ext);
-                        if (fPrueba.exists() && fPrueba.isFile()) {
-                            archivo = fPrueba;
-                            break;
+                for (File carpeta : carpetasPosibles) {
+                    if (carpeta.exists() && carpeta.isDirectory()) {
+                        for (String ext : extensiones) {
+                            File fPrueba = new File(carpeta, nombreBuscado.contains(".") ? nombreBuscado : nombreBuscado + ext);
+                            if (fPrueba.exists() && fPrueba.isFile()) {
+                                archivo = fPrueba;
+                                break;
+                            }
                         }
                     }
-                }
-                if (archivo != null) {
-                    break;
+                    if (archivo != null) {
+                        break;
+                    }
                 }
             }
-        }
 
-        // 3. Si el archivo físico por fin existe, lo cargamos y escalamos
-        if (archivo != null && archivo.exists() && archivo.isFile()) {
-            try {
+            // Si se encontró el archivo físico en disco, lo cargamos
+            if (archivo != null && archivo.exists() && archivo.isFile()) {
                 ImageIcon iconOriginal = new ImageIcon(archivo.getAbsolutePath());
                 if (iconOriginal.getIconWidth() > 0) {
-                    Image imgEscalada = iconOriginal.getImage().getScaledInstance(w, h, Image.SCALE_SMOOTH);
-                    return new ImageIcon(imgEscalada);
+                    iconoCargado = iconOriginal;
                 }
-            } catch (Exception e) {
-                System.err.println("Error cargando imagen desde archivo [" + archivo.getAbsolutePath() + "]: " + e.getMessage());
             }
+
+            // 2. PLAN B PORTABLE (CLASSPATH): Si en disco no existe (ej. otra PC sin la carpeta externa),
+            // buscamos dentro de los recursos compilados del JAR (/images/SKU.png)
+            if (iconoCargado == null && t != null && !t.trim().isEmpty()) {
+                String nombreBuscado = new File(t).getName();
+                String[] extensiones = {".png", ".jpg", ".jpeg", ".webp"};
+
+                for (String ext : extensiones) {
+                    String resourcePath = "/images/" + (nombreBuscado.contains(".") ? nombreBuscado : nombreBuscado + ext);
+                    java.net.URL imgUrl = productInterface.class.getResource(resourcePath);
+                    if (imgUrl != null) {
+                        iconoCargado = new ImageIcon(imgUrl);
+                        break;
+                    }
+                }
+            }
+
+            // 3. Escalado de alta calidad si se logró cargar la imagen por cualquier vía
+            if (iconoCargado != null && iconoCargado.getIconWidth() > 0) {
+                Image imgOriginal = iconoCargado.getImage();
+                BufferedImage imgEscalada = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
+                Graphics2D g2d = imgEscalada.createGraphics();
+
+                g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+                g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+                g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                g2d.drawImage(imgOriginal, 0, 0, w, h, null);
+                g2d.dispose();
+
+                return new ImageIcon(imgEscalada);
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error procesando imagen: " + e.getMessage());
         }
 
-        // Si de plano no se encontró nada, genera el placeholder vectorial
+        // Si de plano no existe en ningún lado, regresa tu placeholder vectorial limpio
         return generarImagenPlaceholder(w, h, t);
     }
 

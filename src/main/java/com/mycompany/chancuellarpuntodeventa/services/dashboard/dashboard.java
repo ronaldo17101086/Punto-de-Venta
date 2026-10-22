@@ -30,8 +30,8 @@ public class dashboard extends JFrame {
     private JPanel contentPanel;
     private CardLayout cardLayout;
 
-    // Colores de Paleta
-    private final Color COLOR_PRIMARIO = new Color(28, 35, 49);
+    // Colores de Paleta originales
+    private final Color COLOR_PRIMARIO = new Color(28, 35, 41);
     private final Color COLOR_BARRA_SUP = new Color(43, 52, 69);
     private final Color COLOR_ACCENTO = new Color(0, 153, 255);
     private final Color COLOR_LOGOUT = new Color(210, 45, 45);
@@ -47,7 +47,7 @@ public class dashboard extends JFrame {
     @jakarta.annotation.PostConstruct
     public void setup() {
         initUI();
-        cardLayout.show(contentPanel, "inicio");
+        cardLayout.show(contentPanel, "ventas");
     }
 
     private void initUI() {
@@ -159,10 +159,46 @@ public class dashboard extends JFrame {
     }
 
     private void logout() {
-        int confirm = JOptionPane.showConfirmDialog(this, "¿Cerrar sesión?", "Chancuellar", JOptionPane.YES_NO_OPTION);
-        if (confirm == JOptionPane.YES_OPTION) {
+        // Creamos un JDialog personalizado para que luzca moderno y estilizado
+        JDialog dialog = new JDialog(this, "Cerrar Sesión", true);
+        dialog.setSize(380, 200);
+        dialog.setLocationRelativeTo(this);
+        dialog.setUndecorated(true); // Quitamos los bordes feos de ventana clásica
+        dialog.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#E0E0E0,20,20"); // Bordes redondeados sutiles
+
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        panel.setBackground(Color.WHITE);
+        panel.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
+
+        // Icono o texto superior de alerta
+        JLabel lblMensaje = new JLabel("<html><div style='text-align: center;'><b style='font-size: 15px; color: #202938;'>¿Desea cerrar sesión?</b><br><span style='color: #6c757d; font-size: 12px;'>.</span></div></html>", SwingConstants.CENTER);
+        panel.add(lblMensaje, BorderLayout.CENTER);
+
+        // Panel de botones inferiores modernos
+        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
+        panelBotones.setOpaque(false);
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setPreferredSize(new Dimension(110, 38));
+        btnCancelar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCancelar.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#F0F2F5; borderWidth:0; font:bold 12 ciudadanos");
+        btnCancelar.addActionListener(e -> dialog.dispose());
+
+        JButton btnConfirmar = new JButton("Sí, Cerrar");
+        btnConfirmar.setPreferredSize(new Dimension(120, 38));
+        btnConfirmar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnConfirmar.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#E53E3E; foreground:#FFFFFF; borderWidth:0; font:bold 12 sans");
+        btnConfirmar.addActionListener(e -> {
+            dialog.dispose();
             this.dispose();
             context.getBean(LoginInterface.class).setVisible(true);
-        }
+        });
+
+        panelBotones.add(btnCancelar);
+        panelBotones.add(btnConfirmar);
+        panel.add(panelBotones, BorderLayout.SOUTH);
+
+        dialog.add(panel);
+        dialog.setVisible(true);
     }
 }

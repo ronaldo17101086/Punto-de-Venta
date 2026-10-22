@@ -124,8 +124,8 @@ public class productInterface extends JPanel {
             panelContenido.add(barraProgreso, BorderLayout.CENTER);
             dialogoProgreso.add(panelContenido);
 
-            // Apunta a la carpeta "imagenes" dentro del proyecto
-            File carpetaImagenes = new File("imagenes");
+            // Carpeta relativa "imagenes" en la raíz de la aplicación
+            File carpetaImagenes = new File(System.getProperty("user.dir"), "imagenes");
 
             SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
                 @Override
@@ -176,12 +176,12 @@ public class productInterface extends JPanel {
                                     boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
                                     p.setGranel(esGranel);
 
-                                    // --- VINCULACIÓN MASIVA POR SKU ---
-                                    String rutaEncontrada = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
+                                    // --- VINCULACIÓN PORTABLE POR SKU ---
+                                    String rutaRelativa = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
 
-                                    if (rutaEncontrada != null) {
-                                        p.setImagePath(rutaEncontrada);
-                                        System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaEncontrada);
+                                    if (rutaRelativa != null) {
+                                        p.setImagePath(rutaRelativa); // Guarda "imagenes/1.png" en la BD
+                                        System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaRelativa);
                                     } else {
                                         p.setImagePath(null);
                                     }
@@ -238,7 +238,7 @@ public class productInterface extends JPanel {
         }
     }
 
-    // Método auxiliar de búsqueda masiva por SKU apuntando a "imagenes"
+    // Método auxiliar portable: Retorna únicamente rutas relativas universales ("imagenes/1.png")
     private String buscarImagenMasivaPorSku(File carpetaDefault, String sku) {
         if (sku == null || sku.trim().isEmpty()) {
             return null;
@@ -246,24 +246,21 @@ public class productInterface extends JPanel {
 
         String skuLimpio = sku.trim();
         String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
+        File baseDir = new File(System.getProperty("user.dir"));
 
+        // Directorios relativos universales a probar
         List<File> carpetasABuscar = new ArrayList<>();
-        if (carpetaDefault != null) {
-            carpetasABuscar.add(carpetaDefault);
-        }
-        // Agregamos las rutas reales detectadas
+        carpetasABuscar.add(new File(baseDir, "imagenes"));
+        carpetasABuscar.add(new File(baseDir, "src/main/resources/images"));
         carpetasABuscar.add(new File("imagenes"));
-        carpetasABuscar.add(new File("src/main/resources/images"));
-        carpetasABuscar.add(new File("imgTienda"));
-        carpetasABuscar.add(new File(System.getProperty("user.dir"), "imagenes"));
-        carpetasABuscar.add(new File(System.getProperty("user.dir"), "src/main/resources/images"));
 
         for (File carpeta : carpetasABuscar) {
             if (carpeta.exists() && carpeta.isDirectory()) {
                 for (String ext : extensiones) {
                     File archivoImg = new File(carpeta, skuLimpio + ext);
                     if (archivoImg.exists()) {
-                        return archivoImg.getAbsolutePath();
+                        // Guardamos una ruta relativa portable ("imagenes/1.png") en lugar de C:\Users\...
+                        return "imagenes" + File.separator + skuLimpio + ext;
                     }
                 }
             }
