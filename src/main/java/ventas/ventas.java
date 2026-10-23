@@ -59,6 +59,14 @@ public class ventas extends JPanel {
     private final int COLUMNAS = 4;
     private final Color COLOR_SELECCION = new Color(232, 244, 253);
 
+    // Lista en caché para guardar las ventas en espera durante la sesión
+    private List<VentaEnEspera> ventasEnEsperaList = new ArrayList<>();
+
+// Referencias a tus variables globales actuales (ajusta los nombres según tu código)
+    private List<Object> itemsCarritoGlobal = new ArrayList<>(); // Tu carrito de compras actual
+    private Object clienteSeleccionadoGlobal = null;             // El cliente seleccionado actualmente
+    private BigDecimal totalGlobal = BigDecimal.ZERO;            // El total actual de la venta
+
     @Autowired
     private caja.CajaService cajaService; // Esto "jala" el servicio automáticamente
 
@@ -235,6 +243,7 @@ public class ventas extends JPanel {
         );
         this.getActionMap().put("finalizarVenta", finalizarVentaAction);
 
+        // Posicionamiento exacto original (0, 1, 2)
         gbc.insets = new Insets(0, 20, 0, 10);
         gbc.gridx = 0;
         panelCabecera.add(btnActualizar, gbc);
@@ -243,12 +252,52 @@ public class ventas extends JPanel {
         gbc.weightx = 1.0;
         gbc.fill = GridBagConstraints.HORIZONTAL;
         panelCabecera.add(txtBuscador, gbc);
+
         gbc.gridx = 2;
         gbc.weightx = 0.0;
         gbc.insets = new Insets(0, 40, 0, 20);
         panelCabecera.add(txtBuscadorDirecto, gbc);
 
-        configurarMenuOpciones(panelCabecera, gbc);
+        // --- PANEL DERECHO: BOTONES DE ESPERA + MENÚ ORIGINAL ---
+        JPanel panelAccionesDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        panelAccionesDerecha.setBackground(white);
+
+        // Botón pequeño: Poner en espera (⏸)
+        JButton btnPonerEsperaIcon = new JButton("⏸");
+        btnPonerEsperaIcon.setToolTipText("Poner venta en espera");
+        btnPonerEsperaIcon.setPreferredSize(new Dimension(42, 42));
+        btnPonerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
+        btnPonerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnPonerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
+        btnPonerEsperaIcon.addActionListener(e -> ponerVentaActualEnEspera());
+
+        // Botón pequeño: Ver lista de espera (⏳)
+        JButton btnVerEsperaIcon = new JButton("⏳");
+        btnVerEsperaIcon.setToolTipText("Ver ventas en espera");
+        btnVerEsperaIcon.setPreferredSize(new Dimension(42, 42));
+        btnVerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
+        btnVerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnVerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
+        btnVerEsperaIcon.addActionListener(e -> abrirDialogoVentasEnEspera());
+
+        panelAccionesDerecha.add(btnPonerEsperaIcon);
+        panelAccionesDerecha.add(btnVerEsperaIcon);
+
+        // Agregamos el panel derecho limpio en la celda 3 junto con tu menú original
+        gbc.gridx = 3;
+        gbc.weightx = 0.0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.insets = new Insets(0, 0, 0, 10);
+
+        // Creamos un panel contenedor temporal para los botones y tu menú de opciones original
+        JPanel panelExtremoDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelExtremoDerecho.setBackground(white);
+        panelExtremoDerecho.add(panelAccionesDerecha);
+
+        // Llamada a tu método original de los tres puntos
+        configurarMenuOpciones(panelExtremoDerecho, new GridBagConstraints());
+
+        panelCabecera.add(panelExtremoDerecho, gbc);
 
         // --- 3. PANEL CHECKOUT (INICIALIZACIÓN LÓGICA OCULTA) ---
         JPanel panelCheckout = new JPanel(new BorderLayout());
@@ -371,8 +420,8 @@ public class ventas extends JPanel {
             }
         });
     }
-
 // --- MÉTODOS DE DIÁLOGO FLOTANTE ---
+
     private void abrirDialogoCliente() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
@@ -2182,5 +2231,237 @@ public class ventas extends JPanel {
         g.dispose();
 
         return new ImageIcon(bi);
+    }
+
+    public void ponerVentaActualEnEspera() {
+        if (panelCarritoContenedor.getComponentCount() == 0) {
+            JOptionPane.showMessageDialog(this, "El carrito está vacío, no se puede poner en espera.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            return;
+        }
+
+        BigDecimal totalVentaActual = BigDecimal.ZERO;
+        List<ProductoDTO> productosEnCarrito = new java.util.ArrayList<>();
+
+        for (Component c : panelCarritoContenedor.getComponents()) {
+            if (c instanceof ItemProductoCarrito icv) {
+                totalVentaActual = totalVentaActual.add(
+                        icv.getProducto().getPrice().multiply(icv.getCantidad())
+                );
+                ProductoDTO productoConCantidad = icv.getProducto();
+                productoConCantidad.setCantidad(icv.getCantidad());
+                productosEnCarrito.add(productoConCantidad);
+            }
+        }
+
+        Object clienteSeleccionadoObj = null;
+        String nombreCliente = "Público General";
+        Long clienteIdReal = null; // Declarado como Long para evitar conflictos de tipos
+
+        try {
+            clientInterface.ItemClienteCombo itemSeleccionado
+                    = (clientInterface.ItemClienteCombo) comboClientes.getSelectedItem();
+            if (itemSeleccionado != null) {
+                clienteSeleccionadoObj = itemSeleccionado;
+                nombreCliente = itemSeleccionado.toString();
+
+                // Conversión segura a Long por si el ID es de tipo primitivo o Long
+                if (itemSeleccionado.getId() != null) {
+                    clienteIdReal = Long.valueOf(itemSeleccionado.getId().toString());
+                }
+            }
+        } catch (Exception ex) {
+            nombreCliente = "Público General";
+            clienteIdReal = null;
+        }
+
+        String comentario = (txtComentarios != null) ? txtComentarios.getText() : "";
+
+        // Pasamos el ID del cliente (Long) al constructor de la venta en espera
+        VentaEnEspera ventaEspera = new VentaEnEspera(
+                nombreCliente,
+                clienteSeleccionadoObj,
+                clienteIdReal,
+                productosEnCarrito,
+                comentario,
+                totalVentaActual
+        );
+
+        ventasEnEsperaList.add(ventaEspera);
+
+        // Limpiar pantalla actual
+        panelCarritoContenedor.removeAll();
+        panelCarritoContenedor.revalidate();
+        panelCarritoContenedor.repaint();
+
+        if (txtComentarios != null) {
+            txtComentarios.setText("");
+        }
+
+        calcularTotales();
+        txtBuscador.setText("");
+
+        if (comboClientes != null) {
+            comboClientes.removeAllItems();
+            comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+            comboClientes.setSelectedIndex(0);
+        }
+
+        txtBuscador.requestFocusInWindow();
+
+        JOptionPane.showMessageDialog(this, "Venta puesta en espera.\nFolio: " + ventaEspera.getFolio(), "Éxito", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    public void abrirDialogoVentasEnEspera() {
+        Color COLOR_FONDO = new Color(248, 250, 252);
+        Color COLOR_PRIMARIO = new Color(79, 70, 229);
+        Color COLOR_PELIGRO = new Color(239, 68, 68);
+        Color COLOR_TEXTO = new Color(15, 23, 42);
+        Color COLOR_GRADIENTE = new Color(238, 242, 255);
+
+        JDialog win = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), true);
+        win.setUndecorated(true);
+        win.setSize(600, 400);
+        win.setLocationRelativeTo(this);
+        win.getRootPane().setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
+
+        JPanel layout = new JPanel(new BorderLayout());
+        layout.setBackground(COLOR_FONDO);
+
+        // Header
+        JPanel header = new JPanel(new BorderLayout());
+        header.setBackground(COLOR_GRADIENTE);
+        header.setBorder(new EmptyBorder(20, 25, 20, 25));
+
+        JLabel titulo = new JLabel("VENTAS EN ESPERA (" + ventasEnEsperaList.size() + ")");
+        titulo.setFont(new Font("Inter", Font.BOLD, 18));
+        titulo.setForeground(COLOR_TEXTO);
+        header.add(titulo, BorderLayout.WEST);
+
+        JButton btnCerrarWin = new JButton("✕");
+        btnCerrarWin.setFocusPainted(false);
+        btnCerrarWin.setBorderPainted(false);
+        btnCerrarWin.setContentAreaFilled(false);
+        btnCerrarWin.setFont(new Font("Inter", Font.BOLD, 16));
+        btnCerrarWin.addActionListener(e -> win.dispose());
+        header.add(btnCerrarWin, BorderLayout.EAST);
+
+        // Lista
+        DefaultListModel<VentaEnEspera> modeloLista = new DefaultListModel<>();
+        for (VentaEnEspera v : ventasEnEsperaList) {
+            modeloLista.addElement(v);
+        }
+
+        JList<VentaEnEspera> listaUI = new JList<>(modeloLista);
+        listaUI.setFont(new Font("Inter", Font.PLAIN, 14));
+        listaUI.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane scrollPane = new JScrollPane(listaUI);
+        scrollPane.setBorder(BorderFactory.createEmptyBorder(15, 25, 15, 25));
+        scrollPane.getViewport().setBackground(Color.WHITE);
+
+        // Footer de botones
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        footer.setBackground(COLOR_FONDO);
+
+        JButton btnEliminar = new JButton("Eliminar Venta");
+        btnEliminar.setFont(new Font("Inter", Font.BOLD, 13));
+        btnEliminar.setBackground(new Color(254, 226, 226));
+        btnEliminar.setForeground(COLOR_PELIGRO);
+        btnEliminar.setFocusPainted(false);
+
+        JButton btnRecuperar = new JButton("Recuperar y Cargar");
+        btnRecuperar.setFont(new Font("Inter", Font.BOLD, 13));
+        btnRecuperar.setBackground(COLOR_PRIMARIO);
+        btnRecuperar.setForeground(Color.WHITE);
+        btnRecuperar.setFocusPainted(false);
+
+        footer.add(btnEliminar);
+        footer.add(btnRecuperar);
+
+        // Acciones
+        btnEliminar.addActionListener(e -> {
+            VentaEnEspera sel = listaUI.getSelectedValue();
+            if (sel != null) {
+                if (JOptionPane.showConfirmDialog(win, "¿Eliminar esta venta?", "Confirmar", JOptionPane.YES_NO_OPTION) == JOptionPane.YES_OPTION) {
+                    ventasEnEsperaList.remove(sel);
+                    modeloLista.removeElement(sel);
+                    titulo.setText("VENTAS EN ESPERA (" + ventasEnEsperaList.size() + ")");
+                }
+            }
+        });
+
+        btnRecuperar.addActionListener(e -> {
+            VentaEnEspera sel = listaUI.getSelectedValue();
+            if (sel != null) {
+                // Validar si hay una venta activa en pantalla
+                if (panelCarritoContenedor.getComponentCount() > 0) {
+                    int resp = JOptionPane.showConfirmDialog(win, "Tienes una venta activa. ¿Deseas reemplazarla?", "Aviso", JOptionPane.YES_NO_OPTION);
+                    if (resp != JOptionPane.YES_OPTION) {
+                        return;
+                    }
+                }
+
+                // 1. Limpiar el carrito visual actual por completo
+                panelCarritoContenedor.removeAll();
+
+                // 2. Volver a pintar los productos guardados en el panel del carrito
+                List<ProductoDTO> productosGuardados = (List<ProductoDTO>) sel.getItemsCarrito();
+                for (ProductoDTO p : productosGuardados) {
+                    BigDecimal cantidadReal = p.getCantidad() != null ? p.getCantidad() : BigDecimal.ONE;
+                    agregarAlCarrito(p, cantidadReal);
+                }
+
+                // 3. Restaurar comentarios
+                if (txtComentarios != null) {
+                    txtComentarios.setText(sel.getComentario() != null ? sel.getComentario() : "");
+                }
+
+                // 4. RECARGAR CLIENTES Y SELECCIONAR EL CORRECTO
+                if (comboClientes != null) {
+                    // Limpiamos y volvemos a poblar el combo con los clientes de la BD
+                    comboClientes.removeAllItems();
+                    comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+                    cargarClientesBD(comboClientes); // Asegura que existan opciones para buscar
+
+                    Long idBuscado = sel.getClienteId();
+                    boolean encontrado = false;
+
+                    for (int i = 0; i < comboClientes.getItemCount(); i++) {
+                        clientInterface.ItemClienteCombo item = comboClientes.getItemAt(i);
+                        // Comparamos si el ID coincide
+                        if ((item.getId() == null && idBuscado == null)
+                                || (item.getId() != null && item.getId().equals(idBuscado))) {
+                            comboClientes.setSelectedIndex(i);
+                            encontrado = true;
+                            break;
+                        }
+                    }
+
+                    // Si no se encuentra, por seguridad se queda en Público General
+                    if (!encontrado) {
+                        comboClientes.setSelectedIndex(0);
+                    }
+                }
+
+                // 5. Recalcular totales y refrescar el panel visual
+                calcularTotales();
+                panelCarritoContenedor.revalidate();
+                panelCarritoContenedor.repaint();
+
+                // 6. Eliminar de la lista de espera y cerrar el diálogo
+                ventasEnEsperaList.remove(sel);
+                win.dispose();
+
+                JOptionPane.showMessageDialog(this, "Venta " + sel.getFolio() + " recuperada con éxito.", "Restaurado", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(win, "Selecciona una venta de la lista para recuperar.", "Aviso", JOptionPane.WARNING_MESSAGE);
+            }
+        });
+
+        layout.add(header, BorderLayout.NORTH);
+        layout.add(scrollPane, BorderLayout.CENTER);
+        layout.add(footer, BorderLayout.SOUTH);
+
+        win.add(layout);
+        win.setVisible(true);
     }
 }

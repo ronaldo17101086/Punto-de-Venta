@@ -21,7 +21,7 @@ import java.awt.EventQueue;
     "producto",
     "caja",
     "clientes"
-}) 
+})
 public class chancuellarpuntodeventa {
 
     public static void main(String[] args) {

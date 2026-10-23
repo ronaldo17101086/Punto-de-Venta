@@ -424,36 +424,78 @@ public class ventaServicio {
 
     @Transactional
     public void registrarDevolucionEnvasesPorProducto(Long clienteId, Map<Long, BigDecimal> devolucionesMap) throws Exception {
-        for (Map.Entry<Long, BigDecimal> entry : devolucionesMap.entrySet()) {
-            Long productoId = entry.getKey();
-            BigDecimal cantidadDevuelta = entry.getValue();
+        BigDecimal totalMonetarioADevolver = BigDecimal.ZERO;
 
-            if (cantidadDevuelta == null || cantidadDevuelta.compareTo(BigDecimal.ZERO) <= 0) {
-                continue;
+        try (Connection conn = dataSource.getConnection()) {
+            conn.setAutoCommit(false);
+
+            try {
+                for (Map.Entry<Long, BigDecimal> entry : devolucionesMap.entrySet()) {
+                    Long productoId = entry.getKey();
+                    BigDecimal cantidadDevuelta = entry.getValue();
+
+                    if (cantidadDevuelta == null || cantidadDevuelta.compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+
+                    // 1. OBTENER EL PRECIO CORRECTO USANDO LA COLUMNA 'price' DE LA TABLA productos
+                    BigDecimal precioUnitario = BigDecimal.ZERO;
+                    String sqlPrecio = "SELECT price FROM productos WHERE id = ?";
+                    try (PreparedStatement pstmtPrecio = conn.prepareStatement(sqlPrecio)) {
+                        pstmtPrecio.setLong(1, productoId);
+                        try (ResultSet rs = pstmtPrecio.executeQuery()) {
+                            if (rs.next()) {
+                                BigDecimal p = rs.getBigDecimal("price");
+                                if (p != null) {
+                                    precioUnitario = p;
+                                }
+                            }
+                        }
+                    }
+
+                    // Multiplicamos la cantidad devuelta por el precio real del producto
+                    totalMonetarioADevolver = totalMonetarioADevolver.add(precioUnitario.multiply(cantidadDevuelta));
+
+                    // 2. ACTUALIZAR LA CANTIDAD DE ENVASES PENDIENTES
+                    String sqlActualizar = "UPDATE venta_productos vp "
+                            + "JOIN ventas v ON vp.registro_venta_id = v.id "
+                            + "SET vp.cantidad = GREATEST(0, vp.cantidad - ?) "
+                            + "WHERE v.cliente_id = ? AND vp.producto_id = ?";
+
+                    try (PreparedStatement pstmt = conn.prepareStatement(sqlActualizar)) {
+                        pstmt.setBigDecimal(1, cantidadDevuelta);
+                        pstmt.setLong(2, clienteId);
+                        pstmt.setLong(3, productoId);
+                        pstmt.executeUpdate();
+                    }
+                }
+
+                // 3. LIMPIAR LOS REGISTROS QUE LLEGARON A 0 PIEZAS
+                String sqlLimpiarCeros = "DELETE vp FROM venta_productos vp "
+                        + "JOIN ventas v ON vp.registro_venta_id = v.id "
+                        + "WHERE v.cliente_id = ? AND vp.cantidad <= 0";
+
+                try (PreparedStatement pstmt = conn.prepareStatement(sqlLimpiarCeros)) {
+                    pstmt.setLong(1, clienteId);
+                    pstmt.executeUpdate();
+                }
+
+                // 4. IMPACTAR EL CRÉDITO DEL CLIENTE (REDUCIR SU DEUDA ACTUAL AUTOMÁTICAMENTE)
+                if (totalMonetarioADevolver.compareTo(BigDecimal.ZERO) > 0) {
+                    String sqlAbonarCredito = "UPDATE clientes SET deuda_actual = GREATEST(0, COALESCE(deuda_actual, 0) - ?) WHERE id = ?";
+                    try (PreparedStatement pstmtCredito = conn.prepareStatement(sqlAbonarCredito)) {
+                        pstmtCredito.setBigDecimal(1, totalMonetarioADevolver);
+                        pstmtCredito.setLong(2, clienteId);
+                        pstmtCredito.executeUpdate();
+                    }
+                }
+
+                conn.commit();
+
+            } catch (Exception ex) {
+                conn.rollback();
+                throw ex;
             }
-
-            // Buscamos los registros de venta del producto para este cliente y restamos la cantidad exacta
-            String sqlActualizar = "UPDATE venta_productos vp "
-                    + "JOIN ventas v ON vp.registro_venta_id = v.id "
-                    + "SET vp.cantidad = GREATEST(0, vp.cantidad - ?) "
-                    + "WHERE v.cliente_id = ? AND vp.producto_id = ?";
-
-            try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlActualizar)) {
-                pstmt.setBigDecimal(1, cantidadDevuelta);
-                pstmt.setLong(2, clienteId);
-                pstmt.setLong(3, productoId);
-                pstmt.executeUpdate();
-            }
-        }
-
-        // Limpiamos únicamente los registros que llegaron exactamente a 0 piezas
-        String sqlLimpiarCeros = "DELETE vp FROM venta_productos vp "
-                + "JOIN ventas v ON vp.registro_venta_id = v.id "
-                + "WHERE v.cliente_id = ? AND vp.cantidad <= 0";
-
-        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlLimpiarCeros)) {
-            pstmt.setLong(1, clienteId);
-            pstmt.executeUpdate();
         }
     }
 
