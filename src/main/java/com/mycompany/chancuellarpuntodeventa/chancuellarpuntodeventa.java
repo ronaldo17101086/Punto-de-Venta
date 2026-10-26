@@ -20,7 +20,8 @@ import java.awt.EventQueue;
     "productoFrom",
     "producto",
     "caja",
-    "clientes"
+    "clientes",
+    "consultasVentas" 
 })
 public class chancuellarpuntodeventa {
 

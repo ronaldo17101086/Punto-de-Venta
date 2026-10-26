@@ -10,6 +10,7 @@ import org.springframework.context.ApplicationContext;
 import ventas.ventas;
 import productoFrom.productInterface;
 import clientes.clientInterface;
+import consultasVentas.ConsultasVentasInterfice;
 
 @org.springframework.stereotype.Component
 public class dashboard extends JFrame {
@@ -25,6 +26,9 @@ public class dashboard extends JFrame {
 
     @Autowired
     private clientInterface clientesPanel;
+
+    @Autowired
+    private ConsultasVentasInterfice consultasPanel;
 
     private JPanel sideMenu;
     private JPanel contentPanel;
@@ -102,6 +106,7 @@ public class dashboard extends JFrame {
         addMenuHeader("OPERACIONES");
         addMenuButton("\uD83D\uDED2 Ventas", "ventas");
         addMenuButton("\uD83D\uDCE6 Productos", "productos");
+        addMenuButton("\uD83D\uDCC4 Consultas", "consultas");
 
         addMenuHeader("CREDITO");
         addMenuButton("\uD83D\uDC65 Clientes", "clientes");
@@ -117,6 +122,7 @@ public class dashboard extends JFrame {
         contentPanel.add(ventasPanel, "ventas");
         contentPanel.add(productosPanel, "productos");
         contentPanel.add(clientesPanel, "clientes");
+        contentPanel.add(consultasPanel, "consultas"); 
     }
 
     private void addMenuHeader(String text) {
