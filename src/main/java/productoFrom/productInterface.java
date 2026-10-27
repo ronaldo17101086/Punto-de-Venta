@@ -92,151 +92,163 @@ public class productInterface extends JPanel {
         }
     }
 
-    private void importarDesdeExcel() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+   private void importarDesdeExcel() {
+    JFileChooser fileChooser = new JFileChooser();
+    fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
+    fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
 
-        final JPanel panelActual = this;
-        int seleccion = fileChooser.showOpenDialog(panelActual);
+    final JPanel panelActual = this;
+    int seleccion = fileChooser.showOpenDialog(panelActual);
 
-        if (seleccion == JFileChooser.APPROVE_OPTION) {
-            File archivo = fileChooser.getSelectedFile();
+    if (seleccion == JFileChooser.APPROVE_OPTION) {
+        File archivo = fileChooser.getSelectedFile();
 
-            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
-            JDialog dialogoProgreso = new JDialog(parentFrame, "Sincronizando Catálogo e Imágenes", true);
-            dialogoProgreso.setSize(380, 130);
-            dialogoProgreso.setLocationRelativeTo(panelActual);
-            dialogoProgreso.setLayout(new BorderLayout());
-            dialogoProgreso.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
+        JDialog dialogoProgreso = new JDialog(parentFrame, "Sincronizando Catálogo e Imágenes", true);
+        dialogoProgreso.setSize(380, 130);
+        dialogoProgreso.setLocationRelativeTo(panelActual);
+        dialogoProgreso.setLayout(new BorderLayout());
+        dialogoProgreso.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
 
-            JPanel panelContenido = new JPanel(new BorderLayout(10, 10));
-            panelContenido.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        JPanel panelContenido = new JPanel(new BorderLayout(10, 10));
+        panelContenido.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
 
-            JLabel lblEstado = new JLabel("Importando productos y vinculando imágenes...", JLabel.CENTER);
-            lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        JLabel lblEstado = new JLabel("Importando productos y vinculando imágenes...", JLabel.CENTER);
+        lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
 
-            JProgressBar barraProgreso = new JProgressBar(0, 100);
-            barraProgreso.setStringPainted(true);
-            barraProgreso.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        JProgressBar barraProgreso = new JProgressBar(0, 100);
+        barraProgreso.setStringPainted(true);
+        barraProgreso.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
-            panelContenido.add(lblEstado, BorderLayout.NORTH);
-            panelContenido.add(barraProgreso, BorderLayout.CENTER);
-            dialogoProgreso.add(panelContenido);
+        panelContenido.add(lblEstado, BorderLayout.NORTH);
+        panelContenido.add(barraProgreso, BorderLayout.CENTER);
+        dialogoProgreso.add(panelContenido);
 
-            // Carpeta relativa "imagenes" en la raíz de la aplicación
-            File carpetaImagenes = new File(System.getProperty("user.dir"), "imagenes");
+        File carpetaImagenes = new File(System.getProperty("user.dir"), "imagenes");
 
-            SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
-                @Override
-                protected int[] doInBackground() throws Exception {
-                    int nuevos = 0;
-                    int actualizados = 0;
+        SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
+            @Override
+            protected int[] doInBackground() throws Exception {
+                int nuevos = 0;
+                int actualizados = 0;
 
-                    try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
+                try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
 
-                        Sheet sheet = workbook.getSheetAt(0);
-                        int totalFilas = sheet.getLastRowNum();
+                    Sheet sheet = workbook.getSheetAt(0);
+                    int totalFilas = sheet.getLastRowNum();
 
-                        if (totalFilas <= 0) {
-                            return new int[]{0, 0};
-                        }
+                    if (totalFilas <= 0) {
+                        return new int[]{0, 0};
+                    }
 
-                        DataFormatter formatter = new DataFormatter();
+                    DataFormatter formatter = new DataFormatter();
 
-                        for (int i = 1; i <= totalFilas; i++) {
-                            Row fila = sheet.getRow(i);
-                            if (fila != null) {
-                                String skuExcel = formatter.formatCellValue(fila.getCell(0));
-                                String nombreExcel = formatter.formatCellValue(fila.getCell(1));
-                                String precioExcel = formatter.formatCellValue(fila.getCell(2));
-                                String granelExcel = formatter.formatCellValue(fila.getCell(3));
+                    for (int i = 1; i <= totalFilas; i++) {
+                        Row fila = sheet.getRow(i);
+                        if (fila != null) {
+                            Cell celdaSku = fila.getCell(0);
+                            String skuExcel = "";
 
-                                if (skuExcel != null && !skuExcel.trim().isEmpty()) {
-                                    skuExcel = skuExcel.trim();
-                                    ProductoDTO p = productoRepository.findBySku(skuExcel);
-
-                                    if (p != null) {
-                                        actualizados++;
-                                    } else {
-                                        p = new ProductoDTO();
-                                        p.setSku(skuExcel);
-                                        nuevos++;
-                                    }
-
-                                    p.setName(nombreExcel);
-
-                                    try {
-                                        String limpio = precioExcel.replace(",", "").trim();
-                                        p.setPrice(limpio.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(limpio));
-                                    } catch (Exception e) {
-                                        p.setPrice(java.math.BigDecimal.ZERO);
-                                    }
-
-                                    boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
-                                    p.setGranel(esGranel);
-
-                                    // --- VINCULACIÓN PORTABLE POR SKU ---
-                                    String rutaRelativa = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
-
-                                    if (rutaRelativa != null) {
-                                        p.setImagePath(rutaRelativa); // Guarda "imagenes/1.png" en la BD
-                                        System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaRelativa);
-                                    } else {
-                                        p.setImagePath(null);
-                                    }
-
-                                    productoRepository.save(p);
+                            if (celdaSku != null) {
+                                // Formatea la celda exactamente como texto legible
+                                skuExcel = formatter.formatCellValue(celdaSku).trim();
+                                
+                                // Limpieza preventiva por si Excel añade decimales o rastros anteriores
+                                if (skuExcel.endsWith(".0")) {
+                                    skuExcel = skuExcel.substring(0, skuExcel.length() - 2);
                                 }
+                                skuExcel = skuExcel.replace("+1", "").trim();
                             }
 
-                            int porcentaje = (int) ((double) i / totalFilas * 100);
-                            publish(porcentaje);
+                            String nombreExcel = formatter.formatCellValue(fila.getCell(1)).trim();
+                            String precioExcel = formatter.formatCellValue(fila.getCell(2)).trim();
+                            String granelExcel = formatter.formatCellValue(fila.getCell(3)).trim();
+
+                            if (skuExcel != null && !skuExcel.isEmpty()) {
+                                ProductoDTO p = productoRepository.findBySku(skuExcel);
+
+                                if (p != null) {
+                                    actualizados++;
+                                } else {
+                                    p = new ProductoDTO();
+                                    p.setSku(skuExcel);
+                                    nuevos++;
+                                }
+
+                                // Forzamos el SKU limpio y exacto proveniente del Excel
+                                p.setSku(skuExcel);
+                                p.setName(nombreExcel);
+
+                                try {
+                                    String limpio = precioExcel.replace(",", "").trim();
+                                    p.setPrice(limpio.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(limpio));
+                                } catch (Exception e) {
+                                    p.setPrice(java.math.BigDecimal.ZERO);
+                                }
+
+                                boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
+                                p.setGranel(esGranel);
+
+                                // Vinculación de imagen exacta con el SKU limpio (ej: 289.png)
+                                String rutaRelativa = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
+
+                                if (rutaRelativa != null) {
+                                    p.setImagePath(rutaRelativa);
+                                    System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaRelativa);
+                                } else {
+                                    p.setImagePath(null);
+                                }
+
+                                productoRepository.save(p);
+                            }
                         }
-                    }
 
-                    return new int[]{nuevos, actualizados};
-                }
-
-                @Override
-                protected void process(java.util.List<Integer> chunks) {
-                    int ultimoPorcentaje = chunks.get(chunks.size() - 1);
-                    barraProgreso.setValue(ultimoPorcentaje);
-                    lblEstado.setText("Procesando... " + ultimoPorcentaje + "%");
-                }
-
-                @Override
-                protected void done() {
-                    dialogoProgreso.dispose();
-
-                    try {
-                        int[] resultados = get();
-                        JOptionPane.showMessageDialog(
-                                panelActual,
-                                "¡Catálogo e imágenes sincronizados masivamente con éxito!\nNuevos: " + resultados[0] + "\nActualizados: " + resultados[1],
-                                "Importación Exitosa",
-                                JOptionPane.INFORMATION_MESSAGE
-                        );
-
-                        // Refresca la lista visual
-                        cargarProductosCompletos();
-
-                    } catch (Exception e) {
-                        JOptionPane.showMessageDialog(
-                                panelActual,
-                                "Error al finalizar importación: " + e.getMessage(),
-                                "Error",
-                                JOptionPane.ERROR_MESSAGE
-                        );
-                        e.printStackTrace();
+                        int porcentaje = (int) ((double) i / totalFilas * 100);
+                        publish(porcentaje);
                     }
                 }
-            };
 
-            worker.execute();
-            dialogoProgreso.setVisible(true);
-        }
+                return new int[]{nuevos, actualizados};
+            }
+
+            @Override
+            protected void process(java.util.List<Integer> chunks) {
+                int ultimoPorcentaje = chunks.get(chunks.size() - 1);
+                barraProgreso.setValue(ultimoPorcentaje);
+                lblEstado.setText("Procesando... " + ultimoPorcentaje + "%");
+            }
+
+            @Override
+            protected void done() {
+                dialogoProgreso.dispose();
+
+                try {
+                    int[] resultados = get();
+                    JOptionPane.showMessageDialog(
+                            panelActual,
+                            "¡Catálogo e imágenes sincronizados masivamente con éxito!\nNuevos: " + resultados[0] + "\nActualizados: " + resultados[1],
+                            "Importación Exitosa",
+                            JOptionPane.INFORMATION_MESSAGE
+                    );
+
+                    cargarProductosCompletos();
+
+                } catch (Exception e) {
+                    JOptionPane.showMessageDialog(
+                            panelActual,
+                            "Error al finalizar importación: " + e.getMessage(),
+                            "Error",
+                            JOptionPane.ERROR_MESSAGE
+                    );
+                    e.printStackTrace();
+                }
+            }
+        };
+
+        worker.execute();
+        dialogoProgreso.setVisible(true);
     }
+}
 
     // Método auxiliar portable: Retorna únicamente rutas relativas universales ("imagenes/1.png")
     private String buscarImagenMasivaPorSku(File carpetaDefault, String sku) {
