@@ -1,6 +1,7 @@
 package clientes;
 
 import com.formdev.flatlaf.FlatClientProperties;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.AbonoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ClienteDTO;
 import com.mycompany.chancuellarpuntodeventa.services.querys.ClienteServicio;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -678,9 +679,9 @@ public class clientInterface extends JPanel {
             }
         }
 
-        // 2. Configuración del diálogo (ajustamos la altura ya que hay menos elementos)
+        // 2. Configuración del diálogo
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono a Deuda", true);
-        dialog.setSize(640, 480);
+        dialog.setSize(640, 520);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout(0, 0));
 
@@ -725,6 +726,11 @@ public class clientInterface extends JPanel {
         txtMontoAbono.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtMontoAbono.putClientProperty("JTextField.showClearButton", true);
 
+        // Campo para ingresar el Folio de Venta (ej. NV-179...)
+        JTextField txtFolioVenta = new JTextField();
+        txtFolioVenta.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtFolioVenta.putClientProperty("JTextField.placeholderText", "Folio de Venta (ej. NV-..., Opcional)");
+
         // Función para filtrar y llenar la tabla
         Runnable actualizarTabla = () -> {
             modeloTabla.setRowCount(0);
@@ -765,8 +771,8 @@ public class clientInterface extends JPanel {
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
         scrollPane.setPreferredSize(new Dimension(0, 180));
 
-        // --- PANEL DE FORMULARIO (Diseño limpio de 1 fila, 2 columnas) ---
-        JPanel panelFormulario = new JPanel(new GridLayout(1, 2, 12, 10));
+        // --- PANEL DE FORMULARIO ---
+        JPanel panelFormulario = new JPanel(new GridLayout(2, 2, 12, 10));
         panelFormulario.setOpaque(false);
         panelFormulario.setBorder(BorderFactory.createEmptyBorder(10, 0, 10, 0));
 
@@ -777,14 +783,20 @@ public class clientInterface extends JPanel {
         lblMonto.setFont(fontLabel);
         lblMonto.setForeground(colorLabel);
 
+        JLabel lblVenta = new JLabel("Folio de Venta (Opcional):");
+        lblVenta.setFont(fontLabel);
+        lblVenta.setForeground(colorLabel);
+
         panelFormulario.add(lblMonto);
         panelFormulario.add(txtMontoAbono);
+        panelFormulario.add(lblVenta);
+        panelFormulario.add(txtFolioVenta);
 
         // --- BOTÓN DE ACCIÓN ---
         JPanel btnPanel = new JPanel(new BorderLayout());
         btnPanel.setOpaque(false);
 
-        JButton btnAplicar = new JButton("Registrar Operación");
+        JButton btnAplicar = new JButton("Registrar Abono");
         btnAplicar.setBackground(new Color(13, 148, 136));
         btnAplicar.setForeground(Color.WHITE);
         btnAplicar.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -802,11 +814,19 @@ public class clientInterface extends JPanel {
 
                 Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
                 BigDecimal monto = new BigDecimal(txtMontoAbono.getText().trim().isEmpty() ? "0" : txtMontoAbono.getText().trim());
+                String folioVentaTexto = txtFolioVenta.getText().trim();
 
-                // Al ya no usar selectores en este modal, enviamos null para producto y 0 para cantidad
-                clienteServicio.registrarAbonoYDevolucion(clienteId, monto, null, 0);
+                // Construimos el DTO con los datos y el folio de la venta
+                AbonoDTO abonoDto = new AbonoDTO();
+                abonoDto.setClienteId(clienteId);
+                abonoDto.setFolioVenta(folioVentaTexto); // Asignamos el folio (ej. NV-179...)
+                abonoDto.setMonto(monto);
+                abonoDto.setStatus("ACTIVO");
 
-                JOptionPane.showMessageDialog(dialog, "¡Abono registrado correctamente!");
+                // Invocamos el servicio encargado de resolver el folio, guardar en BD y actualizar saldos
+                clienteServicio.registrarAbonoDetallado(abonoDto);
+
+                JOptionPane.showMessageDialog(dialog, "¡Abono registrado e historiado correctamente!");
                 dialog.dispose();
                 cargarDatosTabla();
             } catch (NumberFormatException ex) {

@@ -3,6 +3,7 @@ package com.mycompany.chancuellarpuntodeventa.services.querys;
 import caja.CajaService;
 import caja.MovimientoCajaDto;
 import caja.TipoMovimiento;
+import com.mycompany.chancuellarpuntodeventa.services.dtos.AbonoDTO;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.ClienteDTO;
 import com.mycompany.chancuellarpuntodeventa.services.repository.ClienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -44,6 +45,108 @@ public class ClienteServicio {
             stmt.execute(sql);
         } catch (SQLException e) {
             System.err.println("Error al crear tabla envases_devoluciones: " + e.getMessage());
+        }
+    }
+
+    @Autowired
+    public void inicializarTablaAbonos() {
+        String sql = "CREATE TABLE IF NOT EXISTS abonos ("
+                + "id INT AUTO_INCREMENT PRIMARY KEY, "
+                + "cliente_id BIGINT NOT NULL, "
+                + "venta_id BIGINT NULL, "
+                + "monto DECIMAL(10, 2) NOT NULL, "
+                + "fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP, "
+                + "status VARCHAR(20) DEFAULT 'ACTIVO', "
+                + "CONSTRAINT fk_abono_cliente FOREIGN KEY (cliente_id) REFERENCES clientes(id)"
+                + ")";
+        try (Connection conn = dataSource.getConnection(); Statement stmt = conn.createStatement()) {
+            stmt.execute(sql);
+        } catch (SQLException e) {
+            System.err.println("Error al crear tabla abonos: " + e.getMessage());
+        }
+    }
+
+    public void registrarAbonoDetallado(AbonoDTO abonoDto) throws Exception {
+        if (abonoDto == null || abonoDto.getClienteId() == null) {
+            throw new Exception("Los datos del abono son inválidos.");
+        }
+
+        BigDecimal montoAbono = abonoDto.getMonto() != null ? abonoDto.getMonto() : BigDecimal.ZERO;
+        if (montoAbono.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new Exception("El monto del abono debe ser mayor a cero.");
+        }
+
+        ClienteDTO cliente = clienteRepository.findById(abonoDto.getClienteId())
+                .orElseThrow(() -> new Exception("El cliente no existe en la base de datos."));
+
+        BigDecimal deudaActual = cliente.getDeudaActual() != null ? cliente.getDeudaActual() : BigDecimal.ZERO;
+
+        if (montoAbono.compareTo(deudaActual) > 0) {
+            throw new Exception("El abono de $" + montoAbono + " no puede ser mayor a la deuda actual del cliente ($" + deudaActual + ").");
+        }
+
+        Long ventaIdReal = null;
+        String folioVentaTexto = abonoDto.getFolioVenta(); // Capturamos el folio escrito o seleccionado
+
+        try (Connection conn = dataSource.getConnection()) {
+            // RESOLVER EL FOLIO DE VENTA: Si escribieron o seleccionaron un folio, buscamos su ID real en la tabla 'ventas'
+            if (folioVentaTexto != null && !folioVentaTexto.trim().isEmpty()) {
+                String sqlBusqVenta = "SELECT id FROM ventas WHERE uuid_venta = ? OR id = ?";
+                try (PreparedStatement psVenta = conn.prepareStatement(sqlBusqVenta)) {
+                    psVenta.setString(1, folioVentaTexto.trim());
+                    try {
+                        psVenta.setLong(2, Long.valueOf(folioVentaTexto.trim()));
+                    } catch (NumberFormatException nfe) {
+                        psVenta.setLong(2, -1L);
+                    }
+                    ResultSet rsVenta = psVenta.executeQuery();
+                    if (rsVenta.next()) {
+                        ventaIdReal = rsVenta.getLong("id");
+                    } else {
+                        throw new Exception("No se encontró ninguna venta con el folio: " + folioVentaTexto);
+                    }
+                }
+            }
+
+            // 1. Insertar el registro detallado en la tabla 'abonos' con su ID, relación de venta y estatus
+            String sqlAbono = "INSERT INTO abonos (cliente_id, venta_id, monto, fecha_registro, status) VALUES (?, ?, ?, NOW(), ?)";
+            try (PreparedStatement pstmt = conn.prepareStatement(sqlAbono, Statement.RETURN_GENERATED_KEYS)) {
+                pstmt.setLong(1, abonoDto.getClienteId());
+                if (ventaIdReal != null) {
+                    pstmt.setLong(2, ventaIdReal); // ¡Aquí se guarda la relación con la venta en la BD!
+                } else {
+                    pstmt.setNull(2, java.sql.Types.BIGINT);
+                }
+                pstmt.setBigDecimal(3, montoAbono);
+                pstmt.setString(4, abonoDto.getStatus() != null ? abonoDto.getStatus() : "ACTIVO");
+                pstmt.executeUpdate();
+
+                ResultSet rsKeys = pstmt.getGeneratedKeys();
+                if (rsKeys.next()) {
+                    abonoDto.setId(rsKeys.getLong(1));
+                }
+            }
+
+            // 2. Registrar el movimiento en la caja general
+            try {
+                MovimientoCajaDto mov = new MovimientoCajaDto();
+                mov.setTipo(TipoMovimiento.ENTRADA);
+                mov.setMonto(montoAbono.doubleValue());
+                String refFolio = (folioVentaTexto != null && !folioVentaTexto.isEmpty()) ? " (Ref: " + folioVentaTexto + ")" : "";
+                mov.setConcepto("Abono de Crédito - Cliente ID: " + abonoDto.getClienteId() + refFolio);
+                mov.setUsuario("ADMIN");
+
+                cajaService.registrarMovimiento(1, mov, montoAbono.doubleValue(), false);
+            } catch (Exception e) {
+                System.err.println("[ADVERTENCIA] No se pudo registrar el abono en la caja: " + e.getMessage());
+            }
+
+            // 3. Actualizar la deuda actual del cliente en la base de datos
+            BigDecimal nuevaDeuda = deudaActual.subtract(montoAbono);
+            if (nuevaDeuda.compareTo(BigDecimal.ZERO) < 0) {
+                nuevaDeuda = BigDecimal.ZERO;
+            }
+            clienteRepository.actualizarDeudaPorId(abonoDto.getClienteId(), nuevaDeuda);
         }
     }
 
@@ -264,7 +367,7 @@ public class ClienteServicio {
         return productosMap;
     }
 
-public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Long productoId, int cantidadDevuelta) throws Exception {
+    public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Long productoId, int cantidadDevuelta) throws Exception {
         ClienteDTO cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new Exception("El cliente no existe en la base de datos."));
 
@@ -272,7 +375,7 @@ public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Lon
         boolean operacionRealizada = false;
 
         try (Connection conn = dataSource.getConnection()) {
-            
+
             // 1. Si se indicó una devolución manual de un producto específico en el modal
             if (cantidadDevuelta > 0 && productoId != null) {
                 int prestadasProducto = 0;
@@ -411,8 +514,7 @@ public void registrarAbonoYDevolucion(Long clienteId, BigDecimal montoAbono, Lon
             }
         }
     }
-  
-  
+
     public BigDecimal calcularDeudaTotal() {
         List<ClienteDTO> clientes = clienteRepository.findAll();
         BigDecimal total = BigDecimal.ZERO;

@@ -95,9 +95,6 @@ public class ConsultasVentasInterfice extends JPanel {
         cargarAbonosBD("");
     }
 
-    // =========================================================================
-    // PANEL DE CONSULTA DE VENTAS
-    // =========================================================================
     private JPanel crearPanelVentas() {
         JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBackground(new Color(245, 247, 250));
@@ -270,7 +267,6 @@ public class ConsultasVentasInterfice extends JPanel {
         return panel;
     }
 
-    // Método auxiliar para actualizar dinámicamente las píldoras de filtros activos en la barra superior
     private void actualizarPildorasFiltrosActivos(JPanel panelPildoras) {
         if (panelPildoras == null) {
             return;
@@ -329,9 +325,6 @@ public class ConsultasVentasInterfice extends JPanel {
         return btnPildora;
     }
 
-// =========================================================================
-    // MODAL DE FILTROS AVANZADOS (DISEÑO PREMIUM Y LIMPIEZA FUNCIONAL)
-    // =========================================================================
     private void mostrarDialogoFiltrosSicar(JFrame parent) {
         JDialog dialogo = new JDialog(parent, "Filtros Avanzados", true);
         dialogo.setSize(540, 610);
@@ -490,9 +483,6 @@ public class ConsultasVentasInterfice extends JPanel {
         return panelFila;
     }
 
-// =========================================================================
-    // SELECTOR DE FECHAS HÍBRIDO (CORREGIDO PARA MOSTRAR TODOS LOS DÍAS)
-    // =========================================================================
     private void mostrarSelectorCalendario(JFrame parent) {
         JDialog dialogoCal = new JDialog(parent, "Seleccionar Rango de Fechas", true);
         dialogoCal.setSize(620, 460); // Ampliamos el ancho de la ventana
@@ -562,7 +552,7 @@ public class ConsultasVentasInterfice extends JPanel {
         dialogoCal.setVisible(true);
     }
 
- private JPanel construirPanelCalendarioHibrido(String titulo, LocalDate fechaInicial, java.util.function.Consumer<LocalDate> onFechaSeleccionada) {
+    private JPanel construirPanelCalendarioHibrido(String titulo, LocalDate fechaInicial, java.util.function.Consumer<LocalDate> onFechaSeleccionada) {
         JPanel card = new JPanel(new BorderLayout(0, 8));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -608,7 +598,7 @@ public class ConsultasVentasInterfice extends JPanel {
         JPanel panelGridDias = new JPanel(new GridLayout(7, 7, 3, 3));
         panelGridDias.setBackground(Color.WHITE);
 
-        final LocalDate[] seleccionLocal = { fechaInicial };
+        final LocalDate[] seleccionLocal = {fechaInicial};
         final Runnable[] actualizarGrid = new Runnable[1];
 
         actualizarGrid[0] = () -> {
@@ -676,6 +666,7 @@ public class ConsultasVentasInterfice extends JPanel {
         card.add(panelCentroContenedor, BorderLayout.CENTER);
         return card;
     }
+
     private static class ComboItem {
 
         int valor;
@@ -692,23 +683,39 @@ public class ConsultasVentasInterfice extends JPanel {
         }
     }
 
-    // =========================================================================
-    // PANEL DE CONSULTA DE ABONOS
-    // =========================================================================
     private JPanel crearPanelAbonos() {
         JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBackground(new Color(245, 247, 250));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        JPanel panelFiltros = new JPanel(new BorderLayout());
+        // --- PANEL SUPERIOR (Filtros, Botones y Buscador) ---
+        JPanel panelFiltros = new JPanel(new BorderLayout(10, 0));
         panelFiltros.setBackground(Color.WHITE);
         panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:12,15,12,15,#E5E9F0,1,12");
 
-        JPanel panelIzq = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        panelIzq.setOpaque(false);
+        JPanel panelIzquierdaFiltros = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
+        panelIzquierdaFiltros.setOpaque(false);
 
-        txtBuscadorAbonos = new JTextField(30);
-        txtBuscadorAbonos.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar abono por cliente o concepto...");
+        JButton btnFiltrosAbonos = new JButton("Filtros");
+        btnFiltrosAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; font:bold 12");
+        btnFiltrosAbonos.addActionListener(e -> abrirModalFiltrosAbonos());
+
+        JButton btnActualizarAbonos = new JButton("Actualizar");
+        btnActualizarAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; font:bold 12");
+        btnActualizarAbonos.addActionListener(e -> {
+            txtBuscadorAbonos.setText("");
+            filtroEstado = "Todos";
+            fechaInicioFiltro = null;
+            fechaFinFiltro = null;
+            cargarAbonosBD("");
+        });
+
+        panelIzquierdaFiltros.add(btnFiltrosAbonos);
+        panelIzquierdaFiltros.add(btnActualizarAbonos);
+
+        // Buscador central
+        txtBuscadorAbonos = new JTextField(25);
+        txtBuscadorAbonos.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por ID Abono, Cliente o ID Venta...");
         txtBuscadorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
         txtBuscadorAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         txtBuscadorAbonos.addKeyListener(new java.awt.event.KeyAdapter() {
@@ -717,16 +724,27 @@ public class ConsultasVentasInterfice extends JPanel {
                 cargarAbonosBD(txtBuscadorAbonos.getText().trim());
             }
         });
+        panelIzquierdaFiltros.add(txtBuscadorAbonos);
 
-        JLabel lblBuscadorAbonos = new JLabel("Buscador de Abonos:");
-        lblBuscadorAbonos.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lblBuscadorAbonos.setForeground(new Color(100, 116, 139));
+        panelFiltros.add(panelIzquierdaFiltros, BorderLayout.WEST);
 
-        panelIzq.add(lblBuscadorAbonos);
-        panelIzq.add(txtBuscadorAbonos);
-        panelFiltros.add(panelIzq, BorderLayout.WEST);
+        // Etiqueta de Fecha a la derecha
+        JPanel panelDerechaFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        panelDerechaFiltros.setOpaque(false);
+        JLabel lblFechaTitulo = new JLabel("Fecha de registro:");
+        lblFechaTitulo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        lblFechaTitulo.setForeground(new Color(100, 116, 139));
 
-        String[] columnasAbonos = {"ID Movimiento", "Fecha / Hora", "Cliente / Concepto", "Monto Abonado"};
+        JButton btnRangoFechaAbonos = new JButton("Todo el Historial");
+        btnRangoFechaAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#E2E8F0; background:#FFFFFF; font:bold 12");
+        // Opcional: Agregar selector de fecha al hacer clic si usas un selector de fechas
+
+        panelDerechaFiltros.add(lblFechaTitulo);
+        panelDerechaFiltros.add(btnRangoFechaAbonos);
+        panelFiltros.add(panelDerechaFiltros, BorderLayout.EAST);
+
+        // --- TABLA DE ABONOS ---
+        String[] columnasAbonos = {"ID Abono", "Fecha / Hora", "Cliente", "Ref. Venta ID", "Estatus", "Monto Abonado"};
         modeloAbonos = new DefaultTableModel(columnasAbonos, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -735,24 +753,22 @@ public class ConsultasVentasInterfice extends JPanel {
         };
 
         tablaAbonos = new JTable(modeloAbonos);
-        tablaAbonos.setRowHeight(44);
+        tablaAbonos.setRowHeight(40);
         tablaAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         tablaAbonos.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
         tablaAbonos.getTableHeader().setForeground(new Color(100, 116, 139));
-        tablaAbonos.getTableHeader().setPreferredSize(new Dimension(0, 38));
         tablaAbonos.setSelectionBackground(new Color(238, 242, 255));
-        tablaAbonos.setShowVerticalLines(false);
-        tablaAbonos.setGridColor(new Color(241, 245, 249));
 
         JScrollPane scrollAbonos = new JScrollPane(tablaAbonos);
         scrollAbonos.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
         scrollAbonos.getViewport().setBackground(Color.WHITE);
 
+        // --- PANEL INFERIOR (Totales) ---
         JPanel panelInferiorAbonos = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
         panelInferiorAbonos.setBackground(Color.WHITE);
         panelInferiorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
 
-        lblTotalAbonosMonto = new JLabel("Total Abonos Registrados: $0.00 MXN");
+        lblTotalAbonosMonto = new JLabel("Total Abonos Filtrados: $0.00 MXN");
         lblTotalAbonosMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTotalAbonosMonto.setForeground(new Color(16, 185, 129));
         panelInferiorAbonos.add(lblTotalAbonosMonto);
@@ -764,9 +780,146 @@ public class ConsultasVentasInterfice extends JPanel {
         return panel;
     }
 
-    // =========================================================================
-    // LÓGICA DE FILTRADO Y CONSULTAS (SIN COLUMNA CFDI)
-    // =========================================================================
+    private void abrirModalFiltrosAbonos() {
+        JDialog dialogFiltros = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Filtros Avanzados de Abonos", true);
+        dialogFiltros.setSize(450, 320);
+        dialogFiltros.setLocationRelativeTo(this);
+        dialogFiltros.setLayout(new BorderLayout());
+
+        JPanel content = new JPanel(new GridLayout(3, 1, 10, 10));
+        content.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
+        content.setBackground(Color.WHITE);
+
+        // Panel Estado Abono
+        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        panelEstado.setOpaque(false);
+        panelEstado.setBorder(BorderFactory.createTitledBorder("Estatus del Abono"));
+
+        JToggleButton btnTodos = new JToggleButton("Todos", filtroEstado.equals("Todos"));
+        JToggleButton btnActivo = new JToggleButton("Activo", filtroEstado.equals("ACTIVO"));
+        JToggleButton btnCancelado = new JToggleButton("Cancelado", filtroEstado.equals("CANCELADO"));
+
+        ButtonGroup grupoEstado = new ButtonGroup();
+        grupoEstado.add(btnTodos);
+        grupoEstado.add(btnActivo);
+        grupoEstado.add(btnCancelado);
+
+        panelEstado.add(btnTodos);
+        panelEstado.add(btnActivo);
+        panelEstado.add(btnCancelado);
+        content.add(panelEstado);
+
+        // Botón Aplicar
+        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        panelBoton.setOpaque(false);
+        JButton btnAplicar = new JButton("Aplicar Filtros");
+        btnAplicar.setBackground(new Color(13, 148, 136));
+        btnAplicar.setForeground(Color.WHITE);
+        btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0");
+
+        btnAplicar.addActionListener(e -> {
+            if (btnActivo.isSelected()) {
+                filtroEstado = "ACTIVO";
+            } else if (btnCancelado.isSelected()) {
+                filtroEstado = "CANCELADO";
+            } else {
+                filtroEstado = "Todos";
+            }
+
+            dialogFiltros.dispose();
+            cargarAbonosBD(txtBuscadorAbonos.getText().trim());
+        });
+
+        panelBoton.add(btnAplicar);
+
+        dialogFiltros.add(content, BorderLayout.CENTER);
+        dialogFiltros.add(panelBoton, BorderLayout.SOUTH);
+        dialogFiltros.setVisible(true);
+    }
+
+private void cargarAbonosBD(String filtro) {
+        if (dataSource == null) {
+            return;
+        }
+        modeloAbonos.setRowCount(0);
+
+        // Hacemos JOIN con 'ventas v' para obtener el 'uuid_venta' (el folio real)
+        StringBuilder sql = new StringBuilder(
+                "SELECT a.id, a.fecha_registro, a.monto, a.status, "
+                + "COALESCE(c.nombre, 'Cliente General') AS cliente_nombre, "
+                + "COALESCE(v.uuid_venta, 'Sin Venta Asociada') AS folio_venta "
+                + "FROM abonos a "
+                + "LEFT JOIN clientes c ON a.cliente_id = c.id "
+                + "LEFT JOIN ventas v ON a.venta_id = v.id "
+                + "WHERE 1=1 "
+        );
+
+        // Filtro por estatus avanzado
+        if (!filtroEstado.equals("Todos")) {
+            sql.append("AND a.status = ? ");
+        }
+
+        // Buscador: Busca por ID de Abono, Nombre del Cliente o Folio de Venta (uuid_venta)
+        if (filtro != null && !filtro.isEmpty()) {
+            sql.append("AND (c.nombre LIKE ? OR a.id LIKE ? OR v.uuid_venta LIKE ?) ");
+        }
+
+        // Filtro por rango de fechas
+        if (fechaInicioFiltro != null && fechaFinFiltro != null) {
+            sql.append("AND DATE(a.fecha_registro) BETWEEN ? AND ? ");
+        }
+
+        sql.append("ORDER BY a.id DESC LIMIT 300");
+
+        BigDecimal acumuladoAbonos = BigDecimal.ZERO;
+        int contadorAbonos = 0;
+
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
+            int index = 1;
+
+            if (!filtroEstado.equals("Todos")) {
+                pstmt.setString(index++, filtroEstado);
+            }
+            if (filtro != null && !filtro.isEmpty()) {
+                pstmt.setString(index++, "%" + filtro + "%");
+                pstmt.setString(index++, "%" + filtro + "%");
+                pstmt.setString(index++, "%" + filtro + "%");
+            }
+            if (fechaInicioFiltro != null && fechaFinFiltro != null) {
+                pstmt.setDate(index++, java.sql.Date.valueOf(fechaInicioFiltro));
+                pstmt.setDate(index++, java.sql.Date.valueOf(fechaFinFiltro));
+            }
+
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    BigDecimal montoAbono = rs.getBigDecimal("monto");
+                    if (montoAbono != null && "ACTIVO".equalsIgnoreCase(rs.getString("status"))) {
+                        acumuladoAbonos = acumuladoAbonos.add(montoAbono); // Solo acumula si está activo
+                    }
+
+                    Long idAbono = rs.getLong("id");
+                    java.sql.Timestamp fechaRegistro = rs.getTimestamp("fecha_registro");
+                    String clienteNombre = rs.getString("cliente_nombre");
+                    String folioVenta = rs.getString("folio_venta");
+                    String estatus = rs.getString("status");
+
+                    modeloAbonos.addRow(new Object[]{
+                        idAbono,
+                        fechaRegistro != null ? fechaRegistro.toString() : "-",
+                        clienteNombre,
+                        folioVenta, // Muestra el folio real de la venta (ej. NV-179...) o "Sin Venta Asociada"
+                        estatus,
+                        "$" + (montoAbono != null ? montoAbono.toPlainString() : "0.00") + " MXN"
+                    });
+                    contadorAbonos++;
+                }
+            }
+            lblTotalAbonosMonto.setText("Total Abonos Filtrados: $" + acumuladoAbonos.toPlainString() + " MXN (" + contadorAbonos + " registros)");
+        } catch (SQLException e) {
+            System.err.println("Error al cargar abonos filtrados: " + e.getMessage());
+        }
+    }
+
     private void dispararFiltroVentas() {
         String texto = txtBuscadorVentas.getText().trim();
         cargarVentasPersonalizado(texto);
@@ -864,47 +1017,6 @@ public class ConsultasVentasInterfice extends JPanel {
         }
     }
 
-    private void cargarAbonosBD(String filtro) {
-        if (dataSource == null) {
-            return;
-        }
-        modeloAbonos.setRowCount(0);
-
-        String sql = "SELECT m.id, m.fecha, m.concepto, m.monto FROM movimientos_caja m WHERE m.tipo = 'DEVOLUCION' OR m.concepto LIKE '%abono%' ";
-        if (filtro != null && !filtro.isEmpty()) {
-            sql += "AND m.concepto LIKE ? ";
-        }
-        sql += "ORDER BY m.id DESC LIMIT 300";
-
-        BigDecimal acumuladoAbonos = BigDecimal.ZERO;
-
-        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
-            if (filtro != null && !filtro.isEmpty()) {
-                pstmt.setString(1, "%" + filtro + "%");
-            }
-            try (ResultSet rs = pstmt.executeQuery()) {
-                while (rs.next()) {
-                    BigDecimal montoAbono = rs.getBigDecimal("monto");
-                    if (montoAbono != null) {
-                        acumuladoAbonos = acumuladoAbonos.add(montoAbono);
-                    }
-                    modeloAbonos.addRow(new Object[]{
-                        rs.getLong("id"),
-                        rs.getTimestamp("fecha"),
-                        rs.getString("concepto"),
-                        "$" + (montoAbono != null ? montoAbono.toPlainString() : "0.00") + " MXN"
-                    });
-                }
-            }
-            lblTotalAbonosMonto.setText("Total Abonos Registrados: $" + acumuladoAbonos.toPlainString() + " MXN");
-        } catch (SQLException e) {
-            System.err.println("Error al cargar abonos: " + e.getMessage());
-        }
-    }
-
-    // =========================================================================
-    // MODAL DE DETALLE DE VENTA ESTILO SICARX
-    // =========================================================================
     private void mostrarDetalleVenta(JFrame parent, Long ventaId, String folio, String cliente, String total) {
         JDialog dialogoDetalle = new JDialog(parent, "Venta " + folio, true);
         dialogoDetalle.setSize(850, 580);
