@@ -44,6 +44,9 @@ public class ConsultasVentasInterfice extends JPanel {
     private JTextField txtBuscadorAbonos;
     private JLabel lblTotalAbonosMonto;
 
+    private LocalDate tempFechaInicio = LocalDate.now().minusDays(7);
+    private LocalDate tempFechaFin = LocalDate.now();
+
     @Autowired
     private DataSource dataSource;
 
@@ -95,218 +98,314 @@ public class ConsultasVentasInterfice extends JPanel {
     // =========================================================================
     // PANEL DE CONSULTA DE VENTAS
     // =========================================================================
- private JPanel crearPanelVentas() {
-    JPanel panel = new JPanel(new BorderLayout(15, 15));
-    panel.setBackground(new Color(245, 247, 250));
-    panel.setBorder(new EmptyBorder(20, 20, 20, 20));
+    private JPanel crearPanelVentas() {
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        panel.setBackground(new Color(245, 247, 250));
+        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-    // --- BARRA DE FILTROS SUPERIOR OPTIMIZADA (Buscador flexible) ---
-    JPanel panelFiltros = new JPanel(new BorderLayout(15, 0));
-    panelFiltros.setBackground(Color.WHITE);
-    panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
+        // --- BARRA DE FILTROS SUPERIOR OPTIMIZADA ---
+        JPanel panelFiltros = new JPanel(new BorderLayout(15, 0));
+        panelFiltros.setBackground(Color.WHITE);
+        panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
 
-    // Contenedor Izquierdo: Botón filtros y Actualizar (fijos)
-    JPanel panelIzqAcciones = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
-    panelIzqAcciones.setOpaque(false);
+        // Contenedor Izquierdo: Botón filtros y Actualizar (fijos)
+        JPanel panelIzqAcciones = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        panelIzqAcciones.setOpaque(false);
 
-    JButton btnFiltroMultiple = new JButton("🎛");
-    btnFiltroMultiple.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-    btnFiltroMultiple.setToolTipText("Filtros avanzados");
-    btnFiltroMultiple.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; borderWidth:0; margin:4,8,4,8");
-    btnFiltroMultiple.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    btnFiltroMultiple.addActionListener(e -> mostrarDialogoFiltrosSicar((JFrame) SwingUtilities.getWindowAncestor(panel)));
+        JButton btnFiltroMultiple = new JButton("Filtros");
+        btnFiltroMultiple.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnFiltroMultiple.setToolTipText("Filtros avanzados");
+        btnFiltroMultiple.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; foreground:#334155; borderWidth:0; margin:4,10,4,10");
+        btnFiltroMultiple.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnFiltroMultiple.addActionListener(e -> mostrarDialogoFiltrosSicar((JFrame) SwingUtilities.getWindowAncestor(panel)));
 
-    JButton btnActualizar = new JButton("Actualizar");
-    btnActualizar.setFont(new Font("Segoe UI", Font.BOLD, 12));
-    btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:4,10,4,10");
-    btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    btnActualizar.addActionListener(e -> {
-        txtBuscadorVentas.setText("");
-        fechaInicioFiltro = null;
-        fechaFinFiltro = null;
-        filtroEstado = "Todos";
-        filtroCredito = "Todos";
-        filtroMoneda = "Todos";
-        filtroFormaPago = "Todos";
-        btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>Todo el Historial</b></center></html>");
-        dispararFiltroVentas();
-    });
-
-    panelIzqAcciones.add(btnFiltroMultiple);
-    panelIzqAcciones.add(btnActualizar);
-
-    // Contenedor Central: Buscador que SE EXPANDE ocupando todo el ancho disponible
-    JPanel panelBuscadorCentro = new JPanel(new BorderLayout());
-    panelBuscadorCentro.setOpaque(false);
-    
-    txtBuscadorVentas = new JTextField();
-    txtBuscadorVentas.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por Folio o Cliente...");
-    txtBuscadorVentas.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
-    txtBuscadorVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    txtBuscadorVentas.addKeyListener(new java.awt.event.KeyAdapter() {
-        @Override
-        public void keyReleased(java.awt.event.KeyEvent e) {
+        // Botón Actualizar: Mantiene los filtros activos y recarga la tabla
+        JButton btnActualizar = new JButton("Actualizar");
+        btnActualizar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:4,10,4,10");
+        btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnActualizar.addActionListener(e -> {
             dispararFiltroVentas();
-        }
-    });
-    panelBuscadorCentro.add(txtBuscadorVentas, BorderLayout.CENTER);
+        });
 
-    // Unimos acciones izquierdas y buscador central en un panel WEST
-    JPanel panelWestUnificado = new JPanel(new BorderLayout(8, 0));
-    panelWestUnificado.setOpaque(false);
-    panelWestUnificado.add(panelIzqAcciones, BorderLayout.WEST);
-    panelWestUnificado.add(panelBuscadorCentro, BorderLayout.CENTER);
+        panelIzqAcciones.add(btnFiltroMultiple);
+        panelIzqAcciones.add(btnActualizar);
 
-    // Contenedor Derecho: Selector de Fecha pegado a la derecha
-    JPanel panelDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-    panelDer.setOpaque(false);
-    
-    btnSelectorFecha = new JButton("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>Todo el Historial</b></center></html>");
-    btnSelectorFecha.setFont(new Font("Segoe UI", Font.PLAIN, 12));
-    btnSelectorFecha.setHorizontalAlignment(SwingConstants.LEFT);
-    btnSelectorFecha.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:2,10,2,10");
-    btnSelectorFecha.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    btnSelectorFecha.addActionListener(e -> mostrarSelectorCalendario((JFrame) SwingUtilities.getWindowAncestor(panel)));
-
-    panelDer.add(btnSelectorFecha);
-
-    panelFiltros.add(panelWestUnificado, BorderLayout.CENTER);
-    panelFiltros.add(panelDer, BorderLayout.EAST);
-
-    // --- TABLA DE VENTAS ---
-    String[] columnas = {"Serie-Folio", "Tipo Pago", "Cliente", "Comentarios", "Total"};
-    modeloVentas = new DefaultTableModel(columnas, 0) {
-        @Override
-        public boolean isCellEditable(int row, int column) { return false; }
-    };
-
-    tablaVentas = new JTable(modeloVentas);
-    tablaVentas.setRowHeight(52); 
-    tablaVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    tablaVentas.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-    tablaVentas.getTableHeader().setForeground(new Color(100, 116, 139));
-    tablaVentas.getTableHeader().setPreferredSize(new Dimension(0, 38));
-    tablaVentas.setSelectionBackground(new Color(238, 242, 255));
-    tablaVentas.setSelectionForeground(new Color(30, 41, 59));
-    tablaVentas.setShowVerticalLines(false);
-    tablaVentas.setGridColor(new Color(241, 245, 249));
-
-    tablaVentas.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
-        @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            if (value instanceof Object[]) {
-                Object[] datos = (Object[]) value;
-                setText("<html><b>" + datos[0] + "</b><br><font color='#94A3B8' size='2'>" + datos[1] + "</font></html>");
-            } else {
-                setText(value != null ? value.toString() : "");
+        // Contenedor Central: Buscador LARGO y expansible
+        txtBuscadorVentas = new JTextField();
+        txtBuscadorVentas.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por Folio o Cliente...");
+        txtBuscadorVentas.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
+        txtBuscadorVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        txtBuscadorVentas.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                dispararFiltroVentas();
             }
-            setHorizontalAlignment(JLabel.LEFT);
-            setBorder(new EmptyBorder(0, 10, 0, 0));
-            if (isSelected) {
-                setBackground(table.getSelectionBackground());
-                setForeground(table.getSelectionForeground());
-            } else {
-                setBackground(Color.WHITE);
-                setForeground(new Color(15, 23, 42));
+        });
+
+        // Panel de píldoras de filtros activos al lado del buscador
+        JPanel panelPildorasActivas = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        panelPildorasActivas.setOpaque(false);
+        panelFiltros.putClientProperty("panelPildorasActivas", panelPildorasActivas);
+
+        // Agrupamos el buscador en el CENTER para que se expanda al máximo
+        JPanel panelBuscadorYPildoras = new JPanel(new BorderLayout(10, 0));
+        panelBuscadorYPildoras.setOpaque(false);
+        panelBuscadorYPildoras.add(txtBuscadorVentas, BorderLayout.CENTER); // Se estira de forma fluida
+        panelBuscadorYPildoras.add(panelPildorasActivas, BorderLayout.EAST);   // Las píldoras se acomodan a la derecha del texto
+
+        // Unimos acciones izquierdas y el bloque central expansivo
+        JPanel panelWestUnificado = new JPanel(new BorderLayout(10, 0));
+        panelWestUnificado.setOpaque(false);
+        panelWestUnificado.add(panelIzqAcciones, BorderLayout.WEST);
+        panelWestUnificado.add(panelBuscadorYPildoras, BorderLayout.CENTER);
+
+        // Contenedor Derecho: Selector de Fecha pegado a la derecha
+        JPanel panelDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+        panelDer.setOpaque(false);
+
+        btnSelectorFecha = new JButton("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>Todo el Historial</b></center></html>");
+        btnSelectorFecha.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        btnSelectorFecha.setHorizontalAlignment(SwingConstants.LEFT);
+        btnSelectorFecha.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:2,10,2,10");
+        btnSelectorFecha.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSelectorFecha.addActionListener(e -> mostrarSelectorCalendario((JFrame) SwingUtilities.getWindowAncestor(panel)));
+
+        panelDer.add(btnSelectorFecha);
+
+        panelFiltros.add(panelWestUnificado, BorderLayout.CENTER);
+        panelFiltros.add(panelDer, BorderLayout.EAST);
+
+        // --- TABLA DE VENTAS ---
+        String[] columnas = {"Serie-Folio", "Tipo Pago", "Cliente", "Comentarios", "Total"};
+        modeloVentas = new DefaultTableModel(columnas, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
             }
-            return this;
-        }
-    });
+        };
 
-    DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
-    rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
-    rightRenderer.setBorder(new EmptyBorder(0, 0, 0, 15));
-    tablaVentas.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
+        tablaVentas = new JTable(modeloVentas);
+        tablaVentas.setRowHeight(52);
+        tablaVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaVentas.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        tablaVentas.getTableHeader().setForeground(new Color(100, 116, 139));
+        tablaVentas.getTableHeader().setPreferredSize(new Dimension(0, 38));
+        tablaVentas.setSelectionBackground(new Color(238, 242, 255));
+        tablaVentas.setSelectionForeground(new Color(30, 41, 59));
+        tablaVentas.setShowVerticalLines(false);
+        tablaVentas.setGridColor(new Color(241, 245, 249));
 
-    tablaVentas.addMouseListener(new MouseAdapter() {
-        @Override
-        public void mouseClicked(MouseEvent e) {
-            if (e.getClickCount() == 2) {
-                int fila = tablaVentas.getSelectedRow();
-                if (fila != -1) {
-                    Long ventaId = (Long) tablaVentas.getClientProperty("id_venta_" + fila);
-                    Object valFolio = modeloVentas.getValueAt(fila, 0);
-                    String folioStr = valFolio instanceof Object[] ? ((Object[]) valFolio)[0].toString() : valFolio.toString();
-                    String cliente = modeloVentas.getValueAt(fila, 2).toString();
-                    String total = modeloVentas.getValueAt(fila, 4).toString();
-                    mostrarDetalleVenta((JFrame) SwingUtilities.getWindowAncestor(panel), ventaId, folioStr, cliente, total);
+        tablaVentas.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                if (value instanceof Object[]) {
+                    Object[] datos = (Object[]) value;
+                    setText("<html><b>" + datos[0] + "</b><br><font color='#94A3B8' size='2'>" + datos[1] + "</font></html>");
+                } else {
+                    setText(value != null ? value.toString() : "");
+                }
+                setHorizontalAlignment(JLabel.LEFT);
+                setBorder(new EmptyBorder(0, 10, 0, 0));
+                if (isSelected) {
+                    setBackground(table.getSelectionBackground());
+                    setForeground(table.getSelectionForeground());
+                } else {
+                    setBackground(Color.WHITE);
+                    setForeground(new Color(15, 23, 42));
+                }
+                return this;
+            }
+        });
+
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
+        rightRenderer.setBorder(new EmptyBorder(0, 0, 0, 15));
+        tablaVentas.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
+
+        tablaVentas.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent e) {
+                if (e.getClickCount() == 2) {
+                    int fila = tablaVentas.getSelectedRow();
+                    if (fila != -1) {
+                        Long ventaId = (Long) tablaVentas.getClientProperty("id_venta_" + fila);
+                        Object valFolio = modeloVentas.getValueAt(fila, 0);
+                        String folioStr = valFolio instanceof Object[] ? ((Object[]) valFolio)[0].toString() : valFolio.toString();
+                        String cliente = modeloVentas.getValueAt(fila, 2).toString();
+                        String total = modeloVentas.getValueAt(fila, 4).toString();
+                        mostrarDetalleVenta((JFrame) SwingUtilities.getWindowAncestor(panel), ventaId, folioStr, cliente, total);
+                    }
                 }
             }
+        });
+
+        JScrollPane scrollTabla = new JScrollPane(tablaVentas);
+        scrollTabla.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
+        scrollTabla.getViewport().setBackground(Color.WHITE);
+
+        // --- BARRA INFERIOR DE TOTALES ---
+        JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
+        panelInferior.setBackground(Color.WHITE);
+        panelInferior.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
+
+        lblCantidadRegistrosVentas = new JLabel("Registros encontrados: 0");
+        lblCantidadRegistrosVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblCantidadRegistrosVentas.setForeground(new Color(100, 116, 139));
+
+        lblTotalVentasMonto = new JLabel("Monto Total Filtrado: $0.00 MXN");
+        lblTotalVentasMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblTotalVentasMonto.setForeground(new Color(16, 185, 129));
+
+        panelInferior.add(lblCantidadRegistrosVentas);
+        panelInferior.add(new JLabel(" | "));
+        panelInferior.add(lblTotalVentasMonto);
+
+        panel.add(panelFiltros, BorderLayout.NORTH);
+        panel.add(scrollTabla, BorderLayout.CENTER);
+        panel.add(panelInferior, BorderLayout.SOUTH);
+
+        actualizarPildorasFiltrosActivos(panelPildorasActivas);
+
+        return panel;
+    }
+
+    // Método auxiliar para actualizar dinámicamente las píldoras de filtros activos en la barra superior
+    private void actualizarPildorasFiltrosActivos(JPanel panelPildoras) {
+        if (panelPildoras == null) {
+            return;
         }
-    });
+        panelPildoras.removeAll();
 
-    JScrollPane scrollTabla = new JScrollPane(tablaVentas);
-    scrollTabla.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
-    scrollTabla.getViewport().setBackground(Color.WHITE);
+        // Creamos una píldora por cada filtro activo (que sea diferente de "Todos")
+        if (!filtroEstado.equals("Todos")) {
+            panelPildoras.add(crearPildoraFiltroActivo("Estado: " + filtroEstado, () -> {
+                filtroEstado = "Todos";
+                dispararFiltroVentas();
+                actualizarPildorasFiltrosActivos(panelPildoras);
+            }));
+        }
+        if (!filtroCredito.equals("Todos")) {
+            panelPildoras.add(crearPildoraFiltroActivo("Crédito: " + filtroCredito, () -> {
+                filtroCredito = "Todos";
+                dispararFiltroVentas();
+                actualizarPildorasFiltrosActivos(panelPildoras);
+            }));
+        }
+        if (!filtroMoneda.equals("Todos")) {
+            panelPildoras.add(crearPildoraFiltroActivo("Moneda: " + filtroMoneda, () -> {
+                filtroMoneda = "Todos";
+                dispararFiltroVentas();
+                actualizarPildorasFiltrosActivos(panelPildoras);
+            }));
+        }
+        if (!filtroFormaPago.equals("Todos")) {
+            panelPildoras.add(crearPildoraFiltroActivo("Pago: " + filtroFormaPago, () -> {
+                filtroFormaPago = "Todos";
+                dispararFiltroVentas();
+                actualizarPildorasFiltrosActivos(panelPildoras);
+            }));
+        }
+        if (fechaInicioFiltro != null && fechaFinFiltro != null) {
+            panelPildoras.add(crearPildoraFiltroActivo("Rango Fechas", () -> {
+                fechaInicioFiltro = null;
+                fechaFinFiltro = null;
+                btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>Todo el Historial</b></center></html>");
+                dispararFiltroVentas();
+                actualizarPildorasFiltrosActivos(panelPildoras);
+            }));
+        }
 
-    // --- BARRA INFERIOR DE TOTALES ---
-    JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
-    panelInferior.setBackground(Color.WHITE);
-    panelInferior.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
+        panelPildoras.revalidate();
+        panelPildoras.repaint();
+    }
 
-    lblCantidadRegistrosVentas = new JLabel("Registros encontrados: 0");
-    lblCantidadRegistrosVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    lblCantidadRegistrosVentas.setForeground(new Color(100, 116, 139));
+    private JButton crearPildoraFiltroActivo(String texto, Runnable onRemover) {
+        JButton btnPildora = new JButton(texto + "  ✕");
+        btnPildora.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnPildora.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnPildora.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#EFF6FF; foreground:#1E40AF; borderWidth:1; borderColor:#BFDBFE; margin:2,8,2,8");
+        btnPildora.addActionListener(e -> onRemover.run());
+        return btnPildora;
+    }
 
-    lblTotalVentasMonto = new JLabel("Monto Total Filtrado: $0.00 MXN");
-    lblTotalVentasMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
-    lblTotalVentasMonto.setForeground(new Color(16, 185, 129));
-
-    panelInferior.add(lblCantidadRegistrosVentas);
-    panelInferior.add(new JLabel(" | "));
-    panelInferior.add(lblTotalVentasMonto);
-
-    panel.add(panelFiltros, BorderLayout.NORTH);
-    panel.add(scrollTabla, BorderLayout.CENTER);
-    panel.add(panelInferior, BorderLayout.SOUTH);
-
-    return panel;
-}
-
-    // =========================================================================
-    // MODAL DE FILTROS AVANZADOS (PÍLDORAS)
+// =========================================================================
+    // MODAL DE FILTROS AVANZADOS (DISEÑO PREMIUM Y LIMPIEZA FUNCIONAL)
     // =========================================================================
     private void mostrarDialogoFiltrosSicar(JFrame parent) {
-        JDialog dialogo = new JDialog(parent, "Filtros Avanzados de Ventas", true);
-        dialogo.setSize(520, 440);
+        JDialog dialogo = new JDialog(parent, "Filtros Avanzados", true);
+        dialogo.setSize(540, 610);
         dialogo.setLocationRelativeTo(parent);
-        dialogo.setLayout(new BorderLayout(10, 10));
+        dialogo.setLayout(new BorderLayout());
+        dialogo.getContentPane().setBackground(new Color(248, 250, 252));
 
+        // --- CABECERA MODERNA CON ACENTO VISUAL ---
+        JPanel panelCabeceraModal = new JPanel(new BorderLayout());
+        panelCabeceraModal.setBackground(Color.WHITE);
+        panelCabeceraModal.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
+                new EmptyBorder(18, 22, 18, 22)
+        ));
+
+        JLabel lblTituloModal = new JLabel("<html><div style='color: #0F172A; font-size: 14px; font-weight: bold;'>Filtros Avanzados de Ventas</div>"
+                + "<div style='color: #64748B; font-size: 11px; margin-top: 2px;'>Selecciona los criterios para acotar los resultados</div></html>");
+        panelCabeceraModal.add(lblTituloModal, BorderLayout.CENTER);
+
+        // Contenedor principal de tarjetas de filtro
         JPanel panelContenido = new JPanel();
         panelContenido.setLayout(new BoxLayout(panelContenido, BoxLayout.Y_AXIS));
-        panelContenido.setBorder(new EmptyBorder(15, 20, 15, 20));
-        panelContenido.setBackground(Color.WHITE);
+        panelContenido.setBorder(new EmptyBorder(16, 20, 16, 20));
+        panelContenido.setBackground(new Color(248, 250, 252));
 
         final String[] estadoTemp = {filtroEstado};
         final String[] creditoTemp = {filtroCredito};
         final String[] monedaTemp = {filtroMoneda};
         final String[] formaPagoTemp = {filtroFormaPago};
 
-        panelContenido.add(crearFilaFiltroPildoras("Estado", new String[]{"Todos", "Vigente", "Cancelado"}, estadoTemp));
+        // Creamos referencias para poder limpiar visualmente los botones al hacer clic en "Limpiar"
+        List<Runnable> accionesLimpiarVisual = new ArrayList<>();
+
+        JPanel filaEstado = crearFilaFiltroPildoras("Estado de Venta", new String[]{"Todos", "Vigente", "Cancelado"}, estadoTemp, accionesLimpiarVisual);
+        JPanel filaCredito = crearFilaFiltroPildoras("Tipo de Crédito", new String[]{"Todos", "Sí", "No"}, creditoTemp, accionesLimpiarVisual);
+        JPanel filaMoneda = crearFilaFiltroPildoras("Moneda", new String[]{"Todos", "MXN", "USD"}, monedaTemp, accionesLimpiarVisual);
+        JPanel filaFormaPago = crearFilaFiltroPildoras("Forma de Pago", new String[]{"Todos", "Efectivo", "Tarjeta", "Transferencia"}, formaPagoTemp, accionesLimpiarVisual);
+
+        panelContenido.add(filaEstado);
         panelContenido.add(Box.createVerticalStrut(12));
-        panelContenido.add(crearFilaFiltroPildoras("Crédito", new String[]{"Todos", "Sí", "No"}, creditoTemp));
+        panelContenido.add(filaCredito);
         panelContenido.add(Box.createVerticalStrut(12));
-        panelContenido.add(crearFilaFiltroPildoras("Moneda", new String[]{"Todos", "MXN", "USD"}, monedaTemp));
+        panelContenido.add(filaMoneda);
         panelContenido.add(Box.createVerticalStrut(12));
-        panelContenido.add(crearFilaFiltroPildoras("Forma de pago", new String[]{"Todos", "Efectivo", "Tarjeta", "Transferencia"}, formaPagoTemp));
+        panelContenido.add(filaFormaPago);
 
         JScrollPane scrollFiltros = new JScrollPane(panelContenido);
         scrollFiltros.setBorder(BorderFactory.createEmptyBorder());
+        scrollFiltros.getViewport().setBackground(new Color(248, 250, 252));
+        scrollFiltros.getVerticalScrollBar().setUnitIncrement(16);
 
-        JButton btnLimpiar = new JButton("Limpiar");
-        btnLimpiar.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        btnLimpiar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; borderWidth:0");
+        // --- BOTONES INFERIORES ESTILIZADOS ---
+        JButton btnLimpiar = new JButton("Restablecer");
+        btnLimpiar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnLimpiar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; foreground:#475569; borderWidth:0; margin:8,18,8,18");
+        btnLimpiar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // ACCIÓN LIMPIAR REAL: Resetea variables y actualiza los botones visualmente al instante
         btnLimpiar.addActionListener(e -> {
             estadoTemp[0] = "Todos";
             creditoTemp[0] = "Todos";
             monedaTemp[0] = "Todos";
             formaPagoTemp[0] = "Todos";
-            dialogo.dispose();
+
+            // Ejecuta la limpieza visual de cada grupo de píldoras
+            for (Runnable limpiarUI : accionesLimpiarVisual) {
+                limpiarUI.run();
+            }
         });
 
-        JButton btnBuscar = new JButton("Buscar");
-        btnBuscar.setFont(new Font("Segoe UI", Font.BOLD, 13));
-        btnBuscar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#186EC9; foreground:#FFFFFF; borderWidth:0");
+        JButton btnBuscar = new JButton("Aplicar Filtros");
+        btnBuscar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnBuscar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:8,22,8,22");
+        btnBuscar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnBuscar.addActionListener(e -> {
             filtroEstado = estadoTemp[0];
             filtroCredito = creditoTemp[0];
@@ -316,23 +415,30 @@ public class ConsultasVentasInterfice extends JPanel {
             dispararFiltroVentas();
         });
 
-        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 15));
-        panelSur.setBackground(new Color(245, 247, 250));
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 14));
+        panelSur.setBackground(Color.WHITE);
+        panelSur.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
         panelSur.add(btnLimpiar);
         panelSur.add(btnBuscar);
 
+        dialogo.add(panelCabeceraModal, BorderLayout.NORTH);
         dialogo.add(scrollFiltros, BorderLayout.CENTER);
         dialogo.add(panelSur, BorderLayout.SOUTH);
         dialogo.setVisible(true);
     }
 
-    private JPanel crearFilaFiltroPildoras(String etiquetaTitulo, String[] opciones, final String[] seleccionActual) {
-        JPanel panelFila = new JPanel(new BorderLayout(5, 5));
-        panelFila.setOpaque(false);
+    private JPanel crearFilaFiltroPildoras(String etiquetaTitulo, String[] opciones, final String[] seleccionActual, List<Runnable> listaLimpieza) {
+        JPanel panelFila = new JPanel(new BorderLayout(0, 8));
+        panelFila.setBackground(Color.WHITE);
+        panelFila.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(12, 16, 12, 16)
+        ));
+        panelFila.putClientProperty(FlatClientProperties.STYLE, "arc:12");
 
         JLabel lbl = new JLabel(etiquetaTitulo);
         lbl.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        lbl.setForeground(new Color(100, 116, 139));
+        lbl.setForeground(new Color(30, 41, 59));
         panelFila.add(lbl, BorderLayout.NORTH);
 
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
@@ -346,18 +452,18 @@ public class ConsultasVentasInterfice extends JPanel {
             btnOpc.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
             if (opc.equals(seleccionActual[0])) {
-                btnOpc.putClientProperty(FlatClientProperties.STYLE, "arc:15; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:3,10,3,10");
+                btnOpc.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:5,14,5,14");
             } else {
-                btnOpc.putClientProperty(FlatClientProperties.STYLE, "arc:15; background:#F1F5F9; foreground:#334155; borderWidth:0; margin:3,10,3,10");
+                btnOpc.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#F8FAFC; foreground:#475569; borderWidth:1; borderColor:#CBD5E1; margin:5,14,5,14");
             }
 
             btnOpc.addActionListener(e -> {
                 seleccionActual[0] = opc;
                 for (JButton b : botonesPildora) {
                     if (b.getText().equals(opc)) {
-                        b.putClientProperty(FlatClientProperties.STYLE, "arc:15; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:3,10,3,10");
+                        b.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:5,14,5,14");
                     } else {
-                        b.putClientProperty(FlatClientProperties.STYLE, "arc:15; background:#F1F5F9; foreground:#334155; borderWidth:0; margin:3,10,3,10");
+                        b.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#F8FAFC; foreground:#475569; borderWidth:1; borderColor:#CBD5E1; margin:5,14,5,14");
                     }
                     b.repaint();
                 }
@@ -367,68 +473,223 @@ public class ConsultasVentasInterfice extends JPanel {
             panelBotones.add(btnOpc);
         }
 
+        // Añadimos la regla para que el botón "Restablecer" devuelva visualmente la selección a "Todos"
+        listaLimpieza.add(() -> {
+            seleccionActual[0] = "Todos";
+            for (JButton b : botonesPildora) {
+                if (b.getText().equals("Todos")) {
+                    b.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:5,14,5,14");
+                } else {
+                    b.putClientProperty(FlatClientProperties.STYLE, "arc:18; background:#F8FAFC; foreground:#475569; borderWidth:1; borderColor:#CBD5E1; margin:5,14,5,14");
+                }
+                b.repaint();
+            }
+        });
+
         panelFila.add(panelBotones, BorderLayout.CENTER);
         return panelFila;
     }
 
-    // =========================================================================
-    // SELECTOR DE CALENDARIO INTERACTIVO
+// =========================================================================
+    // SELECTOR DE FECHAS HÍBRIDO (CORREGIDO PARA MOSTRAR TODOS LOS DÍAS)
     // =========================================================================
     private void mostrarSelectorCalendario(JFrame parent) {
         JDialog dialogoCal = new JDialog(parent, "Seleccionar Rango de Fechas", true);
-        dialogoCal.setSize(420, 260);
+        dialogoCal.setSize(620, 460); // Ampliamos el ancho de la ventana
         dialogoCal.setLocationRelativeTo(parent);
-        dialogoCal.setLayout(new BorderLayout(10, 10));
+        dialogoCal.setLayout(new BorderLayout());
+        dialogoCal.getContentPane().setBackground(new Color(248, 250, 252));
 
-        JPanel panelForm = new JPanel(new GridLayout(3, 2, 10, 15));
-        panelForm.setBorder(new EmptyBorder(25, 25, 10, 25));
-        panelForm.setBackground(Color.WHITE);
+        if (fechaInicioFiltro != null) {
+            tempFechaInicio = fechaInicioFiltro;
+        }
+        if (fechaFinFiltro != null) {
+            tempFechaFin = fechaFinFiltro;
+        }
 
-        JLabel lblDesde = new JLabel("Fecha Inicio (AAAA-MM-DD):");
-        lblDesde.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        JTextField txtFechaInicio = new JTextField(LocalDate.now().minusDays(7).toString());
-        txtFechaInicio.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtFechaInicio.putClientProperty(FlatClientProperties.STYLE, "arc:8");
+        // --- CABECERA ---
+        JPanel panelCabecera = new JPanel(new BorderLayout());
+        panelCabecera.setBackground(Color.WHITE);
+        panelCabecera.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
+                new EmptyBorder(16, 20, 16, 20)
+        ));
+        JLabel lblTitulo = new JLabel("<html><b style='color: #0F172A; font-size: 14px;'>Selecciona el Rango de Fechas</b><br><font color='#64748B' size='2'>Elige el mes y año directamente o haz clic en el día</font></html>");
+        panelCabecera.add(lblTitulo, BorderLayout.CENTER);
 
-        JLabel lblHasta = new JLabel("Fecha Fin (AAAA-MM-DD):");
-        lblHasta.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        JTextField txtFechaFin = new JTextField(LocalDate.now().toString());
-        txtFechaFin.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtFechaFin.putClientProperty(FlatClientProperties.STYLE, "arc:8");
+        // --- CONTENEDOR DE CALENDARIOS (INICIO Y FIN) ---
+        JPanel panelCalendarios = new JPanel(new GridLayout(1, 2, 15, 0));
+        panelCalendarios.setBorder(new EmptyBorder(15, 20, 15, 20));
+        panelCalendarios.setBackground(new Color(248, 250, 252));
 
-        panelForm.add(lblDesde);
-        panelForm.add(txtFechaInicio);
-        panelForm.add(lblHasta);
-        panelForm.add(txtFechaFin);
+        JPanel panelInicioCard = construirPanelCalendarioHibrido("Fecha de Inicio", tempFechaInicio, fecha -> tempFechaInicio = fecha);
+        JPanel panelFinCard = construirPanelCalendarioHibrido("Fecha de Fin", tempFechaFin, fecha -> tempFechaFin = fecha);
 
-        JButton btnSeleccionarRango = new JButton("Aplicar Rango");
-        btnSeleccionarRango.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnSeleccionarRango.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#186EC9; foreground:#FFFFFF; borderWidth:0");
-        btnSeleccionarRango.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        panelCalendarios.add(panelInicioCard);
+        panelCalendarios.add(panelFinCard);
 
-        btnSeleccionarRango.addActionListener(e -> {
-            try {
-                fechaInicioFiltro = LocalDate.parse(txtFechaInicio.getText().trim());
-                fechaFinFiltro = LocalDate.parse(txtFechaFin.getText().trim());
+        // --- BOTÓN INFERIOR ---
+        JButton btnAplicar = new JButton("Aplicar Rango");
+        btnAplicar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:8,22,8,22");
+        btnAplicar.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-                String textoRango = formatter.format(fechaInicioFiltro) + " - " + formatter.format(fechaFinFiltro);
-
-                btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>📅 " + textoRango + "</b></center></html>");
-                dialogoCal.dispose();
-                dispararFiltroVentas();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(dialogoCal, "Formato de fecha inválido. Utilice AAAA-MM-DD", "Error", JOptionPane.ERROR_MESSAGE);
+        btnAplicar.addActionListener(e -> {
+            if (tempFechaInicio.isAfter(tempFechaFin)) {
+                JOptionPane.showMessageDialog(dialogoCal, "La fecha de inicio no puede ser posterior a la fecha fin.", "Advertencia", JOptionPane.WARNING_MESSAGE);
+                return;
             }
+
+            fechaInicioFiltro = tempFechaInicio;
+            fechaFinFiltro = tempFechaFin;
+
+            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            String textoRango = formatter.format(fechaInicioFiltro) + " - " + formatter.format(fechaFinFiltro);
+
+            btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>📅 " + textoRango + "</b></center></html>");
+            dialogoCal.dispose();
+            dispararFiltroVentas();
         });
 
-        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
-        panelSur.setBackground(new Color(245, 247, 250));
-        panelSur.add(btnSeleccionarRango);
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 14));
+        panelSur.setBackground(Color.WHITE);
+        panelSur.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+        panelSur.add(btnAplicar);
 
-        dialogoCal.add(panelForm, BorderLayout.CENTER);
+        dialogoCal.add(panelCabecera, BorderLayout.NORTH);
+        dialogoCal.add(panelCalendarios, BorderLayout.CENTER);
         dialogoCal.add(panelSur, BorderLayout.SOUTH);
         dialogoCal.setVisible(true);
+    }
+
+ private JPanel construirPanelCalendarioHibrido(String titulo, LocalDate fechaInicial, java.util.function.Consumer<LocalDate> onFechaSeleccionada) {
+        JPanel card = new JPanel(new BorderLayout(0, 8));
+        card.setBackground(Color.WHITE);
+        card.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(226, 232, 240), 1, true),
+                new EmptyBorder(12, 12, 12, 12)
+        ));
+        card.putClientProperty(FlatClientProperties.STYLE, "arc:12");
+
+        JLabel lblTitulo = new JLabel(titulo, JLabel.CENTER);
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblTitulo.setForeground(new Color(30, 41, 59));
+        card.add(lblTitulo, BorderLayout.NORTH);
+
+        // Contenedor superior con Combos de Mes y Año
+        JPanel panelSelectoresFecha = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 0));
+        panelSelectoresFecha.setOpaque(false);
+
+        ComboItem[] meses = {
+            new ComboItem(1, "Ene"), new ComboItem(2, "Feb"), new ComboItem(3, "Mar"),
+            new ComboItem(4, "Abr"), new ComboItem(5, "May"), new ComboItem(6, "Jun"),
+            new ComboItem(7, "Jul"), new ComboItem(8, "Ago"), new ComboItem(9, "Sep"),
+            new ComboItem(10, "Oct"), new ComboItem(11, "Nov"), new ComboItem(12, "Dic")
+        };
+        JComboBox<ComboItem> cmbMes = new JComboBox<>(meses);
+        cmbMes.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cmbMes.setSelectedIndex(fechaInicial.getMonthValue() - 1);
+        cmbMes.putClientProperty(FlatClientProperties.STYLE, "arc:6");
+
+        int anioActual = LocalDate.now().getYear();
+        Integer[] anios = new Integer[12];
+        for (int i = 0; i < 12; i++) {
+            anios[i] = (anioActual - 8) + i;
+        }
+        JComboBox<Integer> cmbAnio = new JComboBox<>(anios);
+        cmbAnio.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        cmbAnio.setSelectedItem(fechaInicial.getYear());
+        cmbAnio.putClientProperty(FlatClientProperties.STYLE, "arc:6");
+
+        panelSelectoresFecha.add(cmbMes);
+        panelSelectoresFecha.add(cmbAnio);
+
+        // Cuadrícula de días
+        JPanel panelGridDias = new JPanel(new GridLayout(7, 7, 3, 3));
+        panelGridDias.setBackground(Color.WHITE);
+
+        final LocalDate[] seleccionLocal = { fechaInicial };
+        final Runnable[] actualizarGrid = new Runnable[1];
+
+        actualizarGrid[0] = () -> {
+            panelGridDias.removeAll();
+            String[] nombresDias = {"Do", "Lu", "Ma", "Mi", "Ju", "Vi", "Sá"};
+            for (String d : nombresDias) {
+                JLabel lblD = new JLabel(d, JLabel.CENTER);
+                lblD.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                lblD.setForeground(new Color(148, 163, 184));
+                panelGridDias.add(lblD);
+            }
+
+            int mesSeleccionado = ((ComboItem) cmbMes.getSelectedItem()).valor;
+            int anioSeleccionado = (int) cmbAnio.getSelectedItem();
+
+            LocalDate primerDiaMes = LocalDate.of(anioSeleccionado, mesSeleccionado, 1);
+            int primerDiaSemana = primerDiaMes.getDayOfWeek().getValue() % 7;
+            int diasEnMes = primerDiaMes.lengthOfMonth();
+
+            for (int i = 0; i < primerDiaSemana; i++) {
+                panelGridDias.add(new JLabel(""));
+            }
+
+            for (int dia = 1; dia <= diasEnMes; dia++) {
+                final LocalDate fechaCelda = LocalDate.of(anioSeleccionado, mesSeleccionado, dia);
+                JButton btnDia = new JButton(String.valueOf(dia));
+                btnDia.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+                btnDia.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                if (fechaCelda.equals(seleccionLocal[0])) {
+                    btnDia.putClientProperty(FlatClientProperties.STYLE, "arc:6; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:0,0,0,0");
+                } else {
+                    btnDia.putClientProperty(FlatClientProperties.STYLE, "arc:6; background:#F8FAFC; foreground:#334155; borderWidth:0; hoverBackground:#E2E8F0; margin:0,0,0,0");
+                }
+
+                btnDia.addActionListener(e -> {
+                    seleccionLocal[0] = fechaCelda;
+                    onFechaSeleccionada.accept(fechaCelda);
+                    actualizarGrid[0].run();
+                });
+
+                panelGridDias.add(btnDia);
+            }
+
+            int totalCeldasPintadas = primerDiaSemana + diasEnMes;
+            int celdasRestantes = (totalCeldasPintadas <= 35 ? 35 : 42) - totalCeldasPintadas;
+            for (int i = 0; i < celdasRestantes; i++) {
+                panelGridDias.add(new JLabel(""));
+            }
+
+            panelGridDias.revalidate();
+            panelGridDias.repaint();
+        };
+
+        cmbMes.addActionListener(e -> actualizarGrid[0].run());
+        cmbAnio.addActionListener(e -> actualizarGrid[0].run());
+
+        actualizarGrid[0].run();
+
+        JPanel panelCentroContenedor = new JPanel(new BorderLayout(0, 10));
+        panelCentroContenedor.setOpaque(false);
+        panelCentroContenedor.add(panelSelectoresFecha, BorderLayout.NORTH);
+        panelCentroContenedor.add(panelGridDias, BorderLayout.CENTER);
+
+        card.add(panelCentroContenedor, BorderLayout.CENTER);
+        return card;
+    }
+    private static class ComboItem {
+
+        int valor;
+        String texto;
+
+        public ComboItem(int valor, String texto) {
+            this.valor = valor;
+            this.texto = texto;
+        }
+
+        @Override
+        public String toString() {
+            return texto;
+        }
     }
 
     // =========================================================================
@@ -644,145 +905,147 @@ public class ConsultasVentasInterfice extends JPanel {
     // =========================================================================
     // MODAL DE DETALLE DE VENTA ESTILO SICARX
     // =========================================================================
-private void mostrarDetalleVenta(JFrame parent, Long ventaId, String folio, String cliente, String total) {
-    JDialog dialogoDetalle = new JDialog(parent, "Venta " + folio, true);
-    dialogoDetalle.setSize(850, 580);
-    dialogoDetalle.setLocationRelativeTo(parent);
-    dialogoDetalle.setLayout(new BorderLayout());
-    dialogoDetalle.getContentPane().setBackground(new Color(245, 247, 250));
+    private void mostrarDetalleVenta(JFrame parent, Long ventaId, String folio, String cliente, String total) {
+        JDialog dialogoDetalle = new JDialog(parent, "Venta " + folio, true);
+        dialogoDetalle.setSize(850, 580);
+        dialogoDetalle.setLocationRelativeTo(parent);
+        dialogoDetalle.setLayout(new BorderLayout());
+        dialogoDetalle.getContentPane().setBackground(new Color(245, 247, 250));
 
-    // --- BARRA SUPERIOR DE ACCIONES (Con opción de Cancelar Venta) ---
-    JPanel panelToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
-    panelToolbar.setBackground(Color.WHITE);
-    panelToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)));
+        // --- BARRA SUPERIOR DE ACCIONES (Con opción de Cancelar Venta) ---
+        JPanel panelToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
+        panelToolbar.setBackground(Color.WHITE);
+        panelToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)));
 
-    JButton btnFacturar = new JButton("📄 Facturar");
-    JButton btnCliente = new JButton("👤 Cliente");
-    JButton btnImprimir = new JButton("🖨️ Imprimir");
-    JButton btnPdf = new JButton("📥 PDF");
-    
-    // Botón de Cancelar Venta estilizado en rojo claro
-    JButton btnCancelarVenta = new JButton("🗑️ Cancelar Venta");
-    btnCancelarVenta.setForeground(new Color(220, 38, 38));
-    btnCancelarVenta.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#FEF2F2; borderWidth:1; borderColor:#FCA5A5; margin:4,10,4,10");
-    btnCancelarVenta.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        JButton btnFacturar = new JButton("📄 Facturar");
+        JButton btnCliente = new JButton("👤 Cliente");
+        JButton btnImprimir = new JButton("🖨️ Imprimir");
+        JButton btnPdf = new JButton("📥 PDF");
 
-    btnCancelarVenta.addActionListener(e -> {
-        int confirm = JOptionPane.showConfirmDialog(
-            dialogoDetalle, 
-            "¿Estás seguro de que deseas cancelar la venta con folio " + folio + "?", 
-            "Confirmar Cancelación", 
-            JOptionPane.YES_NO_OPTION, 
-            JOptionPane.WARNING_MESSAGE
-        );
+        // Botón de Cancelar Venta estilizado en rojo claro
+        JButton btnCancelarVenta = new JButton("🗑️ Cancelar Venta");
+        btnCancelarVenta.setForeground(new Color(220, 38, 38));
+        btnCancelarVenta.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#FEF2F2; borderWidth:1; borderColor:#FCA5A5; margin:4,10,4,10");
+        btnCancelarVenta.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        if (confirm == JOptionPane.YES_OPTION) {
-            String sqlUpdate = "UPDATE ventas SET estado = 'CANCELADO' WHERE id = ?";
-            try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
-                pstmt.setLong(1, ventaId);
-                pstmt.executeUpdate();
-                
-                JOptionPane.showMessageDialog(dialogoDetalle, "Venta cancelada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
-                dialogoDetalle.dispose();
-                dispararFiltroVentas(); // Refresca la tabla principal
-            } catch (SQLException ex) {
-                JOptionPane.showMessageDialog(dialogoDetalle, "Error al cancelar la venta: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        btnCancelarVenta.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(
+                    dialogoDetalle,
+                    "¿Estás seguro de que deseas cancelar la venta con folio " + folio + "?",
+                    "Confirmar Cancelación",
+                    JOptionPane.YES_NO_OPTION,
+                    JOptionPane.WARNING_MESSAGE
+            );
+
+            if (confirm == JOptionPane.YES_OPTION) {
+                String sqlUpdate = "UPDATE ventas SET estado = 'CANCELADO' WHERE id = ?";
+                try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                    pstmt.setLong(1, ventaId);
+                    pstmt.executeUpdate();
+
+                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta cancelada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    dialogoDetalle.dispose();
+                    dispararFiltroVentas(); // Refresca la tabla principal
+                } catch (SQLException ex) {
+                    JOptionPane.showMessageDialog(dialogoDetalle, "Error al cancelar la venta: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                }
             }
-        }
-    });
+        });
 
-    for (JButton btn : new JButton[]{btnFacturar, btnCliente, btnImprimir, btnPdf, btnCancelarVenta}) {
-        if (btn != btnCancelarVenta) {
-            btn.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:4,10,4,10");
-            btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        }
-        panelToolbar.add(btn);
-    }
-
-    // --- PANEL DE INFORMACIÓN GENERAL ---
-    JPanel panelInfoCliente = new JPanel(new BorderLayout());
-    panelInfoCliente.setBackground(Color.WHITE);
-    panelInfoCliente.setBorder(new EmptyBorder(15, 20, 15, 20));
-
-    JLabel lblDatosCliente = new JLabel("<html><b>Cliente:</b> " + cliente + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Folio:</b> " + folio + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total:</b> <font color='#16A34A'><b>" + total + "</b></font></html>");
-    lblDatosCliente.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    panelInfoCliente.add(lblDatosCliente, BorderLayout.CENTER);
-
-    JPanel panelNorteContenedor = new JPanel(new BorderLayout());
-    panelNorteContenedor.add(panelToolbar, BorderLayout.NORTH);
-    panelNorteContenedor.add(panelInfoCliente, BorderLayout.SOUTH);
-
-    // --- TABLA DE PRODUCTOS DEL DETALLE ---
-    String[] colDetalle = {"Cantidad", "Descripción del Producto", "Precio Unitario"};
-    DefaultTableModel modeloDetalle = new DefaultTableModel(colDetalle, 0) {
-        @Override
-        public boolean isCellEditable(int row, int column) { return false; }
-    };
-
-    JTable tablaDetalle = new JTable(modeloDetalle);
-    tablaDetalle.setRowHeight(56);
-    tablaDetalle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-    tablaDetalle.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-    tablaDetalle.getTableHeader().setForeground(new Color(100, 116, 139));
-    tablaDetalle.getTableHeader().setPreferredSize(new Dimension(0, 38));
-    tablaDetalle.setShowVerticalLines(false);
-    tablaDetalle.setGridColor(new Color(241, 245, 249));
-
-    tablaDetalle.getColumnModel().getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
-        @Override
-        public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
-            String nombreProd = value != null ? value.toString() : "";
-            setText("<html><div style='display: flex; align-items: center;'>"
-                    + "<span style='background-color:#0284C7; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; margin-right:8px;'>SKU</span>"
-                    + "<span style='font-weight:500; color:#1E293B;'>" + nombreProd + "</span>"
-                    + "</div></html>");
-            setBorder(new EmptyBorder(0, 10, 0, 0));
-            setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
-            return this;
-        }
-    });
-
-    DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
-    rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
-    rightRenderer.setBorder(new EmptyBorder(0, 0, 0, 15));
-    tablaDetalle.getColumnModel().getColumn(2).setCellRenderer(rightRenderer);
-
-    String sqlDetalle = "SELECT vp.cantidad, p.name AS producto_nombre, p.price FROM venta_productos vp "
-                      + "JOIN productos p ON vp.producto_id = p.id WHERE vp.registro_venta_id = ?";
-
-    try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlDetalle)) {
-        pstmt.setLong(1, ventaId);
-        try (ResultSet rs = pstmt.executeQuery()) {
-            while (rs.next()) {
-                modeloDetalle.addRow(new Object[]{
-                    rs.getBigDecimal("cantidad") + " PZA",
-                    rs.getString("producto_nombre"),
-                    "$" + rs.getBigDecimal("price")
-                });
+        for (JButton btn : new JButton[]{btnFacturar, btnCliente, btnImprimir, btnPdf, btnCancelarVenta}) {
+            if (btn != btnCancelarVenta) {
+                btn.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:4,10,4,10");
+                btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
             }
+            panelToolbar.add(btn);
         }
-    } catch (SQLException e) {
-        System.err.println("Error al cargar detalle de venta: " + e.getMessage());
+
+        // --- PANEL DE INFORMACIÓN GENERAL ---
+        JPanel panelInfoCliente = new JPanel(new BorderLayout());
+        panelInfoCliente.setBackground(Color.WHITE);
+        panelInfoCliente.setBorder(new EmptyBorder(15, 20, 15, 20));
+
+        JLabel lblDatosCliente = new JLabel("<html><b>Cliente:</b> " + cliente + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Folio:</b> " + folio + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total:</b> <font color='#16A34A'><b>" + total + "</b></font></html>");
+        lblDatosCliente.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        panelInfoCliente.add(lblDatosCliente, BorderLayout.CENTER);
+
+        JPanel panelNorteContenedor = new JPanel(new BorderLayout());
+        panelNorteContenedor.add(panelToolbar, BorderLayout.NORTH);
+        panelNorteContenedor.add(panelInfoCliente, BorderLayout.SOUTH);
+
+        // --- TABLA DE PRODUCTOS DEL DETALLE ---
+        String[] colDetalle = {"Cantidad", "Descripción del Producto", "Precio Unitario"};
+        DefaultTableModel modeloDetalle = new DefaultTableModel(colDetalle, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        JTable tablaDetalle = new JTable(modeloDetalle);
+        tablaDetalle.setRowHeight(56);
+        tablaDetalle.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaDetalle.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        tablaDetalle.getTableHeader().setForeground(new Color(100, 116, 139));
+        tablaDetalle.getTableHeader().setPreferredSize(new Dimension(0, 38));
+        tablaDetalle.setShowVerticalLines(false);
+        tablaDetalle.setGridColor(new Color(241, 245, 249));
+
+        tablaDetalle.getColumnModel().getColumn(1).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                String nombreProd = value != null ? value.toString() : "";
+                setText("<html><div style='display: flex; align-items: center;'>"
+                        + "<span style='background-color:#0284C7; color:white; padding:4px 8px; border-radius:4px; font-weight:bold; margin-right:8px;'>SKU</span>"
+                        + "<span style='font-weight:500; color:#1E293B;'>" + nombreProd + "</span>"
+                        + "</div></html>");
+                setBorder(new EmptyBorder(0, 10, 0, 0));
+                setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
+                return this;
+            }
+        });
+
+        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+        rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
+        rightRenderer.setBorder(new EmptyBorder(0, 0, 0, 15));
+        tablaDetalle.getColumnModel().getColumn(2).setCellRenderer(rightRenderer);
+
+        String sqlDetalle = "SELECT vp.cantidad, p.name AS producto_nombre, p.price FROM venta_productos vp "
+                + "JOIN productos p ON vp.producto_id = p.id WHERE vp.registro_venta_id = ?";
+
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlDetalle)) {
+            pstmt.setLong(1, ventaId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                while (rs.next()) {
+                    modeloDetalle.addRow(new Object[]{
+                        rs.getBigDecimal("cantidad") + " PZA",
+                        rs.getString("producto_nombre"),
+                        "$" + rs.getBigDecimal("price")
+                    });
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al cargar detalle de venta: " + e.getMessage());
+        }
+
+        JScrollPane scrollDetalle = new JScrollPane(tablaDetalle);
+        scrollDetalle.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
+        scrollDetalle.getViewport().setBackground(Color.WHITE);
+
+        JButton btnCerrar = new JButton("Cerrar");
+        btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnCerrar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:6,16,6,16");
+        btnCerrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCerrar.addActionListener(e -> dialogoDetalle.dispose());
+
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 15));
+        panelSur.setBackground(new Color(245, 247, 250));
+        panelSur.add(btnCerrar);
+
+        dialogoDetalle.add(panelNorteContenedor, BorderLayout.NORTH);
+        dialogoDetalle.add(scrollDetalle, BorderLayout.CENTER);
+        dialogoDetalle.add(panelSur, BorderLayout.SOUTH);
+
+        dialogoDetalle.setVisible(true);
     }
-
-    JScrollPane scrollDetalle = new JScrollPane(tablaDetalle);
-    scrollDetalle.setBorder(BorderFactory.createEmptyBorder(10, 20, 10, 20));
-    scrollDetalle.getViewport().setBackground(Color.WHITE);
-
-    JButton btnCerrar = new JButton("Cerrar");
-    btnCerrar.setFont(new Font("Segoe UI", Font.BOLD, 12));
-    btnCerrar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:6,16,6,16");
-    btnCerrar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    btnCerrar.addActionListener(e -> dialogoDetalle.dispose());
-
-    JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 15));
-    panelSur.setBackground(new Color(245, 247, 250));
-    panelSur.add(btnCerrar);
-
-    dialogoDetalle.add(panelNorteContenedor, BorderLayout.NORTH);
-    dialogoDetalle.add(scrollDetalle, BorderLayout.CENTER);
-    dialogoDetalle.add(panelSur, BorderLayout.SOUTH);
-
-    dialogoDetalle.setVisible(true);
-}
 }

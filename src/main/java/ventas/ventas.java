@@ -1,6 +1,7 @@
 package ventas;
 
 import clientes.clientInterface;
+import com.formdev.flatlaf.FlatClientProperties;
 import com.formdev.flatlaf.icons.FlatSearchIcon;
 import com.mycompany.chancuellarpuntodeventa.services.dtos.CambioDTO;
 import com.mycompany.chancuellarpuntodeventa.services.querys.ventaServicio;
@@ -422,7 +423,7 @@ public class ventas extends JPanel {
     }
 // --- MÉTODOS DE DIÁLOGO FLOTANTE ---
 
-    private void abrirDialogoCliente() {
+private void abrirDialogoCliente() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -442,7 +443,6 @@ public class ventas extends JPanel {
             }
         }
 
-        // Detectar qué ID de cliente está seleccionado actualmente en el combo principal
         // Detectar qué ID de cliente está seleccionado actualmente en el combo principal
         Long idClienteActualSeleccionado = null;
         if (comboClientes != null && comboClientes.getSelectedItem() != null) {
@@ -541,17 +541,9 @@ public class ventas extends JPanel {
 
         // Escucha en tiempo real para el buscador
         txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
         });
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);
@@ -573,6 +565,159 @@ public class ventas extends JPanel {
                 if (idObj instanceof Long idClienteReal) {
                     for (ClienteDTO c : listaClientesOriginales) {
                         if (c != null && c.getId().equals(idClienteReal)) {
+                            
+                            // ==========================================================
+                            // 1. VALIDACIÓN DE DEUDA FINANCIERA
+                            // ==========================================================
+                            BigDecimal saldoDeudor = BigDecimal.ZERO;
+                            try {
+                                if (c.getDeudaActual() != null) {
+                                    saldoDeudor = c.getDeudaActual();
+                                }
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+
+                            // ==========================================================
+                            // 2. VALIDACIÓN DE ENVASE(S) PRESTADO(S) USANDO LA MISMA QUERY
+                            // ==========================================================
+                            int totalEnvasesPrestados = 0;
+                            StringBuilder detalleEnvasesHtml = new StringBuilder();
+                            try {
+                                // Consultamos directamente los detalles pendientes de este cliente desde el servicio
+                                List<ventaServicio.DetalleEnvaseDTO> listaDetalleEnvases = ventaServicio.obtenerDetalleEnvasesCliente(c.getId());
+                                
+                                if (listaDetalleEnvases != null && !listaDetalleEnvases.isEmpty()) {
+                                    for (ventaServicio.DetalleEnvaseDTO det : listaDetalleEnvases) {
+                                        BigDecimal cantidad = det.getCantidadPendiente() != null ? det.getCantidadPendiente() : BigDecimal.ZERO;
+                                        totalEnvasesPrestados += cantidad.intValue();
+                                        detalleEnvasesHtml.append("• ").append(cantidad).append(" ").append(det.getNombreProducto()).append(" Prestado<br>");
+                                    }
+                                }
+                            } catch (Exception ex) {
+                                ex.printStackTrace();
+                            }
+
+                            boolean tieneDeuda = saldoDeudor.compareTo(BigDecimal.ZERO) > 0;
+                            boolean tieneEnvases = totalEnvasesPrestados > 0 || detalleEnvasesHtml.length() > 0;
+
+                            // Si tiene adeudos o envases prestados, mostramos la alerta unificada
+                            if (tieneDeuda || tieneEnvases) {
+                                JDialog dialogoAviso = new JDialog(dialog, "Aviso: Adeudos y Envases Prestados", true);
+                                dialogoAviso.setSize(495, 380);
+                                dialogoAviso.setLocationRelativeTo(dialog);
+                                dialogoAviso.setLayout(new BorderLayout());
+                                dialogoAviso.getContentPane().setBackground(Color.WHITE);
+
+                                JPanel panelContenido = new JPanel(new BorderLayout(12, 12));
+                                panelContenido.setBackground(Color.WHITE);
+                                panelContenido.setBorder(new EmptyBorder(22, 22, 18, 22));
+
+                                JLabel lblMensaje = new JLabel(
+                                    "<html><body style='color: #0F172A; font-family: Segoe UI;'>"
+                                    + "<b style='font-size: 14px; color: #DC2626;'>⚠️ ¡Atención! Pendientes Activos del Cliente</b><br>"
+                                    + "<p style='margin-top: 4px; color: #475569; font-size: 12px;'>El cliente <b>" + c.getNombre() + "</b> registra adeudos o envases sin retornar.</p>"
+                                    + "</body></html>"
+                                );
+
+                                JPanel panelTarjetasCentro = new JPanel(new GridLayout(tieneDeuda && tieneEnvases ? 2 : 1, 1, 0, 8));
+                                panelTarjetasCentro.setOpaque(false);
+
+                                // Tarjeta de Deuda Financiera
+                                if (tieneDeuda) {
+                                    JPanel panelDeudaCard = new JPanel(new BorderLayout(4, 4));
+                                    panelDeudaCard.setBackground(new Color(254, 242, 242));
+                                    panelDeudaCard.setBorder(BorderFactory.createCompoundBorder(
+                                        BorderFactory.createLineBorder(new Color(254, 202, 202), 1, true),
+                                        new EmptyBorder(10, 14, 10, 14)
+                                    ));
+                                    panelDeudaCard.putClientProperty(FlatClientProperties.STYLE, "arc:10");
+
+                                    JLabel lblDeudaTitulo = new JLabel("DEUDA ACTUAL EN SISTEMA");
+                                    lblDeudaTitulo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                                    lblDeudaTitulo.setForeground(new Color(220, 38, 38));
+
+                                    JLabel lblDeudaValor = new JLabel("$" + String.format("%.2f", saldoDeudor) + " MXN");
+                                    lblDeudaValor.setFont(new Font("Segoe UI", Font.BOLD, 22));
+                                    lblDeudaValor.setForeground(new Color(185, 28, 28));
+
+                                    panelDeudaCard.add(lblDeudaTitulo, BorderLayout.NORTH);
+                                    panelDeudaCard.add(lblDeudaValor, BorderLayout.CENTER);
+                                    panelTarjetasCentro.add(panelDeudaCard);
+                                }
+
+                                // Tarjeta de Envases Prestados con el detalle exacto de la BD en viñetas
+                                if (tieneEnvases) {
+                                    JPanel panelEnvasesCard = new JPanel(new BorderLayout(4, 4));
+                                    panelEnvasesCard.setBackground(new Color(255, 251, 235));
+                                    panelEnvasesCard.setBorder(BorderFactory.createCompoundBorder(
+                                        BorderFactory.createLineBorder(new Color(253, 230, 138), 1, true),
+                                        new EmptyBorder(10, 14, 10, 14)
+                                    ));
+                                    panelEnvasesCard.putClientProperty(FlatClientProperties.STYLE, "arc:10");
+
+                                    JLabel lblEnvasesTitulo = new JLabel("ENVASES PRESTADOS PENDIENTES");
+                                    lblEnvasesTitulo.setFont(new Font("Segoe UI", Font.BOLD, 11));
+                                    lblEnvasesTitulo.setForeground(new Color(180, 83, 9));
+
+                                    String htmlEnvases = "<html><body style='color: #92400E; font-family: Segoe UI; font-size: 12px; font-weight: bold;'>"
+                                            + totalEnvasesPrestados + " pzas. prestadas<br>"
+                                            + "<span style='font-weight: normal; font-size: 11px;'>" + detalleEnvasesHtml.toString() + "</span>"
+                                            + "</body></html>";
+
+                                    JLabel lblEnvasesValor = new JLabel(htmlEnvases);
+
+                                    panelEnvasesCard.add(lblEnvasesTitulo, BorderLayout.NORTH);
+                                    panelEnvasesCard.add(lblEnvasesValor, BorderLayout.CENTER);
+                                    panelTarjetasCentro.add(panelEnvasesCard);
+                                }
+
+                                JPanel panelCentroMensaje = new JPanel(new BorderLayout(0, 10));
+                                panelCentroMensaje.setOpaque(false);
+                                panelCentroMensaje.add(lblMensaje, BorderLayout.NORTH);
+                                panelCentroMensaje.add(panelTarjetasCentro, BorderLayout.CENTER);
+
+                                panelContenido.add(panelCentroMensaje, BorderLayout.CENTER);
+
+                                // Botones inferiores profesionales
+                                JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
+                                panelBotones.setOpaque(false);
+
+                                JButton btnNo = new JButton("Cancelar");
+                                btnNo.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                                btnNo.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; foreground:#475569; borderWidth:0; margin:6,16,6,16; hoverBackground:#E2E8F0");
+                                btnNo.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                                JButton btnSi = new JButton("Continuar Venta");
+                                btnSi.setFont(new Font("Segoe UI", Font.BOLD, 12));
+                                btnSi.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#4F46E5; foreground:#FFFFFF; borderWidth:0; margin:6,16,6,16; hoverBackground:#4338CA");
+                                btnSi.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+                                final boolean[] continuarVenta = {false};
+
+                                btnNo.addActionListener(e -> {
+                                    continuarVenta[0] = false;
+                                    dialogoAviso.dispose();
+                                });
+
+                                btnSi.addActionListener(e -> {
+                                    continuarVenta[0] = true;
+                                    dialogoAviso.dispose();
+                                });
+
+                                panelBotones.add(btnNo);
+                                panelBotones.add(btnSi);
+
+                                panelContenido.add(panelBotones, BorderLayout.SOUTH);
+                                dialogoAviso.add(panelContenido);
+                                dialogoAviso.setVisible(true);
+
+                                if (!continuarVenta[0]) {
+                                    return; // Cancela la selección si el usuario decide no continuar
+                                }
+                            }
+                            // ==========================================================
+
                             comboClientes.removeAllItems();
                             comboClientes.addItem(new clientInterface.ItemClienteCombo(c.getId(), c.getNombre()));
                             break;
