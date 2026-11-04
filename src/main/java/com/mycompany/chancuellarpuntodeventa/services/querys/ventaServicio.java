@@ -53,14 +53,16 @@ public class ventaServicio {
         private int piezas;
         private String detalle;
         private BigDecimal montoTotal;
+        private String status; // <-- Nuevo campo añadido
 
-        public ImporteClienteDTO(Long clienteId, String nombre, String telefono, int piezas, String detalle, BigDecimal montoTotal) {
+        public ImporteClienteDTO(Long clienteId, String nombre, String telefono, int piezas, String detalle, BigDecimal montoTotal, String status) {
             this.clienteId = clienteId;
             this.nombre = nombre;
             this.telefono = telefono;
             this.piezas = piezas;
             this.detalle = detalle;
             this.montoTotal = montoTotal;
+            this.status = status;
         }
 
         public Long getClienteId() {
@@ -85,6 +87,14 @@ public class ventaServicio {
 
         public BigDecimal getMontoTotal() {
             return montoTotal;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public void setStatus(String status) {
+            this.status = status;
         }
     }
 
@@ -141,6 +151,13 @@ public class ventaServicio {
         venta.setComentarios(dto.getComentarios());
         venta.setFechaVenta(dto.getFechaVenta() != null ? dto.getFechaVenta() : LocalDate.now());
         venta.setHoraVenta(dto.getHoraVenta() != null ? dto.getHoraVenta() : LocalTime.now());
+
+        // >>> ASIGNAR EL STATUS DE LA VENTA <<<
+        // Si el DTO trae un status asignado, lo usa; si no, por defecto le asigna "ACTIVO"
+        String statusVenta = (dto.getStatus() != null && !dto.getStatus().isEmpty())
+                ? dto.getStatus()
+                : "ACTIVO";
+        venta.setStatus(statusVenta);
 
         BigDecimal efectivoRecibido = BigDecimal.ZERO;
         if (dto.getCambio() != null) {
@@ -211,7 +228,8 @@ public class ventaServicio {
         String sql = "SELECT c.id AS cliente_id, c.nombre, c.telefono, "
                 + "COALESCE(SUM(vp.cantidad), 0) AS pzas, "
                 + "GROUP_CONCAT(CONCAT(COALESCE(vp.cantidad, 1), ' ', p.name) SEPARATOR ', ') AS detalle, "
-                + "COALESCE(SUM(p.price * vp.cantidad), 0) AS total_monto "
+                + "COALESCE(SUM(p.price * vp.cantidad), 0) AS total_monto, "
+                + "v.status AS status_venta " // <-- Añadido el status (ajusta la tabla si es c.status o v.status)
                 + "FROM ventas v "
                 + "JOIN clientes c ON v.cliente_id = c.id "
                 + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
@@ -221,7 +239,9 @@ public class ventaServicio {
         if (filtro != null && !filtro.trim().isEmpty()) {
             sql += "AND (LOWER(c.nombre) LIKE ? OR c.telefono LIKE ?) ";
         }
-        sql += "GROUP BY c.id, c.nombre, c.telefono";
+
+        // Incluimos v.status en el GROUP BY para que sea válido en SQL estricto
+        sql += "GROUP BY c.id, c.nombre, c.telefono, v.status";
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
 
@@ -238,7 +258,8 @@ public class ventaServicio {
                         rs.getString("telefono"),
                         rs.getInt("pzas"),
                         rs.getString("detalle"),
-                        rs.getBigDecimal("total_monto")
+                        rs.getBigDecimal("total_monto"),
+                        rs.getString("status_venta") // <-- Añadido al constructor del DTO
                 ));
             }
         } catch (SQLException e) {

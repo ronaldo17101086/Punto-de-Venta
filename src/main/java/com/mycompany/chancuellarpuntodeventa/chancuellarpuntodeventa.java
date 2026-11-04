@@ -32,7 +32,6 @@ public class chancuellarpuntodeventa {
                 .run(args);
         EnvirometServiceToInit setupService = context.getBean(EnvirometServiceToInit.class);
         setupService.runSetup();
-        System.out.println("--- Proceso de inicialización terminado ---");
         EventQueue.invokeLater(() -> {
             try {
                 LoginInterface login = context.getBean(LoginInterface.class);

@@ -15,19 +15,19 @@ public class VentaDTO {
     private boolean esCredito;
     private String comentarios;
     private String tipoPago;
+    private String status; // <-- Nuevo atributo añadido
 
     // --- NUEVOS ATRIBUTOS DE FECHA Y HORA ---
     private LocalDate fechaVenta;
     private LocalTime horaVenta;
 
     // --- NODOS INTEGRADOS ---
-    private CambioDTO cambio;                    // Nodo para el cálculo y control del cambio
-    private ClienteDTO cliente;                  // Nodo del cliente completo
+    private CambioDTO cambio;                     // Nodo para el cálculo y control del cambio
+    private ClienteDTO cliente;                    // Nodo del cliente completo
     private List<ProductoDTO> productos;         // Nodo de la lista de productos
     private Map<String, BigDecimal> formasPagoMap; // Nodo de desglose de formas de pago
 
     // --- GETTERS Y SETTERS ---
-
     public String getUuidVenta() {
         return uuidVenta;
     }
@@ -74,6 +74,14 @@ public class VentaDTO {
 
     public void setTipoPago(String tipoPago) {
         this.tipoPago = tipoPago;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public LocalDate getFechaVenta() {

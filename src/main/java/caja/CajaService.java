@@ -60,37 +60,40 @@ public class CajaService {
         return "Terminal: 01-PRINCIPAL";
     }
 
-    public boolean registrarMovimiento(int idCaja, MovimientoCajaDto mov, double efectivoRecibido, boolean esCredito) {
+    public static boolean registrarMovimiento(int idCaja, MovimientoCajaDto mov, double efectivoRecibido, boolean esCredito) {
         if (esCredito && mov.getTipo() == TipoMovimiento.VENTA) {
             System.out.println("[CAJA] Venta a crédito detectada. La caja no se ve afectada.");
-            return true; 
+            return true;
         }
 
         double montoFinal = mov.getMonto();
-        
+
         if (mov.getTipo() == TipoMovimiento.RETIRO_GASTO
                 || mov.getTipo() == TipoMovimiento.PAGO_PROVEEDOR
                 || mov.getTipo() == TipoMovimiento.DEVOLUCION) {
             montoFinal = -Math.abs(mov.getMonto());
-        } else if (mov.getTipo() == TipoMovimiento.VENTA 
-                || mov.getTipo() == TipoMovimiento.APERTURA 
-                || mov.getTipo() == TipoMovimiento.INGRESO_EXTRA 
+        } else if (mov.getTipo() == TipoMovimiento.VENTA
+                || mov.getTipo() == TipoMovimiento.APERTURA
+                || mov.getTipo() == TipoMovimiento.INGRESO_EXTRA
                 || mov.getTipo() == TipoMovimiento.AJUSTE_DE_CAJA) {
-            montoFinal = mov.getMonto(); 
+            montoFinal = mov.getMonto();
         }
 
         if (mov.getTipo() == TipoMovimiento.VENTA && efectivoRecibido > 0) {
             double cambio = efectivoRecibido - mov.getMonto();
-            if (cambio < 0) cambio = 0;
+            if (cambio < 0) {
+                cambio = 0;
+            }
             String obsActual = mov.getObservaciones() != null ? mov.getObservaciones() : "";
-            mov.setObservaciones(String.format("Recibido: $%.2f | Cambio devuelto: $%.2f. %s", 
+            mov.setObservaciones(String.format("Recibido: $%.2f | Cambio devuelto: $%.2f. %s",
                     efectivoRecibido, cambio, obsActual));
         }
 
         String sql = "INSERT INTO caja_movimientos (id_caja, tipo_movimiento, monto, concepto, referencia, proveedor_id, nombre_proveedor, usuario, metodo_pago, observaciones) "
-                   + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
-        try (Connection conn = getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
+        // Se usa Conexion.conectar() para asegurar la apertura correcta de la conexión
+        try (Connection conn = Conexion.Conexion.conectar(); PreparedStatement pstmt = conn.prepareStatement(sql)) {
             pstmt.setInt(1, idCaja);
             pstmt.setString(2, mov.getTipo() != null ? mov.getTipo().name() : "VENTA");
             pstmt.setDouble(3, montoFinal);
@@ -101,7 +104,7 @@ public class CajaService {
             pstmt.setString(8, mov.getUsuario() != null ? mov.getUsuario() : "ADMIN");
             pstmt.setString(9, mov.getMetodoPago() != null ? mov.getMetodoPago().name() : "EFECTIVO");
             pstmt.setString(10, mov.getObservaciones());
-            
+
             return pstmt.executeUpdate() > 0;
         } catch (SQLException e) {
             e.printStackTrace();
@@ -132,7 +135,7 @@ public class CajaService {
                 fila.add(rs.getInt("id"));
                 fila.add(rs.getTimestamp("fecha_hora").toString());
                 fila.add(rs.getString("tipo_movimiento"));
-                
+
                 String detalleComentario = rs.getString("concepto");
                 String obs = rs.getString("observaciones");
                 if (obs != null && !obs.isEmpty()) {
@@ -149,8 +152,8 @@ public class CajaService {
     }
 
     /**
-     * Obtiene el ID del último punto de corte (CIERRE). 
-     * Si existe un cierre posterior a la apertura, los cálculos empiezan limpios desde ese corte.
+     * Obtiene el ID del último punto de corte (CIERRE). Si existe un cierre
+     * posterior a la apertura, los cálculos empiezan limpios desde ese corte.
      */
     private int getIdUltimoCorteOrApertura(Connection conn, int idCaja) throws SQLException {
         String sql = "SELECT id, tipo_movimiento FROM caja_movimientos WHERE id_caja = ? AND tipo_movimiento IN ('APERTURA', 'CIERRE') ORDER BY id DESC LIMIT 1";
@@ -186,7 +189,9 @@ public class CajaService {
                         p2.setInt(1, idCaja);
                         p2.setInt(2, idCorteOrApertura);
                         ResultSet r2 = p2.executeQuery();
-                        if (r2.next()) return r2.getDouble(1);
+                        if (r2.next()) {
+                            return r2.getDouble(1);
+                        }
                     }
                     return 0.0;
                 }
@@ -252,7 +257,6 @@ public class CajaService {
                 ResultSet rs = pstmt.executeQuery();
                 if (rs.next()) {
                     String tipo = rs.getString("tipo_movimiento");
-                    // Si el último movimiento fue un cierre, el monto de apertura se queda en 0.0 hasta que abran de nuevo
                     if ("CIERRE".equalsIgnoreCase(tipo)) {
                         return 0.0;
                     } else {

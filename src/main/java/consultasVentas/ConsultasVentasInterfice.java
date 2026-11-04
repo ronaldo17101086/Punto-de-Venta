@@ -1,5 +1,8 @@
 package consultasVentas;
 
+import caja.CajaService;
+import caja.MovimientoCajaDto;
+import caja.TipoMovimiento;
 import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import javax.swing.border.EmptyBorder;
@@ -64,13 +67,13 @@ public class ConsultasVentasInterfice extends JPanel {
         lblTitulo.setForeground(Color.WHITE);
         panelCabecera.add(lblTitulo, BorderLayout.WEST);
 
-        JButton btnHeaderRefresh = new JButton("↻");
-        btnHeaderRefresh.setFont(new Font("Segoe UI", Font.BOLD, 16));
-        btnHeaderRefresh.setForeground(Color.WHITE);
-        btnHeaderRefresh.setContentAreaFilled(false);
-        btnHeaderRefresh.setBorderPainted(false);
+   JButton btnHeaderRefresh = new JButton("🔄 Actualizar");
+        btnHeaderRefresh.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnHeaderRefresh.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:4,10,4,10");
         btnHeaderRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnHeaderRefresh.addActionListener(e -> dispararFiltroVentas());
+        btnHeaderRefresh.addActionListener(e -> {
+            dispararFiltroVentas();
+        });
 
         JPanel panelHeaderRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         panelHeaderRight.setOpaque(false);
@@ -193,17 +196,30 @@ public class ConsultasVentasInterfice extends JPanel {
         tablaVentas.setShowVerticalLines(false);
         tablaVentas.setGridColor(new Color(241, 245, 249));
 
+        // Renderizador actualizado para mostrar Folio, Fecha y Status en la Columna 0
         tablaVentas.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
                 if (value instanceof Object[]) {
                     Object[] datos = (Object[]) value;
-                    setText("<html><b>" + datos[0] + "</b><br><font color='#94A3B8' size='2'>" + datos[1] + "</font></html>");
+                    String folio = datos[0] != null ? datos[0].toString() : "";
+                    String fecha = datos[1] != null ? datos[1].toString() : "";
+                    String status = datos.length > 2 && datos[2] != null ? datos[2].toString() : "ACTIVO";
+
+                    boolean cancelado = "CANCELADO".equalsIgnoreCase(status) || "CANCELADA".equalsIgnoreCase(status);
+                    String colorStatus = cancelado ? "#DC2626" : "#16A34A";
+
+                    setText("<html><b>" + folio + "</b><br>"
+                            + "<font color='#94A3B8' size='2'>" + fecha + " &nbsp;|&nbsp; </font>"
+                            + "<font color='" + colorStatus + "' size='2'><b>[" + status + "]</b></font>"
+                            + "</html>");
                 } else {
                     setText(value != null ? value.toString() : "");
                 }
+
                 setHorizontalAlignment(JLabel.LEFT);
                 setBorder(new EmptyBorder(0, 10, 0, 0));
+
                 if (isSelected) {
                     setBackground(table.getSelectionBackground());
                     setForeground(table.getSelectionForeground());
@@ -327,7 +343,7 @@ public class ConsultasVentasInterfice extends JPanel {
 
     private void mostrarDialogoFiltrosSicar(JFrame parent) {
         JDialog dialogo = new JDialog(parent, "Filtros Avanzados", true);
-        dialogo.setSize(540, 610);
+        dialogo.setSize(540, 520);
         dialogo.setLocationRelativeTo(parent);
         dialogo.setLayout(new BorderLayout());
         dialogo.getContentPane().setBackground(new Color(248, 250, 252));
@@ -352,22 +368,19 @@ public class ConsultasVentasInterfice extends JPanel {
 
         final String[] estadoTemp = {filtroEstado};
         final String[] creditoTemp = {filtroCredito};
-        final String[] monedaTemp = {filtroMoneda};
         final String[] formaPagoTemp = {filtroFormaPago};
 
-        // Creamos referencias para poder limpiar visualmente los botones al hacer clic en "Limpiar"
+        // Creamos referencias para poder limpiar visualmente los botones al hacer clic en "Restablecer"
         List<Runnable> accionesLimpiarVisual = new ArrayList<>();
 
-        JPanel filaEstado = crearFilaFiltroPildoras("Estado de Venta", new String[]{"Todos", "Vigente", "Cancelado"}, estadoTemp, accionesLimpiarVisual);
+        // Usamos etiquetas amigables pero mapeamos correctamente al valor de BD para el estado ("ACTIVO" / "CANCELADO")
+        JPanel filaEstado = crearFilaFiltroPildoras("Estatus de la Venta", new String[]{"Todos", "ACTIVO", "CANCELADO"}, estadoTemp, accionesLimpiarVisual);
         JPanel filaCredito = crearFilaFiltroPildoras("Tipo de Crédito", new String[]{"Todos", "Sí", "No"}, creditoTemp, accionesLimpiarVisual);
-        JPanel filaMoneda = crearFilaFiltroPildoras("Moneda", new String[]{"Todos", "MXN", "USD"}, monedaTemp, accionesLimpiarVisual);
-        JPanel filaFormaPago = crearFilaFiltroPildoras("Forma de Pago", new String[]{"Todos", "Efectivo", "Tarjeta", "Transferencia"}, formaPagoTemp, accionesLimpiarVisual);
+        JPanel filaFormaPago = crearFilaFiltroPildoras("Forma de Pago", new String[]{"Todos", "EFECTIVO", "CREDITO", "TARJETA", "TRANSFERENCIA"}, formaPagoTemp, accionesLimpiarVisual);
 
         panelContenido.add(filaEstado);
         panelContenido.add(Box.createVerticalStrut(12));
         panelContenido.add(filaCredito);
-        panelContenido.add(Box.createVerticalStrut(12));
-        panelContenido.add(filaMoneda);
         panelContenido.add(Box.createVerticalStrut(12));
         panelContenido.add(filaFormaPago);
 
@@ -386,7 +399,6 @@ public class ConsultasVentasInterfice extends JPanel {
         btnLimpiar.addActionListener(e -> {
             estadoTemp[0] = "Todos";
             creditoTemp[0] = "Todos";
-            monedaTemp[0] = "Todos";
             formaPagoTemp[0] = "Todos";
 
             // Ejecuta la limpieza visual de cada grupo de píldoras
@@ -402,7 +414,6 @@ public class ConsultasVentasInterfice extends JPanel {
         btnBuscar.addActionListener(e -> {
             filtroEstado = estadoTemp[0];
             filtroCredito = creditoTemp[0];
-            filtroMoneda = monedaTemp[0];
             filtroFormaPago = formaPagoTemp[0];
             dialogo.dispose();
             dispararFiltroVentas();
@@ -837,7 +848,7 @@ public class ConsultasVentasInterfice extends JPanel {
         dialogFiltros.setVisible(true);
     }
 
-private void cargarAbonosBD(String filtro) {
+    private void cargarAbonosBD(String filtro) {
         if (dataSource == null) {
             return;
         }
@@ -934,27 +945,37 @@ private void cargarAbonosBD(String filtro) {
         StringBuilder sql = new StringBuilder(
                 "SELECT v.id, v.uuid_venta, v.fecha_venta, v.hora_venta, "
                 + "COALESCE(c.nombre, 'Público En General') AS cliente_nombre, "
-                + "v.tipo_pago, COALESCE(v.comentarios, '-') AS comentarios, v.total "
+                + "v.tipo_pago, COALESCE(v.comentarios, '-') AS comentarios, v.total, v.status "
                 + "FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE 1=1 "
         );
 
+        // Filtro por buscador (Folio, Cliente o ID)
         if (filtro != null && !filtro.isEmpty()) {
             sql.append("AND (v.uuid_venta LIKE ? OR c.nombre LIKE ? OR v.id LIKE ?) ");
         }
 
+        // Filtro por rango de fechas
         if (fechaInicioFiltro != null && fechaFinFiltro != null) {
             sql.append("AND v.fecha_venta BETWEEN ? AND ? ");
         }
 
-        if (!filtroCredito.equals("Todos")) {
+        // Filtro por Crédito
+        if (filtroCredito != null && !filtroCredito.equals("Todos")) {
             if (filtroCredito.equals("Sí")) {
                 sql.append("AND v.es_credito = 1 ");
             } else {
                 sql.append("AND (v.es_credito = 0 OR v.es_credito IS NULL) ");
             }
         }
-        if (!filtroFormaPago.equals("Todos")) {
+
+        // Filtro por Forma de Pago
+        if (filtroFormaPago != null && !filtroFormaPago.equals("Todos")) {
             sql.append("AND v.tipo_pago = ? ");
+        }
+
+        // Filtro por Estatus (ACTIVO / CANCELADO)
+        if (filtroEstado != null && !filtroEstado.equals("Todos")) {
+            sql.append("AND v.status = ? ");
         }
 
         sql.append("ORDER BY v.id DESC LIMIT 300");
@@ -964,6 +985,7 @@ private void cargarAbonosBD(String filtro) {
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
             int index = 1;
+
             if (filtro != null && !filtro.isEmpty()) {
                 pstmt.setString(index++, "%" + filtro + "%");
                 pstmt.setString(index++, "%" + filtro + "%");
@@ -973,8 +995,11 @@ private void cargarAbonosBD(String filtro) {
                 pstmt.setDate(index++, java.sql.Date.valueOf(fechaInicioFiltro));
                 pstmt.setDate(index++, java.sql.Date.valueOf(fechaFinFiltro));
             }
-            if (!filtroFormaPago.equals("Todos")) {
+            if (filtroFormaPago != null && !filtroFormaPago.equals("Todos")) {
                 pstmt.setString(index++, filtroFormaPago);
+            }
+            if (filtroEstado != null && !filtroEstado.equals("Todos")) {
+                pstmt.setString(index++, filtroEstado);
             }
 
             try (ResultSet rs = pstmt.executeQuery()) {
@@ -995,22 +1020,28 @@ private void cargarAbonosBD(String filtro) {
                     String cliente = rs.getString("cliente_nombre");
                     String comentarios = rs.getString("comentarios");
 
+                    String statusVenta = rs.getString("status");
+                    if (statusVenta == null || statusVenta.isEmpty()) {
+                        statusVenta = "ACTIVO";
+                    }
+
                     int filaActual = modeloVentas.getRowCount();
                     tablaVentas.putClientProperty("id_venta_" + filaActual, idVenta);
 
+                    // SIN "MXN", mostrando únicamente el formato en pesos
                     modeloVentas.addRow(new Object[]{
-                        new Object[]{folio, fechaHora},
+                        new Object[]{folio, fechaHora, statusVenta},
                         tipoPago,
                         cliente,
                         comentarios,
-                        "$" + (montoVenta != null ? montoVenta.toPlainString() : "0.00") + " MXN"
+                        "$" + (montoVenta != null ? montoVenta.toPlainString() : "0.00")
                     });
                     contadorRegistros++;
                 }
             }
 
             lblCantidadRegistrosVentas.setText("Registros encontrados: " + contadorRegistros);
-            lblTotalVentasMonto.setText("Monto Total Filtrado: $" + acumuladoTotal.toPlainString() + " MXN");
+            lblTotalVentasMonto.setText("Monto Total Filtrado: $" + acumuladoTotal.toPlainString());
 
         } catch (SQLException e) {
             System.err.println("Error al cargar ventas: " + e.getMessage());
@@ -1018,13 +1049,30 @@ private void cargarAbonosBD(String filtro) {
     }
 
     private void mostrarDetalleVenta(JFrame parent, Long ventaId, String folio, String cliente, String total) {
+        // --- 1. OBTENER EL STATUS ACTUAL Y EL MONTO DE LA VENTA DESDE LA BD ---
+        String statusVenta = "ACTIVO";
+        BigDecimal montoTotalVenta = BigDecimal.ZERO;
+        String sqlStatus = "SELECT status, total FROM ventas WHERE id = ?";
+
+        try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlStatus)) {
+            pstmt.setLong(1, ventaId);
+            try (ResultSet rs = pstmt.executeQuery()) {
+                if (rs.next()) {
+                    statusVenta = rs.getString("status") != null ? rs.getString("status") : "ACTIVO";
+                    montoTotalVenta = rs.getBigDecimal("total") != null ? rs.getBigDecimal("total") : BigDecimal.ZERO;
+                }
+            }
+        } catch (SQLException e) {
+            System.err.println("Error al obtener status de la venta: " + e.getMessage());
+        }
+
         JDialog dialogoDetalle = new JDialog(parent, "Venta " + folio, true);
         dialogoDetalle.setSize(850, 580);
         dialogoDetalle.setLocationRelativeTo(parent);
         dialogoDetalle.setLayout(new BorderLayout());
         dialogoDetalle.getContentPane().setBackground(new Color(245, 247, 250));
 
-        // --- BARRA SUPERIOR DE ACCIONES (Con opción de Cancelar Venta) ---
+        // --- BARRA SUPERIOR DE ACCIONES ---
         JPanel panelToolbar = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 10));
         panelToolbar.setBackground(Color.WHITE);
         panelToolbar.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)));
@@ -1036,29 +1084,103 @@ private void cargarAbonosBD(String filtro) {
 
         // Botón de Cancelar Venta estilizado en rojo claro
         JButton btnCancelarVenta = new JButton("🗑️ Cancelar Venta");
-        btnCancelarVenta.setForeground(new Color(220, 38, 38));
-        btnCancelarVenta.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#FEF2F2; borderWidth:1; borderColor:#FCA5A5; margin:4,10,4,10");
-        btnCancelarVenta.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        boolean yaCancelada = "CANCELADO".equalsIgnoreCase(statusVenta) || "CANCELADA".equalsIgnoreCase(statusVenta);
+
+        if (yaCancelada) {
+            btnCancelarVenta.setEnabled(false);
+            btnCancelarVenta.setForeground(new Color(148, 163, 184));
+            btnCancelarVenta.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; borderWidth:1; borderColor:#CBD5E1; margin:4,10,4,10");
+        } else {
+            btnCancelarVenta.setForeground(new Color(220, 38, 38));
+            btnCancelarVenta.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#FEF2F2; borderWidth:1; borderColor:#FCA5A5; margin:4,10,4,10");
+            btnCancelarVenta.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        }
+
+        // Variables auxiliares finales/efectivamente finales para la expresión lambda
+        final BigDecimal montoFinal = montoTotalVenta;
+        final String folioFinal = folio;
 
         btnCancelarVenta.addActionListener(e -> {
-            int confirm = JOptionPane.showConfirmDialog(
-                    dialogoDetalle,
-                    "¿Estás seguro de que deseas cancelar la venta con folio " + folio + "?",
-                    "Confirmar Cancelación",
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.WARNING_MESSAGE
-            );
+            // --- DIÁLOGO DE CONFIRMACIÓN MODERNO Y AJUSTADO ---
+            JDialog dialogConfirm = new JDialog(dialogoDetalle, "Confirmar Cancelación", true);
+            dialogConfirm.setSize(480, 230);
+            dialogConfirm.setLocationRelativeTo(dialogoDetalle);
+            dialogConfirm.setLayout(new BorderLayout());
+            dialogConfirm.getContentPane().setBackground(Color.WHITE);
 
-            if (confirm == JOptionPane.YES_OPTION) {
-                String sqlUpdate = "UPDATE ventas SET estado = 'CANCELADO' WHERE id = ?";
-                try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
-                    pstmt.setLong(1, ventaId);
-                    pstmt.executeUpdate();
+            // Panel superior con mejor distribución de espacio
+            JPanel panelContenido = new JPanel(new BorderLayout(16, 0));
+            panelContenido.setBackground(Color.WHITE);
+            panelContenido.setBorder(new EmptyBorder(22, 22, 10, 22));
 
-                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta cancelada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+            JLabel lblIcono = new JLabel("⚠️");
+            lblIcono.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 32));
+            lblIcono.setVerticalAlignment(JLabel.TOP);
+
+            JLabel lblMensaje = new JLabel("<html><div style='color: #0F172A; font-size: 13px; font-weight: bold; margin-bottom: 6px;'>¿Estás seguro de cancelar la venta con folio " + folioFinal + "?</div>"
+                    + "<div style='color: #64748B; font-size: 11px; line-height: 1.4;'>Esta acción actualizará el estatus a <b>CANCELADO</b> y registrará automáticamente la devolución en la caja.</div></html>");
+
+            panelContenido.add(lblIcono, BorderLayout.WEST);
+            panelContenido.add(lblMensaje, BorderLayout.CENTER);
+
+            // Botones inferiores estilizados
+            JButton btnCancelarModal = new JButton("Regresar");
+            btnCancelarModal.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            btnCancelarModal.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; foreground:#475569; borderWidth:0; margin:6,16,6,16");
+            btnCancelarModal.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnCancelarModal.addActionListener(ev -> dialogConfirm.dispose());
+
+            JButton btnConfirmarModal = new JButton("Sí, Cancelar Venta");
+            btnConfirmarModal.setFont(new Font("Segoe UI", Font.BOLD, 12));
+            btnConfirmarModal.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#DC2626; foreground:#FFFFFF; borderWidth:0; margin:6,16,6,16");
+            btnConfirmarModal.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            final boolean[] confirmado = {false};
+
+            btnConfirmarModal.addActionListener(ev -> {
+                confirmado[0] = true;
+                dialogConfirm.dispose();
+            });
+
+            JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 12));
+            panelBotones.setBackground(new Color(248, 250, 252));
+            panelBotones.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+            panelBotones.add(btnCancelarModal);
+            panelBotones.add(btnConfirmarModal);
+
+            dialogConfirm.add(panelContenido, BorderLayout.CENTER);
+            dialogConfirm.add(panelBotones, BorderLayout.SOUTH);
+            dialogConfirm.setVisible(true);
+
+            // --- EJECUCIÓN SI SE CONFIRMÓ ---
+            if (confirmado[0]) {
+                try {
+                    // 1. Actualizar el status a 'CANCELADO' en la base de datos
+                    String sqlUpdate = "UPDATE ventas SET status = 'CANCELADO' WHERE id = ?";
+                    try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
+                        pstmt.setLong(1, ventaId);
+                        pstmt.executeUpdate();
+                    }
+
+                    // 2. Registrar el impacto en la caja por devolución de la venta
+                    try {
+                        MovimientoCajaDto mov = new MovimientoCajaDto();
+                        mov.setTipo(TipoMovimiento.DEVOLUCION);
+                        mov.setMonto(montoFinal.doubleValue());
+                        mov.setConcepto("Cancelación / Devolución de Venta - Folio: " + folioFinal);
+                        mov.setUsuario("ADMIN");
+
+                        CajaService.registrarMovimiento(1, mov, montoFinal.doubleValue(), false);
+                    } catch (Exception exCaja) {
+                        System.err.println("[ADVERTENCIA] No se pudo registrar la devolución en la caja: " + exCaja.getMessage());
+                    }
+
+                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta cancelada y devolución registrada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                     dialogoDetalle.dispose();
-                    dispararFiltroVentas(); // Refresca la tabla principal
-                } catch (SQLException ex) {
+                    dispararFiltroVentas(); // Refresca la tabla principal de consultas de ventas
+
+                } catch (Exception ex) {
                     JOptionPane.showMessageDialog(dialogoDetalle, "Error al cancelar la venta: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
                 }
             }
@@ -1072,12 +1194,18 @@ private void cargarAbonosBD(String filtro) {
             panelToolbar.add(btn);
         }
 
-        // --- PANEL DE INFORMACIÓN GENERAL ---
+        // --- PANEL DE INFORMACIÓN GENERAL CON STATUS INCLUIDO ---
         JPanel panelInfoCliente = new JPanel(new BorderLayout());
         panelInfoCliente.setBackground(Color.WHITE);
         panelInfoCliente.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        JLabel lblDatosCliente = new JLabel("<html><b>Cliente:</b> " + cliente + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Folio:</b> " + folio + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total:</b> <font color='#16A34A'><b>" + total + "</b></font></html>");
+        // Definir color del status dinámicamente (Verde si ACTIVO, Rojo si CANCELADO)
+        String colorStatus = yaCancelada ? "#DC2626" : "#16A34A";
+
+        JLabel lblDatosCliente = new JLabel("<html><b>Cliente:</b> " + cliente
+                + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Folio:</b> " + folio
+                + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Total:</b> <font color='#16A34A'><b>" + total + "</b></font>"
+                + " &nbsp;&nbsp;|&nbsp;&nbsp; <b>Status:</b> <font color='" + colorStatus + "'><b>" + statusVenta + "</b></font></html>");
         lblDatosCliente.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         panelInfoCliente.add(lblDatosCliente, BorderLayout.CENTER);
 
@@ -1160,4 +1288,5 @@ private void cargarAbonosBD(String filtro) {
 
         dialogoDetalle.setVisible(true);
     }
+
 }

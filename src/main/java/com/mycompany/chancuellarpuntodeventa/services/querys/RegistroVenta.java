@@ -43,6 +43,9 @@ public class RegistroVenta {
     @Column(name = "cambio_devuelto")
     private BigDecimal cambioDevuelto;
 
+    @Column(length = 30)
+    private String status; // <-- Nuevo atributo de estado añadido
+
     @PrePersist
     public void prePersist() {
         if (this.fechaVenta == null) {
@@ -53,6 +56,10 @@ public class RegistroVenta {
         }
         if (this.uuidVenta == null || this.uuidVenta.isEmpty()) {
             this.uuidVenta = "NV-" + System.currentTimeMillis();
+        }
+        // Si no se define un status al registrar, por defecto se asigna "ACTIVO"
+        if (this.status == null || this.status.isEmpty()) {
+            this.status = "ACTIVO";
         }
     }
 
@@ -146,5 +153,13 @@ public class RegistroVenta {
 
     public void setCambioDevuelto(BigDecimal cambioDevuelto) {
         this.cambioDevuelto = cambioDevuelto;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 }
