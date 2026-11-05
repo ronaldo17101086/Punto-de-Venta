@@ -11,6 +11,7 @@ import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.geom.Path2D;
 import java.math.BigDecimal;
 import java.sql.*;
 import java.time.LocalDate;
@@ -49,6 +50,11 @@ public class ConsultasVentasInterfice extends JPanel {
 
     private LocalDate tempFechaInicio = LocalDate.now().minusDays(7);
     private LocalDate tempFechaFin = LocalDate.now();
+    // Variables de control de filtros para Abonos
+    private JButton btnSelectorFechaAbonos;
+    private java.time.LocalDate fechaInicioFiltroAbonos = null;
+    private java.time.LocalDate fechaFinFiltroAbonos = null;
+    private String filtroEstadoAbonos = "Todos";
 
     @Autowired
     private DataSource dataSource;
@@ -67,17 +73,8 @@ public class ConsultasVentasInterfice extends JPanel {
         lblTitulo.setForeground(Color.WHITE);
         panelCabecera.add(lblTitulo, BorderLayout.WEST);
 
-   JButton btnHeaderRefresh = new JButton("🔄 Actualizar");
-        btnHeaderRefresh.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnHeaderRefresh.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:4,10,4,10");
-        btnHeaderRefresh.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnHeaderRefresh.addActionListener(e -> {
-            dispararFiltroVentas();
-        });
-
         JPanel panelHeaderRight = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         panelHeaderRight.setOpaque(false);
-        panelHeaderRight.add(btnHeaderRefresh);
         panelCabecera.add(panelHeaderRight, BorderLayout.EAST);
 
         // --- PESTAÑAS ---
@@ -108,7 +105,7 @@ public class ConsultasVentasInterfice extends JPanel {
         panelFiltros.setBackground(Color.WHITE);
         panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
 
-        // Contenedor Izquierdo: Botón filtros y Actualizar (fijos)
+        // Contenedor Izquierdo: Botón filtros y Botón Actualizar integrados
         JPanel panelIzqAcciones = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         panelIzqAcciones.setOpaque(false);
 
@@ -119,17 +116,49 @@ public class ConsultasVentasInterfice extends JPanel {
         btnFiltroMultiple.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnFiltroMultiple.addActionListener(e -> mostrarDialogoFiltrosSicar((JFrame) SwingUtilities.getWindowAncestor(panel)));
 
-        // Botón Actualizar: Mantiene los filtros activos y recarga la tabla
-        JButton btnActualizar = new JButton("Actualizar");
-        btnActualizar.setFont(new Font("Segoe UI", Font.BOLD, 12));
-        btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; borderWidth:0; margin:4,10,4,10");
-        btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnActualizar.addActionListener(e -> {
-            dispararFiltroVentas();
-        });
+        // Icono vectorial personalizado de recarga (Flecha circular moderna)
+        Icon iconoRecargar = new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(71, 85, 105)); // Color Slate-600
+                g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                g2.drawArc(x + 2, y + 2, 12, 12, 45, 270);
+
+                Path2D arrow = new Path2D.Float();
+                arrow.moveTo(x + 11, y + 1);
+                arrow.lineTo(x + 15, y + 3);
+                arrow.lineTo(x + 12, y + 7);
+                g2.draw(arrow);
+
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return 16;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 16;
+            }
+        };
+
+     JButton btnActualizarVentas = new JButton(iconoRecargar);
+    btnActualizarVentas.setToolTipText("Actualizar ventas");
+    btnActualizarVentas.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; margin:6,8,6,8");
+    btnActualizarVentas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+    btnActualizarVentas.addActionListener(e -> {
+        // Mantenemos los filtros actuales del usuario y solo recargamos la consulta con el texto que esté escrito
+        String textoBusqueda = (txtBuscadorVentas != null) ? txtBuscadorVentas.getText().trim() : "";
+        dispararFiltroVentas();
+    });
 
         panelIzqAcciones.add(btnFiltroMultiple);
-        panelIzqAcciones.add(btnActualizar);
+        panelIzqAcciones.add(btnActualizarVentas);
 
         // Contenedor Central: Buscador LARGO y expansible
         txtBuscadorVentas = new JTextField();
@@ -143,24 +172,20 @@ public class ConsultasVentasInterfice extends JPanel {
             }
         });
 
-        // Panel de píldoras de filtros activos al lado del buscador
         JPanel panelPildorasActivas = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
         panelPildorasActivas.setOpaque(false);
         panelFiltros.putClientProperty("panelPildorasActivas", panelPildorasActivas);
 
-        // Agrupamos el buscador en el CENTER para que se expanda al máximo
         JPanel panelBuscadorYPildoras = new JPanel(new BorderLayout(10, 0));
         panelBuscadorYPildoras.setOpaque(false);
-        panelBuscadorYPildoras.add(txtBuscadorVentas, BorderLayout.CENTER); // Se estira de forma fluida
-        panelBuscadorYPildoras.add(panelPildorasActivas, BorderLayout.EAST);   // Las píldoras se acomodan a la derecha del texto
+        panelBuscadorYPildoras.add(txtBuscadorVentas, BorderLayout.CENTER);
+        panelBuscadorYPildoras.add(panelPildorasActivas, BorderLayout.EAST);
 
-        // Unimos acciones izquierdas y el bloque central expansivo
         JPanel panelWestUnificado = new JPanel(new BorderLayout(10, 0));
         panelWestUnificado.setOpaque(false);
         panelWestUnificado.add(panelIzqAcciones, BorderLayout.WEST);
         panelWestUnificado.add(panelBuscadorYPildoras, BorderLayout.CENTER);
 
-        // Contenedor Derecho: Selector de Fecha pegado a la derecha
         JPanel panelDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         panelDer.setOpaque(false);
 
@@ -169,7 +194,7 @@ public class ConsultasVentasInterfice extends JPanel {
         btnSelectorFecha.setHorizontalAlignment(SwingConstants.LEFT);
         btnSelectorFecha.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:2,10,2,10");
         btnSelectorFecha.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnSelectorFecha.addActionListener(e -> mostrarSelectorCalendario((JFrame) SwingUtilities.getWindowAncestor(panel)));
+        btnSelectorFecha.addActionListener(e -> mostrarSelectorCalendarioAbonos((JFrame) SwingUtilities.getWindowAncestor(panel)));
 
         panelDer.add(btnSelectorFecha);
 
@@ -196,7 +221,7 @@ public class ConsultasVentasInterfice extends JPanel {
         tablaVentas.setShowVerticalLines(false);
         tablaVentas.setGridColor(new Color(241, 245, 249));
 
-        // Renderizador actualizado para mostrar Folio, Fecha y Status en la Columna 0
+        // Renderizador Columna 0 (Folio, Fecha, Estatus)
         tablaVentas.getColumnModel().getColumn(0).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
             public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -231,22 +256,64 @@ public class ConsultasVentasInterfice extends JPanel {
             }
         });
 
-        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
-        rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
-        rightRenderer.setBorder(new EmptyBorder(0, 0, 0, 15));
-        tablaVentas.getColumnModel().getColumn(4).setCellRenderer(rightRenderer);
+        // Renderizador Columna 4 (Total con negativo en rojo para canceladas)
+        // Renderizador Columna 4 (Total)
+        // Renderizador Columna 4 (Total con negativo en rojo para canceladas)
+        tablaVentas.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Object valCol0 = table.getValueAt(row, 0);
+                boolean cancelado = false;
 
+                if (valCol0 instanceof Object[]) {
+                    Object[] datos = (Object[]) valCol0;
+                    if (datos.length > 2 && datos[2] != null) {
+                        String status = datos[2].toString();
+                        cancelado = "CANCELADO".equalsIgnoreCase(status) || "CANCELADA".equalsIgnoreCase(status);
+                    }
+                }
+
+                String montoStr = value != null ? value.toString().replace("$", "").replace("-", "").trim() : "0.00";
+
+                if (cancelado) {
+                    setText("-$" + montoStr); // Muestra -$15.00 en rojo
+                    setForeground(new Color(220, 38, 38)); // Rojo alerta
+                } else {
+                    setText("$" + montoStr);
+                    setForeground(isSelected ? table.getSelectionForeground() : new Color(15, 23, 42));
+                }
+
+                setHorizontalAlignment(JLabel.RIGHT);
+                setBorder(new EmptyBorder(0, 0, 0, 15));
+
+                if (isSelected) {
+                    setBackground(table.getSelectionBackground());
+                } else {
+                    setBackground(Color.WHITE);
+                }
+                return this;
+            }
+        });
+
+        // Evento de doble clic corregido usando rowAtPoint para mayor seguridad
+        // Evento de doble clic corregido con el nombre correcto de la tabla
         tablaVentas.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent e) {
                 if (e.getClickCount() == 2) {
-                    int fila = tablaVentas.getSelectedRow();
+                    int row = tablaVentas.rowAtPoint(e.getPoint());
+                    int fila = tablaVentas.convertRowIndexToModel(row);
                     if (fila != -1) {
                         Long ventaId = (Long) tablaVentas.getClientProperty("id_venta_" + fila);
+                        if (ventaId == null) {
+                            ventaId = (Long) tablaVentas.getClientProperty("id_venta_" + row); // Respaldo corregido
+                        }
+
                         Object valFolio = modeloVentas.getValueAt(fila, 0);
                         String folioStr = valFolio instanceof Object[] ? ((Object[]) valFolio)[0].toString() : valFolio.toString();
                         String cliente = modeloVentas.getValueAt(fila, 2).toString();
                         String total = modeloVentas.getValueAt(fila, 4).toString();
+
                         mostrarDetalleVenta((JFrame) SwingUtilities.getWindowAncestor(panel), ventaId, folioStr, cliente, total);
                     }
                 }
@@ -266,7 +333,7 @@ public class ConsultasVentasInterfice extends JPanel {
         lblCantidadRegistrosVentas.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         lblCantidadRegistrosVentas.setForeground(new Color(100, 116, 139));
 
-        lblTotalVentasMonto = new JLabel("Monto Total Filtrado: $0.00 MXN");
+        lblTotalVentasMonto = new JLabel("Monto Total Filtrado: $0.00");
         lblTotalVentasMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTotalVentasMonto.setForeground(new Color(16, 185, 129));
 
@@ -279,6 +346,195 @@ public class ConsultasVentasInterfice extends JPanel {
         panel.add(panelInferior, BorderLayout.SOUTH);
 
         actualizarPildorasFiltrosActivos(panelPildorasActivas);
+
+        return panel;
+    }
+
+    private JPanel crearPanelAbonos() {
+        JPanel panel = new JPanel(new BorderLayout(15, 15));
+        panel.setBackground(new Color(245, 247, 250));
+        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
+
+        // --- PANEL SUPERIOR (Idéntico al de Ventas) ---
+        JPanel panelFiltros = new JPanel(new BorderLayout(12, 0));
+        panelFiltros.setBackground(Color.WHITE);
+        panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,12,10,12,#E5E9F0,1,12");
+
+        // Panel izquierdo: Botón Filtros, Botón Recargar y Buscador expandible
+        JPanel panelIzquierdaFiltros = new JPanel(new BorderLayout(10, 0));
+        panelIzquierdaFiltros.setOpaque(false);
+
+        JButton btnFiltrosAbonos = new JButton("Filtros");
+        btnFiltrosAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#CBD5E1; background:#F8FAFC; font:bold 12; foreground:#334155; margin:4,12,4,12");
+        btnFiltrosAbonos.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnFiltrosAbonos.addActionListener(e -> abrirModalFiltrosAbonos());
+
+        // Icono vectorial personalizado de recarga (Flecha circular moderna)
+        Icon iconoRecargarAbonos = new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(71, 85, 105)); // Color Slate-600
+                g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                // Arco de la flecha
+                g2.drawArc(x + 2, y + 2, 12, 12, 45, 270);
+
+                // Punta de la flecha
+                Path2D arrow = new Path2D.Float();
+                arrow.moveTo(x + 11, y + 1);
+                arrow.lineTo(x + 15, y + 3);
+                arrow.lineTo(x + 12, y + 7);
+                g2.draw(arrow);
+
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return 16;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 16;
+            }
+        };
+
+        JButton btnActualizarAbonos = new JButton(iconoRecargarAbonos);
+        btnActualizarAbonos.setToolTipText("Actualizar abonos");
+        btnActualizarAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#CBD5E1; background:#F8FAFC; margin:4,8,4,8");
+        btnActualizarAbonos.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // REGLA: El botón actualizar refresca conservando los filtros activos del usuario
+        btnActualizarAbonos.addActionListener(e -> {
+            cargarAbonosBD(txtBuscadorAbonos.getText().trim());
+        });
+
+        JPanel panelBotonesAccion = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
+        panelBotonesAccion.setOpaque(false);
+        panelBotonesAccion.add(btnFiltrosAbonos);
+        panelBotonesAccion.add(btnActualizarAbonos);
+
+        // Buscador central (ocupa todo el espacio intermedio disponible con placeholder idéntico)
+        txtBuscadorAbonos = new JTextField();
+        txtBuscadorAbonos.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por Folio o Cliente...");
+        txtBuscadorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
+        txtBuscadorAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        txtBuscadorAbonos.addKeyListener(new java.awt.event.KeyAdapter() {
+            @Override
+            public void keyReleased(java.awt.event.KeyEvent e) {
+                cargarAbonosBD(txtBuscadorAbonos.getText().trim());
+            }
+        });
+
+        panelIzquierdaFiltros.add(panelBotonesAccion, BorderLayout.WEST);
+        panelIzquierdaFiltros.add(txtBuscadorAbonos, BorderLayout.CENTER);
+        panelFiltros.add(panelIzquierdaFiltros, BorderLayout.CENTER);
+
+        // --- PANEL DERECHO (Selector de Fechas idéntico al de Ventas) ---
+        JPanel panelDerechaFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
+        panelDerechaFiltros.setOpaque(false);
+
+        btnSelectorFechaAbonos = new JButton("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>Todo el Historial</b></center></html>");
+        btnSelectorFechaAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 11));
+        btnSelectorFechaAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#CBD5E1; background:#FFFFFF; margin:2,10,2,10");
+        btnSelectorFechaAbonos.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnSelectorFechaAbonos.addActionListener(e -> mostrarSelectorCalendarioAbonos((JFrame) SwingUtilities.getWindowAncestor(panel)));
+
+        panelDerechaFiltros.add(btnSelectorFechaAbonos);
+        panelFiltros.add(panelDerechaFiltros, BorderLayout.EAST);
+
+        // --- TABLA DE ABONOS ---
+        String[] columnasAbonos = {"ID Abono", "Fecha / Hora", "Cliente", "Ref. Venta ID", "Estatus", "Monto Abonado"};
+        modeloAbonos = new DefaultTableModel(columnasAbonos, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false;
+            }
+        };
+
+        tablaAbonos = new JTable(modeloAbonos);
+        tablaAbonos.setRowHeight(40);
+        tablaAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        tablaAbonos.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
+        tablaAbonos.getTableHeader().setForeground(new Color(100, 116, 139));
+        tablaAbonos.setSelectionBackground(new Color(238, 242, 255));
+
+        // Renderizador Columna 4 (Estatus con color verde o rojo)
+        tablaAbonos.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                String status = value != null ? value.toString() : "ACTIVO";
+                boolean cancelado = "CANCELADO".equalsIgnoreCase(status) || "CANCELADA".equalsIgnoreCase(status);
+                String colorStatus = cancelado ? "#DC2626" : "#16A34A";
+
+                setText("<html><font color='" + colorStatus + "'><b>[" + status + "]</b></font></html>");
+                setHorizontalAlignment(JLabel.LEFT);
+                setBorder(new EmptyBorder(0, 10, 0, 0));
+
+                if (isSelected) {
+                    setBackground(table.getSelectionBackground());
+                    setForeground(table.getSelectionForeground());
+                } else {
+                    setBackground(Color.WHITE);
+                    setForeground(new Color(15, 23, 42));
+                }
+                return this;
+            }
+        });
+
+        // Renderizador Columna 5 (Monto Abonado con negativo en rojo para cancelados)
+        tablaAbonos.getColumnModel().getColumn(5).setCellRenderer(new DefaultTableCellRenderer() {
+            @Override
+            public java.awt.Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+                Object valEstatus = table.getValueAt(row, 4);
+                boolean cancelado = false;
+                if (valEstatus != null) {
+                    String status = valEstatus.toString().replaceAll("<[^>]*>", "").replace("[", "").replace("]", "").trim();
+                    cancelado = "CANCELADO".equalsIgnoreCase(status) || "CANCELADA".equalsIgnoreCase(status);
+                }
+
+                String montoStr = value != null ? value.toString().replace("$", "").replace("-", "").trim() : "0.00";
+
+                if (cancelado) {
+                    setText("-$" + montoStr);
+                    setForeground(new Color(220, 38, 38)); // Rojo alerta
+                } else {
+                    setText("$" + montoStr);
+                    setForeground(isSelected ? table.getSelectionForeground() : new Color(15, 23, 42));
+                }
+
+                setHorizontalAlignment(JLabel.RIGHT);
+                setBorder(new EmptyBorder(0, 0, 0, 15));
+
+                if (isSelected) {
+                    setBackground(table.getSelectionBackground());
+                } else {
+                    setBackground(Color.WHITE);
+                }
+                return this;
+            }
+        });
+
+        JScrollPane scrollAbonos = new JScrollPane(tablaAbonos);
+        scrollAbonos.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
+        scrollAbonos.getViewport().setBackground(Color.WHITE);
+
+        // --- PANEL INFERIOR ---
+        JPanel panelInferiorAbonos = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
+        panelInferiorAbonos.setBackground(Color.WHITE);
+        panelInferiorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
+
+        lblTotalAbonosMonto = new JLabel("Total Abonos Filtrados: $0.00");
+        lblTotalAbonosMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblTotalAbonosMonto.setForeground(new Color(16, 185, 129));
+        panelInferiorAbonos.add(lblTotalAbonosMonto);
+
+        panel.add(panelFiltros, BorderLayout.NORTH);
+        panel.add(scrollAbonos, BorderLayout.CENTER);
+        panel.add(panelInferiorAbonos, BorderLayout.SOUTH);
 
         return panel;
     }
@@ -494,19 +750,16 @@ public class ConsultasVentasInterfice extends JPanel {
         return panelFila;
     }
 
-    private void mostrarSelectorCalendario(JFrame parent) {
-        JDialog dialogoCal = new JDialog(parent, "Seleccionar Rango de Fechas", true);
-        dialogoCal.setSize(620, 460); // Ampliamos el ancho de la ventana
+    private void mostrarSelectorCalendarioAbonos(JFrame parent) {
+        JDialog dialogoCal = new JDialog(parent, "Seleccionar Rango de Fechas (Abonos)", true);
+        dialogoCal.setSize(620, 460);
         dialogoCal.setLocationRelativeTo(parent);
         dialogoCal.setLayout(new BorderLayout());
         dialogoCal.getContentPane().setBackground(new Color(248, 250, 252));
 
-        if (fechaInicioFiltro != null) {
-            tempFechaInicio = fechaInicioFiltro;
-        }
-        if (fechaFinFiltro != null) {
-            tempFechaFin = fechaFinFiltro;
-        }
+        // Inicializamos las fechas temporales basándonos en los filtros de abonos activos
+        java.time.LocalDate tempFechaInicio = (fechaInicioFiltroAbonos != null) ? fechaInicioFiltroAbonos : java.time.LocalDate.now();
+        java.time.LocalDate tempFechaFin = (fechaFinFiltroAbonos != null) ? fechaFinFiltroAbonos : java.time.LocalDate.now();
 
         // --- CABECERA ---
         JPanel panelCabecera = new JPanel(new BorderLayout());
@@ -523,8 +776,12 @@ public class ConsultasVentasInterfice extends JPanel {
         panelCalendarios.setBorder(new EmptyBorder(15, 20, 15, 20));
         panelCalendarios.setBackground(new Color(248, 250, 252));
 
-        JPanel panelInicioCard = construirPanelCalendarioHibrido("Fecha de Inicio", tempFechaInicio, fecha -> tempFechaInicio = fecha);
-        JPanel panelFinCard = construirPanelCalendarioHibrido("Fecha de Fin", tempFechaFin, fecha -> tempFechaFin = fecha);
+        // Nota: Asegúrate de que los objetos devueltos por construirPanelCalendarioHibrido actualicen las referencias temporales locales
+        final java.time.LocalDate[] refInicio = {tempFechaInicio};
+        final java.time.LocalDate[] refFin = {tempFechaFin};
+
+        JPanel panelInicioCard = construirPanelCalendarioHibrido("Fecha de Inicio", refInicio[0], fecha -> refInicio[0] = fecha);
+        JPanel panelFinCard = construirPanelCalendarioHibrido("Fecha de Fin", refFin[0], fecha -> refFin[0] = fecha);
 
         panelCalendarios.add(panelInicioCard);
         panelCalendarios.add(panelFinCard);
@@ -536,20 +793,25 @@ public class ConsultasVentasInterfice extends JPanel {
         btnAplicar.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
         btnAplicar.addActionListener(e -> {
-            if (tempFechaInicio.isAfter(tempFechaFin)) {
+            if (refInicio[0].isAfter(refFin[0])) {
                 JOptionPane.showMessageDialog(dialogoCal, "La fecha de inicio no puede ser posterior a la fecha fin.", "Advertencia", JOptionPane.WARNING_MESSAGE);
                 return;
             }
 
-            fechaInicioFiltro = tempFechaInicio;
-            fechaFinFiltro = tempFechaFin;
+            fechaInicioFiltroAbonos = refInicio[0];
+            fechaFinFiltroAbonos = refFin[0];
 
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
-            String textoRango = formatter.format(fechaInicioFiltro) + " - " + formatter.format(fechaFinFiltro);
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("MM/dd/yyyy");
+            String textoRango = formatter.format(fechaInicioFiltroAbonos) + " - " + formatter.format(fechaFinFiltroAbonos);
 
-            btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>📅 " + textoRango + "</b></center></html>");
+            // Actualizamos el botón de fechas exclusivo del módulo de abonos
+            if (btnSelectorFechaAbonos != null) {
+                btnSelectorFechaAbonos.setText("<html><center><font color='#94A3B8' size='2'>Fecha de creación</font><br><b>📅 " + textoRango + "</b></center></html>");
+            }
             dialogoCal.dispose();
-            dispararFiltroVentas();
+
+            // Recargamos la tabla de abonos aplicando el nuevo filtro de fecha
+            cargarAbonosBD(txtBuscadorAbonos != null ? txtBuscadorAbonos.getText().trim() : "");
         });
 
         JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 14));
@@ -694,167 +956,89 @@ public class ConsultasVentasInterfice extends JPanel {
         }
     }
 
-    private JPanel crearPanelAbonos() {
-        JPanel panel = new JPanel(new BorderLayout(15, 15));
-        panel.setBackground(new Color(245, 247, 250));
-        panel.setBorder(new EmptyBorder(20, 20, 20, 20));
-
-        // --- PANEL SUPERIOR (Filtros, Botones y Buscador) ---
-        JPanel panelFiltros = new JPanel(new BorderLayout(10, 0));
-        panelFiltros.setBackground(Color.WHITE);
-        panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:12,15,12,15,#E5E9F0,1,12");
-
-        JPanel panelIzquierdaFiltros = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
-        panelIzquierdaFiltros.setOpaque(false);
-
-        JButton btnFiltrosAbonos = new JButton("Filtros");
-        btnFiltrosAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; font:bold 12");
-        btnFiltrosAbonos.addActionListener(e -> abrirModalFiltrosAbonos());
-
-        JButton btnActualizarAbonos = new JButton("Actualizar");
-        btnActualizarAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; font:bold 12");
-        btnActualizarAbonos.addActionListener(e -> {
-            txtBuscadorAbonos.setText("");
-            filtroEstado = "Todos";
-            fechaInicioFiltro = null;
-            fechaFinFiltro = null;
-            cargarAbonosBD("");
-        });
-
-        panelIzquierdaFiltros.add(btnFiltrosAbonos);
-        panelIzquierdaFiltros.add(btnActualizarAbonos);
-
-        // Buscador central
-        txtBuscadorAbonos = new JTextField(25);
-        txtBuscadorAbonos.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por ID Abono, Cliente o ID Venta...");
-        txtBuscadorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
-        txtBuscadorAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        txtBuscadorAbonos.addKeyListener(new java.awt.event.KeyAdapter() {
-            @Override
-            public void keyReleased(java.awt.event.KeyEvent e) {
-                cargarAbonosBD(txtBuscadorAbonos.getText().trim());
-            }
-        });
-        panelIzquierdaFiltros.add(txtBuscadorAbonos);
-
-        panelFiltros.add(panelIzquierdaFiltros, BorderLayout.WEST);
-
-        // Etiqueta de Fecha a la derecha
-        JPanel panelDerechaFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
-        panelDerechaFiltros.setOpaque(false);
-        JLabel lblFechaTitulo = new JLabel("Fecha de registro:");
-        lblFechaTitulo.setFont(new Font("Segoe UI", Font.PLAIN, 11));
-        lblFechaTitulo.setForeground(new Color(100, 116, 139));
-
-        JButton btnRangoFechaAbonos = new JButton("Todo el Historial");
-        btnRangoFechaAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#E2E8F0; background:#FFFFFF; font:bold 12");
-        // Opcional: Agregar selector de fecha al hacer clic si usas un selector de fechas
-
-        panelDerechaFiltros.add(lblFechaTitulo);
-        panelDerechaFiltros.add(btnRangoFechaAbonos);
-        panelFiltros.add(panelDerechaFiltros, BorderLayout.EAST);
-
-        // --- TABLA DE ABONOS ---
-        String[] columnasAbonos = {"ID Abono", "Fecha / Hora", "Cliente", "Ref. Venta ID", "Estatus", "Monto Abonado"};
-        modeloAbonos = new DefaultTableModel(columnasAbonos, 0) {
-            @Override
-            public boolean isCellEditable(int row, int column) {
-                return false;
-            }
-        };
-
-        tablaAbonos = new JTable(modeloAbonos);
-        tablaAbonos.setRowHeight(40);
-        tablaAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        tablaAbonos.getTableHeader().setFont(new Font("Segoe UI", Font.BOLD, 12));
-        tablaAbonos.getTableHeader().setForeground(new Color(100, 116, 139));
-        tablaAbonos.setSelectionBackground(new Color(238, 242, 255));
-
-        JScrollPane scrollAbonos = new JScrollPane(tablaAbonos);
-        scrollAbonos.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
-        scrollAbonos.getViewport().setBackground(Color.WHITE);
-
-        // --- PANEL INFERIOR (Totales) ---
-        JPanel panelInferiorAbonos = new JPanel(new FlowLayout(FlowLayout.RIGHT, 20, 10));
-        panelInferiorAbonos.setBackground(Color.WHITE);
-        panelInferiorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,15,10,15,#E5E9F0,1,12");
-
-        lblTotalAbonosMonto = new JLabel("Total Abonos Filtrados: $0.00 MXN");
-        lblTotalAbonosMonto.setFont(new Font("Segoe UI", Font.BOLD, 15));
-        lblTotalAbonosMonto.setForeground(new Color(16, 185, 129));
-        panelInferiorAbonos.add(lblTotalAbonosMonto);
-
-        panel.add(panelFiltros, BorderLayout.NORTH);
-        panel.add(scrollAbonos, BorderLayout.CENTER);
-        panel.add(panelInferiorAbonos, BorderLayout.SOUTH);
-
-        return panel;
-    }
-
     private void abrirModalFiltrosAbonos() {
-        JDialog dialogFiltros = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Filtros Avanzados de Abonos", true);
-        dialogFiltros.setSize(450, 320);
-        dialogFiltros.setLocationRelativeTo(this);
-        dialogFiltros.setLayout(new BorderLayout());
+        JDialog dialogo = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Filtros Avanzados de Abonos", true);
+        dialogo.setSize(540, 420);
+        dialogo.setLocationRelativeTo(this);
+        dialogo.setLayout(new BorderLayout());
+        dialogo.getContentPane().setBackground(new Color(248, 250, 252));
 
-        JPanel content = new JPanel(new GridLayout(3, 1, 10, 10));
-        content.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
-        content.setBackground(Color.WHITE);
+        // --- CABECERA MODERNA CON ACENTO VISUAL ---
+        JPanel panelCabeceraModal = new JPanel(new BorderLayout());
+        panelCabeceraModal.setBackground(Color.WHITE);
+        panelCabeceraModal.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(226, 232, 240)),
+                new EmptyBorder(18, 22, 18, 22)
+        ));
 
-        // Panel Estado Abono
-        JPanel panelEstado = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        panelEstado.setOpaque(false);
-        panelEstado.setBorder(BorderFactory.createTitledBorder("Estatus del Abono"));
+        JLabel lblTituloModal = new JLabel("<html><div style='color: #0F172A; font-size: 14px; font-weight: bold;'>Filtros Avanzados de Abonos</div>"
+                + "<div style='color: #64748B; font-size: 11px; margin-top: 2px;'>Selecciona el estatus para acotar los resultados de cartera</div></html>");
+        panelCabeceraModal.add(lblTituloModal, BorderLayout.CENTER);
 
-        JToggleButton btnTodos = new JToggleButton("Todos", filtroEstado.equals("Todos"));
-        JToggleButton btnActivo = new JToggleButton("Activo", filtroEstado.equals("ACTIVO"));
-        JToggleButton btnCancelado = new JToggleButton("Cancelado", filtroEstado.equals("CANCELADO"));
+        // Contenedor principal de tarjetas de filtro
+        JPanel panelContenido = new JPanel();
+        panelContenido.setLayout(new BoxLayout(panelContenido, BoxLayout.Y_AXIS));
+        panelContenido.setBorder(new EmptyBorder(16, 20, 16, 20));
+        panelContenido.setBackground(new Color(248, 250, 252));
 
-        ButtonGroup grupoEstado = new ButtonGroup();
-        grupoEstado.add(btnTodos);
-        grupoEstado.add(btnActivo);
-        grupoEstado.add(btnCancelado);
+        final String[] estadoAbonoTemp = {filtroEstadoAbonos != null ? filtroEstadoAbonos : "Todos"};
 
-        panelEstado.add(btnTodos);
-        panelEstado.add(btnActivo);
-        panelEstado.add(btnCancelado);
-        content.add(panelEstado);
+        // Creamos lista para manejar la limpieza visual del botón "Restablecer"
+        List<Runnable> accionesLimpiarVisual = new ArrayList<>();
 
-        // Botón Aplicar
-        JPanel panelBoton = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        panelBoton.setOpaque(false);
-        JButton btnAplicar = new JButton("Aplicar Filtros");
-        btnAplicar.setBackground(new Color(13, 148, 136));
-        btnAplicar.setForeground(Color.WHITE);
-        btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0");
+        // Fila de Estatus de Abono utilizando las píldoras de filtrado
+        JPanel filaEstadoAbono = crearFilaFiltroPildoras("Estatus del Abono", new String[]{"Todos", "ACTIVO", "CANCELADO"}, estadoAbonoTemp, accionesLimpiarVisual);
 
-        btnAplicar.addActionListener(e -> {
-            if (btnActivo.isSelected()) {
-                filtroEstado = "ACTIVO";
-            } else if (btnCancelado.isSelected()) {
-                filtroEstado = "CANCELADO";
-            } else {
-                filtroEstado = "Todos";
+        panelContenido.add(filaEstadoAbono);
+
+        JScrollPane scrollFiltros = new JScrollPane(panelContenido);
+        scrollFiltros.setBorder(BorderFactory.createEmptyBorder());
+        scrollFiltros.getViewport().setBackground(new Color(248, 250, 252));
+        scrollFiltros.getVerticalScrollBar().setUnitIncrement(16);
+
+        // --- BOTONES INFERIORES ESTILIZADOS ---
+        JButton btnLimpiar = new JButton("Restablecer");
+        btnLimpiar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnLimpiar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F1F5F9; foreground:#475569; borderWidth:0; margin:8,18,8,18");
+        btnLimpiar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // ACCIÓN LIMPIAR REAL: Resetea la variable y actualiza los botones visualmente al instante
+        btnLimpiar.addActionListener(e -> {
+            estadoAbonoTemp[0] = "Todos";
+            for (Runnable limpiarUI : accionesLimpiarVisual) {
+                limpiarUI.run();
             }
-
-            dialogFiltros.dispose();
-            cargarAbonosBD(txtBuscadorAbonos.getText().trim());
         });
 
-        panelBoton.add(btnAplicar);
+        JButton btnBuscar = new JButton("Aplicar Filtros");
+        btnBuscar.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnBuscar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#186EC9; foreground:#FFFFFF; borderWidth:0; margin:8,22,8,22");
+        btnBuscar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnBuscar.addActionListener(e -> {
+            filtroEstadoAbonos = estadoAbonoTemp[0];
+            dialogo.dispose();
+            cargarAbonosBD(txtBuscadorAbonos != null ? txtBuscadorAbonos.getText().trim() : "");
+        });
 
-        dialogFiltros.add(content, BorderLayout.CENTER);
-        dialogFiltros.add(panelBoton, BorderLayout.SOUTH);
-        dialogFiltros.setVisible(true);
+        JPanel panelSur = new JPanel(new FlowLayout(FlowLayout.RIGHT, 14, 14));
+        panelSur.setBackground(Color.WHITE);
+        panelSur.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
+        panelSur.add(btnLimpiar);
+        panelSur.add(btnBuscar);
+
+        dialogo.add(panelCabeceraModal, BorderLayout.NORTH);
+        dialogo.add(scrollFiltros, BorderLayout.CENTER);
+        dialogo.add(panelSur, BorderLayout.SOUTH);
+        dialogo.setVisible(true);
     }
 
-    private void cargarAbonosBD(String filtro) {
+  private void cargarAbonosBD(String filtro) {
         if (dataSource == null) {
             return;
         }
         modeloAbonos.setRowCount(0);
 
-        // Hacemos JOIN con 'ventas v' para obtener el 'uuid_venta' (el folio real)
+        // Consulta SQL usando estrictamente las variables de filtr pertenecientes a Abonos
         StringBuilder sql = new StringBuilder(
                 "SELECT a.id, a.fecha_registro, a.monto, a.status, "
                 + "COALESCE(c.nombre, 'Cliente General') AS cliente_nombre, "
@@ -865,18 +1049,18 @@ public class ConsultasVentasInterfice extends JPanel {
                 + "WHERE 1=1 "
         );
 
-        // Filtro por estatus avanzado
-        if (!filtroEstado.equals("Todos")) {
+        // 1. Filtro por estatus avanzado exclusivo de abonos
+        if (filtroEstadoAbonos != null && !filtroEstadoAbonos.equals("Todos")) {
             sql.append("AND a.status = ? ");
         }
 
-        // Buscador: Busca por ID de Abono, Nombre del Cliente o Folio de Venta (uuid_venta)
+        // 2. Buscador por texto: ID de Abono, Nombre del Cliente o Folio de Venta
         if (filtro != null && !filtro.isEmpty()) {
-            sql.append("AND (c.nombre LIKE ? OR a.id LIKE ? OR v.uuid_venta LIKE ?) ");
+            sql.append("AND (c.nombre LIKE ? OR CAST(a.id AS CHAR) LIKE ? OR v.uuid_venta LIKE ?) ");
         }
 
-        // Filtro por rango de fechas
-        if (fechaInicioFiltro != null && fechaFinFiltro != null) {
+        // 3. Filtro por rango de fechas exclusivo de abonos
+        if (fechaInicioFiltroAbonos != null && fechaFinFiltroAbonos != null) {
             sql.append("AND DATE(a.fecha_registro) BETWEEN ? AND ? ");
         }
 
@@ -888,46 +1072,62 @@ public class ConsultasVentasInterfice extends JPanel {
         try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
             int index = 1;
 
-            if (!filtroEstado.equals("Todos")) {
-                pstmt.setString(index++, filtroEstado);
+            // Asignación de parámetros en el mismo orden exacto en que se construyó el WHERE
+            if (filtroEstadoAbonos != null && !filtroEstadoAbonos.equals("Todos")) {
+                pstmt.setString(index++, filtroEstadoAbonos);
             }
             if (filtro != null && !filtro.isEmpty()) {
                 pstmt.setString(index++, "%" + filtro + "%");
                 pstmt.setString(index++, "%" + filtro + "%");
                 pstmt.setString(index++, "%" + filtro + "%");
             }
-            if (fechaInicioFiltro != null && fechaFinFiltro != null) {
-                pstmt.setDate(index++, java.sql.Date.valueOf(fechaInicioFiltro));
-                pstmt.setDate(index++, java.sql.Date.valueOf(fechaFinFiltro));
+            if (fechaInicioFiltroAbonos != null && fechaFinFiltroAbonos != null) {
+                pstmt.setDate(index++, java.sql.Date.valueOf(fechaInicioFiltroAbonos));
+                pstmt.setDate(index++, java.sql.Date.valueOf(fechaFinFiltroAbonos));
             }
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
-                    BigDecimal montoAbono = rs.getBigDecimal("monto");
-                    if (montoAbono != null && "ACTIVO".equalsIgnoreCase(rs.getString("status"))) {
-                        acumuladoAbonos = acumuladoAbonos.add(montoAbono); // Solo acumula si está activo
-                    }
-
                     Long idAbono = rs.getLong("id");
-                    java.sql.Timestamp fechaRegistro = rs.getTimestamp("fecha_registro");
+                    String fechaRegistro = rs.getString("fecha_registro");
+                    BigDecimal montoAbono = rs.getBigDecimal("monto");
+                    String statusAbono = rs.getString("status");
+                    if (statusAbono == null || statusAbono.isEmpty()) {
+                        statusAbono = "ACTIVO";
+                    }
                     String clienteNombre = rs.getString("cliente_nombre");
                     String folioVenta = rs.getString("folio_venta");
-                    String estatus = rs.getString("status");
 
+                    boolean esCancelado = "CANCELADO".equalsIgnoreCase(statusAbono) || "CANCELADA".equalsIgnoreCase(statusAbono);
+
+                    // REGLA CONTABLE: Si está cancelado resta del acumulado, si está activo suma
+                    if (montoAbono != null) {
+                        if (esCancelado) {
+                            acumuladoAbonos = acumuladoAbonos.subtract(montoAbono);
+                        } else {
+                            acumuladoAbonos = acumuladoAbonos.add(montoAbono);
+                        }
+                    }
+
+                    // Agregamos la fila al modelo de la tabla de abonos
                     modeloAbonos.addRow(new Object[]{
                         idAbono,
-                        fechaRegistro != null ? fechaRegistro.toString() : "-",
+                        fechaRegistro != null ? fechaRegistro : "",
                         clienteNombre,
-                        folioVenta, // Muestra el folio real de la venta (ej. NV-179...) o "Sin Venta Asociada"
-                        estatus,
-                        "$" + (montoAbono != null ? montoAbono.toPlainString() : "0.00") + " MXN"
+                        folioVenta,
+                        statusAbono,
+                        "$" + (montoAbono != null ? montoAbono.toPlainString() : "0.00")
                     });
+
                     contadorAbonos++;
                 }
             }
-            lblTotalAbonosMonto.setText("Total Abonos Filtrados: $" + acumuladoAbonos.toPlainString() + " MXN (" + contadorAbonos + " registros)");
+
+            // Actualizamos la etiqueta inferior de totales de abonos
+            lblTotalAbonosMonto.setText("Total Abonos Filtrados: $" + acumuladoAbonos.toPlainString());
+
         } catch (SQLException e) {
-            System.err.println("Error al cargar abonos filtrados: " + e.getMessage());
+            System.err.println("Error al cargar abonos filtrados independientes: " + e.getMessage());
         }
     }
 
@@ -949,17 +1149,17 @@ public class ConsultasVentasInterfice extends JPanel {
                 + "FROM ventas v LEFT JOIN clientes c ON v.cliente_id = c.id WHERE 1=1 "
         );
 
-        // Filtro por buscador (Folio, Cliente o ID)
+        // 1. Filtro por buscador (Folio, Cliente o ID)
         if (filtro != null && !filtro.isEmpty()) {
             sql.append("AND (v.uuid_venta LIKE ? OR c.nombre LIKE ? OR v.id LIKE ?) ");
         }
 
-        // Filtro por rango de fechas
+        // 2. Filtro por rango de fechas
         if (fechaInicioFiltro != null && fechaFinFiltro != null) {
             sql.append("AND v.fecha_venta BETWEEN ? AND ? ");
         }
 
-        // Filtro por Crédito
+        // 3. Filtro por Crédito
         if (filtroCredito != null && !filtroCredito.equals("Todos")) {
             if (filtroCredito.equals("Sí")) {
                 sql.append("AND v.es_credito = 1 ");
@@ -968,12 +1168,12 @@ public class ConsultasVentasInterfice extends JPanel {
             }
         }
 
-        // Filtro por Forma de Pago
+        // 4. Filtro por Forma de Pago
         if (filtroFormaPago != null && !filtroFormaPago.equals("Todos")) {
             sql.append("AND v.tipo_pago = ? ");
         }
 
-        // Filtro por Estatus (ACTIVO / CANCELADO)
+        // 5. Filtro por Estatus (ACTIVO / CANCELADO)
         if (filtroEstado != null && !filtroEstado.equals("Todos")) {
             sql.append("AND v.status = ? ");
         }
@@ -986,30 +1186,51 @@ public class ConsultasVentasInterfice extends JPanel {
         try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sql.toString())) {
             int index = 1;
 
+            // Asignación de parámetros estrictamente en el MISMO ORDEN de arriba:
+            // 1. Buscador (3 parámetros)
             if (filtro != null && !filtro.isEmpty()) {
                 pstmt.setString(index++, "%" + filtro + "%");
                 pstmt.setString(index++, "%" + filtro + "%");
                 pstmt.setString(index++, "%" + filtro + "%");
             }
+
+            // 2. Fechas (2 parámetros)
             if (fechaInicioFiltro != null && fechaFinFiltro != null) {
                 pstmt.setDate(index++, java.sql.Date.valueOf(fechaInicioFiltro));
                 pstmt.setDate(index++, java.sql.Date.valueOf(fechaFinFiltro));
             }
+
+            // 3. Crédito (0 parámetros, se inyecta directo en el SQL)
+            // 4. Forma de pago (1 parámetro)
             if (filtroFormaPago != null && !filtroFormaPago.equals("Todos")) {
                 pstmt.setString(index++, filtroFormaPago);
             }
+
+            // 5. Estatus (1 parámetro)
             if (filtroEstado != null && !filtroEstado.equals("Todos")) {
                 pstmt.setString(index++, filtroEstado);
             }
 
             try (ResultSet rs = pstmt.executeQuery()) {
                 while (rs.next()) {
+                    Long idVenta = rs.getLong("id");
                     BigDecimal montoVenta = rs.getBigDecimal("total");
-                    if (montoVenta != null) {
-                        acumuladoTotal = acumuladoTotal.add(montoVenta);
+                    String statusVenta = rs.getString("status");
+                    if (statusVenta == null || statusVenta.isEmpty()) {
+                        statusVenta = "ACTIVO";
                     }
 
-                    Long idVenta = rs.getLong("id");
+                    boolean esCancelado = "CANCELADO".equalsIgnoreCase(statusVenta) || "CANCELADA".equalsIgnoreCase(statusVenta);
+
+                    // REGLA CONTABLE: Si está activa se suma, si está cancelada se RESTA del total general
+                    if (montoVenta != null) {
+                        if (esCancelado) {
+                            acumuladoTotal = acumuladoTotal.subtract(montoVenta);
+                        } else {
+                            acumuladoTotal = acumuladoTotal.add(montoVenta);
+                        }
+                    }
+
                     String folio = rs.getString("uuid_venta");
                     if (folio == null || folio.isEmpty()) {
                         folio = String.valueOf(idVenta);
@@ -1020,15 +1241,9 @@ public class ConsultasVentasInterfice extends JPanel {
                     String cliente = rs.getString("cliente_nombre");
                     String comentarios = rs.getString("comentarios");
 
-                    String statusVenta = rs.getString("status");
-                    if (statusVenta == null || statusVenta.isEmpty()) {
-                        statusVenta = "ACTIVO";
-                    }
-
                     int filaActual = modeloVentas.getRowCount();
                     tablaVentas.putClientProperty("id_venta_" + filaActual, idVenta);
 
-                    // SIN "MXN", mostrando únicamente el formato en pesos
                     modeloVentas.addRow(new Object[]{
                         new Object[]{folio, fechaHora, statusVenta},
                         tipoPago,
@@ -1036,6 +1251,7 @@ public class ConsultasVentasInterfice extends JPanel {
                         comentarios,
                         "$" + (montoVenta != null ? montoVenta.toPlainString() : "0.00")
                     });
+
                     contadorRegistros++;
                 }
             }
@@ -1119,7 +1335,7 @@ public class ConsultasVentasInterfice extends JPanel {
             lblIcono.setVerticalAlignment(JLabel.TOP);
 
             JLabel lblMensaje = new JLabel("<html><div style='color: #0F172A; font-size: 13px; font-weight: bold; margin-bottom: 6px;'>¿Estás seguro de cancelar la venta con folio " + folioFinal + "?</div>"
-                    + "<div style='color: #64748B; font-size: 11px; line-height: 1.4;'>Esta acción actualizará el estatus a <b>CANCELADO</b> y registrará automáticamente la devolución en la caja.</div></html>");
+                    + "<div style='color: #64748B; font-size: 11px; line-height: 1.4;'>Esta acción actualizará el estatus a <b>CANCELADO</b>, cancelará sus abonos relacionados y registrará automáticamente la devolución en la caja.</div></html>");
 
             panelContenido.add(lblIcono, BorderLayout.WEST);
             panelContenido.add(lblMensaje, BorderLayout.CENTER);
@@ -1156,11 +1372,27 @@ public class ConsultasVentasInterfice extends JPanel {
             // --- EJECUCIÓN SI SE CONFIRMÓ ---
             if (confirmado[0]) {
                 try {
-                    // 1. Actualizar el status a 'CANCELADO' en la base de datos
-                    String sqlUpdate = "UPDATE ventas SET status = 'CANCELADO' WHERE id = ?";
-                    try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlUpdate)) {
-                        pstmt.setLong(1, ventaId);
-                        pstmt.executeUpdate();
+                    // 1. Actualizar estatus a 'CANCELADO' en la venta y en sus abonos enlazados en transacción
+                    String sqlUpdateVenta = "UPDATE ventas SET status = 'CANCELADO' WHERE id = ?";
+                    String sqlUpdateAbonos = "UPDATE abonos SET status = 'CANCELADO' WHERE venta_id = ?";
+
+                    try (Connection conn = dataSource.getConnection()) {
+                        conn.setAutoCommit(false);
+                        try (PreparedStatement pstmtVenta = conn.prepareStatement(sqlUpdateVenta); PreparedStatement pstmtAbonos = conn.prepareStatement(sqlUpdateAbonos)) {
+
+                            // Cancelar venta
+                            pstmtVenta.setLong(1, ventaId);
+                            pstmtVenta.executeUpdate();
+
+                            // Cancelar abonos vinculados a esta venta en automático
+                            pstmtAbonos.setLong(1, ventaId);
+                            pstmtAbonos.executeUpdate();
+
+                            conn.commit();
+                        } catch (SQLException ex) {
+                            conn.rollback();
+                            throw ex;
+                        }
                     }
 
                     // 2. Registrar el impacto en la caja por devolución de la venta
@@ -1176,7 +1408,7 @@ public class ConsultasVentasInterfice extends JPanel {
                         System.err.println("[ADVERTENCIA] No se pudo registrar la devolución en la caja: " + exCaja.getMessage());
                     }
 
-                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta cancelada y devolución registrada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta y abonos asociados cancelados, devolución registrada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                     dialogoDetalle.dispose();
                     dispararFiltroVentas(); // Refresca la tabla principal de consultas de ventas
 

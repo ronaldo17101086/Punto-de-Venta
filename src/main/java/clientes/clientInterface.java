@@ -13,6 +13,7 @@ import java.awt.*;
 import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.util.ArrayList;
 import java.util.List;
 import javax.sql.DataSource;
@@ -665,7 +666,7 @@ public class clientInterface extends JPanel {
         }
     }
 
-    private void abrirModalAbono() {
+private void abrirModalAbono() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -681,7 +682,7 @@ public class clientInterface extends JPanel {
 
         // 2. Configuración del diálogo
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Registrar Abono a Deuda", true);
-        dialog.setSize(640, 520);
+        dialog.setSize(680, 560);
         dialog.setLocationRelativeTo(this);
         dialog.setLayout(new BorderLayout(0, 0));
 
@@ -693,7 +694,7 @@ public class clientInterface extends JPanel {
         JPanel panelNorte = new JPanel(new BorderLayout(8, 8));
         panelNorte.setOpaque(false);
 
-        JLabel lblTituloModal = new JLabel("Control de Cartera - Búsqueda de Cliente");
+        JLabel lblTituloModal = new JLabel("Control de Cartera - Selección de Cliente y Venta");
         lblTituloModal.setFont(new Font("Segoe UI", Font.BOLD, 15));
         lblTituloModal.setForeground(new Color(30, 41, 59));
 
@@ -726,12 +727,71 @@ public class clientInterface extends JPanel {
         txtMontoAbono.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         txtMontoAbono.putClientProperty("JTextField.showClearButton", true);
 
-        // Campo para ingresar el Folio de Venta (ej. NV-179...)
-        JTextField txtFolioVenta = new JTextField();
-        txtFolioVenta.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        txtFolioVenta.putClientProperty("JTextField.placeholderText", "Folio de Venta (ej. NV-..., Opcional)");
+        // Clase auxiliar para manejar el combo box de ventas del cliente seleccionado
+        class ItemVentaCombo {
+            private Long ventaId;
+            private String folio;
+            private BigDecimal total;
 
-        // Función para filtrar y llenar la tabla
+            public ItemVentaCombo(Long ventaId, String folio, BigDecimal total) {
+                this.ventaId = ventaId;
+                this.folio = folio;
+                this.total = total;
+            }
+
+            public Long getVentaId() { return ventaId; }
+            public String getFolio() { return folio; }
+
+            @Override
+            public String toString() {
+                return folio + " (Total: $" + (total != null ? total.toPlainString() : "0.00") + ")";
+            }
+        }
+
+        JComboBox<ItemVentaCombo> cmbVentasCliente = new JComboBox<>();
+        cmbVentasCliente.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+
+        // Función para cargar las ventas del cliente seleccionado en la base de datos
+    // Función para cargar las ventas del cliente seleccionado en la base de datos
+        Runnable cargarVentasDelClienteSeleccionado = () -> {
+            cmbVentasCliente.removeAllItems();
+            int filaSel = tablaClientes.getSelectedRow();
+            if (filaSel == -1) return;
+
+            Long clienteId = (Long) modeloTabla.getValueAt(filaSel, 0);
+
+            // AQUÍ: Usa tu método o variable de conexión existente (por ejemplo: ConexionBD.obtenerConexion() o dataSource.getConnection())
+            try (Connection conn = Conexion.Conexion.conectar(); // <-- Cambia esto por tu método de conexión si es estático o diferente
+                 PreparedStatement pstmt = conn.prepareStatement("SELECT id, uuid_venta, total FROM ventas WHERE cliente_id = ? ORDER BY id DESC LIMIT 50")) {
+                
+                pstmt.setLong(1, clienteId);
+                try (ResultSet rs = pstmt.executeQuery()) {
+                    while (rs.next()) {
+                        Long vId = rs.getLong("id");
+                        String vFolio = rs.getString("uuid_venta");
+                        if (vFolio == null || vFolio.isEmpty()) {
+                            vFolio = "Venta #" + vId;
+                        }
+                        BigDecimal vTotal = rs.getBigDecimal("total");
+                        cmbVentasCliente.addItem(new ItemVentaCombo(vId, vFolio, vTotal));
+                    }
+                }
+            } catch (Exception ex) {
+                System.err.println("Error al cargar ventas del cliente: " + ex.getMessage());
+            }
+
+            if (cmbVentasCliente.getItemCount() == 0) {
+                cmbVentasCliente.addItem(new ItemVentaCombo(null, "Sin ventas registradas", BigDecimal.ZERO));
+            }
+        };
+        // Listener cuando cambia la selección del cliente en la tabla
+        tablaClientes.getSelectionModel().addListSelectionListener(e -> {
+            if (!e.getValueIsAdjusting()) {
+                cargarVentasDelClienteSeleccionado.run();
+            }
+        });
+
+        // Función para filtrar y llenar la tabla de clientes
         Runnable actualizarTabla = () -> {
             modeloTabla.setRowCount(0);
             String filtro = txtFiltro.getText().toLowerCase().trim();
@@ -754,22 +814,14 @@ public class clientInterface extends JPanel {
         actualizarTabla.run();
 
         txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                actualizarTabla.run();
-            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
         });
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240), 1));
-        scrollPane.setPreferredSize(new Dimension(0, 180));
+        scrollPane.setPreferredSize(new Dimension(0, 160));
 
         // --- PANEL DE FORMULARIO ---
         JPanel panelFormulario = new JPanel(new GridLayout(2, 2, 12, 10));
@@ -783,20 +835,20 @@ public class clientInterface extends JPanel {
         lblMonto.setFont(fontLabel);
         lblMonto.setForeground(colorLabel);
 
-        JLabel lblVenta = new JLabel("Folio de Venta (Opcional):");
+        JLabel lblVenta = new JLabel("Venta Asociada (Folio):");
         lblVenta.setFont(fontLabel);
         lblVenta.setForeground(colorLabel);
 
         panelFormulario.add(lblMonto);
         panelFormulario.add(txtMontoAbono);
         panelFormulario.add(lblVenta);
-        panelFormulario.add(txtFolioVenta);
+        panelFormulario.add(cmbVentasCliente);
 
         // --- BOTÓN DE ACCIÓN ---
         JPanel btnPanel = new JPanel(new BorderLayout());
         btnPanel.setOpaque(false);
 
-        JButton btnAplicar = new JButton("Registrar Abono");
+        JButton btnAplicar = new JButton("Registrar Abono y Relacionar Venta");
         btnAplicar.setBackground(new Color(13, 148, 136));
         btnAplicar.setForeground(Color.WHITE);
         btnAplicar.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -814,19 +866,23 @@ public class clientInterface extends JPanel {
 
                 Long clienteId = (Long) modeloTabla.getValueAt(filaSeleccionada, 0);
                 BigDecimal monto = new BigDecimal(txtMontoAbono.getText().trim().isEmpty() ? "0" : txtMontoAbono.getText().trim());
-                String folioVentaTexto = txtFolioVenta.getText().trim();
 
-                // Construimos el DTO con los datos y el folio de la venta
+                ItemVentaCombo seleccionVenta = (ItemVentaCombo) cmbVentasCliente.getSelectedItem();
+                Long ventaIdSeleccionada = (seleccionVenta != null) ? seleccionVenta.getVentaId() : null;
+                String folioSeleccionado = (seleccionVenta != null) ? seleccionVenta.getFolio() : null;
+
+                // Construimos el DTO enviando el cliente y la relación exacta con la venta (ID y Folio)
                 AbonoDTO abonoDto = new AbonoDTO();
                 abonoDto.setClienteId(clienteId);
-                abonoDto.setFolioVenta(folioVentaTexto); // Asignamos el folio (ej. NV-179...)
+                abonoDto.setVentaId(ventaIdSeleccionada); // ID relacional en la BD
+                abonoDto.setFolioVenta(folioSeleccionado); // Folio en texto (uuid_venta)
                 abonoDto.setMonto(monto);
                 abonoDto.setStatus("ACTIVO");
 
-                // Invocamos el servicio encargado de resolver el folio, guardar en BD y actualizar saldos
+                // Invocamos el servicio encargado de guardar en la BD y actualizar saldos
                 clienteServicio.registrarAbonoDetallado(abonoDto);
 
-                JOptionPane.showMessageDialog(dialog, "¡Abono registrado e historiado correctamente!");
+                JOptionPane.showMessageDialog(dialog, "¡Abono registrado y vinculado a la venta correctamente!");
                 dialog.dispose();
                 cargarDatosTabla();
             } catch (NumberFormatException ex) {

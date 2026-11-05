@@ -5,6 +5,7 @@ import com.formdev.flatlaf.FlatClientProperties;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
+import java.awt.geom.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationContext;
 import ventas.ventas;
@@ -40,10 +41,6 @@ public class dashboard extends JFrame {
     private final Color COLOR_ACCENTO = new Color(0, 153, 255);
     private final Color COLOR_LOGOUT = new Color(210, 45, 45);
     private final Color COLOR_FONDO = new Color(235, 238, 242);
-    private final Color COLOR_EXITO = new Color(40, 167, 69);
-    private final Color COLOR_PELIGRO = new Color(220, 53, 69);
-    private final Color COLOR_PROVEEDOR = new Color(108, 92, 231);
-    private final Color COLOR_CLIENTE = new Color(32, 201, 151);
 
     public dashboard() {
     }
@@ -98,18 +95,19 @@ public class dashboard extends JFrame {
 
         // ===== MENÚ LATERAL =====
         sideMenu = new JPanel();
-        sideMenu.setPreferredSize(new Dimension(190, 0));
+        sideMenu.setPreferredSize(new Dimension(210, 0)); // Ampliado un poco para alojar bien el icono y texto
         sideMenu.setBackground(COLOR_PRIMARIO);
         sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
         sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
 
+        // Añadimos los botones con sus respectivos iconos vectoriales dibujados por código
         addMenuHeader("OPERACIONES");
-        addMenuButton("\uD83D\uDED2 Ventas", "ventas");
-        addMenuButton("\uD83D\uDCE6 Productos", "productos");
-        addMenuButton("\uD83D\uDCC4 Consultas", "consultas");
+        addMenuButton(" Ventas", "ventas", crearIconoCarrito());
+        addMenuButton(" Productos", "productos", crearIconoProductos());
+        addMenuButton(" Consultas", "consultas", crearIconoConsultas());
 
         addMenuHeader("CREDITO");
-        addMenuButton("\uD83D\uDC65 Clientes", "clientes");
+        addMenuButton(" Clientes", "clientes", crearIconoClientes());
 
         mainContainer.add(sideMenu, BorderLayout.WEST);
 
@@ -129,19 +127,20 @@ public class dashboard extends JFrame {
         JLabel header = new JLabel(text);
         header.setFont(new Font("Segoe UI", Font.BOLD, 11));
         header.setForeground(new Color(110, 125, 150));
-        header.setBorder(BorderFactory.createEmptyBorder(20, 12, 5, 0));
+        header.setBorder(BorderFactory.createEmptyBorder(20, 15, 5, 0));
         sideMenu.add(header);
     }
 
-    private void addMenuButton(String name, String card) {
-        JButton btn = new JButton(name);
+    private void addMenuButton(String name, String card, Icon icono) {
+        JButton btn = new JButton(name, icono);
         btn.setFocusPainted(false);
         btn.setForeground(new Color(190, 200, 215));
         btn.setBackground(COLOR_PRIMARIO);
-        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
+        btn.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
-        btn.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 14));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
+        btn.setIconTextGap(12); // Espacio limpio entre el icono y el texto
         btn.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 0));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -161,26 +160,105 @@ public class dashboard extends JFrame {
 
         btn.addActionListener(e -> cardLayout.show(contentPanel, card));
         sideMenu.add(btn);
-        sideMenu.add(Box.createRigidArea(new Dimension(0, 2)));
+        sideMenu.add(Box.createRigidArea(new Dimension(0, 3)));
+    }
+
+    // ==========================================
+    // MÉTODOS DE ICONOS VECTORIALES NATIVOS
+    // ==========================================
+    private Icon crearIconoCarrito() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(160, 175, 195));
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+                // Carrito de compras vectorial
+                g2.drawRect(x + 1, y + 4, 14, 10);
+                g2.drawLine(x + 4, y + 17, x + 6, y + 17);
+                g2.drawLine(x + 12, y + 17, x + 14, y + 17);
+                g2.drawLine(x + 3, y + 1, x + 5, y + 4);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return 18; }
+            @Override public int getIconHeight() { return 18; }
+        };
+    }
+
+    private Icon crearIconoProductos() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(160, 175, 195));
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+                // Caja / Paquete vectorial
+                g2.drawRect(x + 1, y + 5, 16, 12);
+                g2.drawLine(x + 1, y + 9, x + 17, y + 9);
+                g2.drawLine(x + 9, y + 9, x + 9, y + 17);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return 18; }
+            @Override public int getIconHeight() { return 18; }
+        };
+    }
+
+    private Icon crearIconoConsultas() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(160, 175, 195));
+                g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+                // Lupa vectorial
+                g2.drawOval(x + 1, y + 1, 10, 10);
+                g2.drawLine(x + 10, y + 10, x + 16, y + 16);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return 18; }
+            @Override public int getIconHeight() { return 18; }
+        };
+    }
+
+    private Icon crearIconoClientes() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(160, 175, 195));
+                g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                
+                // Dos siluetas de personas vectoriales
+                g2.drawOval(x + 5, y + 1, 5, 5);
+                g2.drawArc(x + 1, y + 9, 13, 7, 0, 180);
+                g2.dispose();
+            }
+            @Override public int getIconWidth() { return 18; }
+            @Override public int getIconHeight() { return 18; }
+        };
     }
 
     private void logout() {
-        // Creamos un JDialog personalizado para que luzca moderno y estilizado
         JDialog dialog = new JDialog(this, "Cerrar Sesión", true);
         dialog.setSize(380, 200);
         dialog.setLocationRelativeTo(this);
-        dialog.setUndecorated(true); // Quitamos los bordes feos de ventana clásica
-        dialog.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#E0E0E0,20,20"); // Bordes redondeados sutiles
+        dialog.setUndecorated(true);
+        dialog.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#E0E0E0,20,20");
 
         JPanel panel = new JPanel(new BorderLayout(15, 15));
         panel.setBackground(Color.WHITE);
         panel.setBorder(BorderFactory.createEmptyBorder(25, 25, 25, 25));
 
-        // Icono o texto superior de alerta
         JLabel lblMensaje = new JLabel("<html><div style='text-align: center;'><b style='font-size: 15px; color: #202938;'>¿Desea cerrar sesión?</b><br><span style='color: #6c757d; font-size: 12px;'>.</span></div></html>", SwingConstants.CENTER);
         panel.add(lblMensaje, BorderLayout.CENTER);
 
-        // Panel de botones inferiores modernos
         JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.CENTER, 15, 0));
         panelBotones.setOpaque(false);
 
