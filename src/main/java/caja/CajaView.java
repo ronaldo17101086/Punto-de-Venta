@@ -18,8 +18,8 @@ public class CajaView extends JFrame {
     private final Color COLOR_TEXTO_DARK = new Color(30, 41, 59);
     private final Color COLOR_TEXTO_SOFT = new Color(100, 116, 139);
     private final Color COLOR_BORDE = new Color(226, 232, 240);
-    private final Font FONT_REGULAR = new Font("Inter", Font.PLAIN, 14);
-    private final Font FONT_BOLD = new Font("Inter", Font.BOLD, 14);
+    private final Font FONT_REGULAR = new Font("Inter", Font.PLAIN, 13);
+    private final Font FONT_BOLD = new Font("Inter", Font.BOLD, 13);
 
     private DefaultTableModel modeloTabla;
     private JTable tabla;
@@ -43,7 +43,7 @@ public class CajaView extends JFrame {
 
     private void configurarVentana() {
         setTitle("Sistema de Gestión de Caja Pro");
-        setSize(1250, 850);
+        setSize(1100, 700); // Reducido para adaptarse perfecto a pantallas menores
         setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
         setLocationRelativeTo(null);
         getContentPane().setBackground(COLOR_FONDO);
@@ -53,9 +53,9 @@ public class CajaView extends JFrame {
     private void initLayout() {
         add(crearCabeceraSuperior(), BorderLayout.NORTH);
 
-        JPanel content = new JPanel(new BorderLayout(0, 30));
+        JPanel content = new JPanel(new BorderLayout(0, 20)); // Margen interior optimizado
         content.setBackground(COLOR_FONDO);
-        content.setBorder(new EmptyBorder(30, 40, 30, 40));
+        content.setBorder(new EmptyBorder(20, 25, 20, 25));
 
         content.add(crearGridTarjetas(), BorderLayout.NORTH);
         content.add(crearContenedorTabla(), BorderLayout.CENTER);
@@ -93,15 +93,15 @@ public class CajaView extends JFrame {
     private JPanel crearCabeceraSuperior() {
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(Color.WHITE);
-        header.setPreferredSize(new Dimension(0, 90));
+        header.setPreferredSize(new Dimension(0, 75)); // Altura compacta
         header.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE));
 
         JPanel left = new JPanel(new GridLayout(2, 1));
         left.setOpaque(false);
-        left.setBorder(new EmptyBorder(15, 40, 15, 0));
+        left.setBorder(new EmptyBorder(10, 25, 10, 0));
 
         JLabel title = new JLabel("Control de Flujo de Caja");
-        title.setFont(new Font("Inter", Font.BOLD, 26));
+        title.setFont(new Font("Inter", Font.BOLD, 22));
         title.setForeground(COLOR_TEXTO_DARK);
 
         JLabel subtitle = new JLabel("Terminal: 01");
@@ -115,7 +115,7 @@ public class CajaView extends JFrame {
     }
 
     private JPanel crearGridTarjetas() {
-        JPanel grid = new JPanel(new GridLayout(1, 4, 25, 0));
+        JPanel grid = new JPanel(new GridLayout(1, 4, 15, 0)); // Espaciado optimizado
         grid.setBackground(COLOR_FONDO);
         grid.add(new TarjetaModerna("EFECTIVO ESPERADO", "$0.00", COLOR_PRIMARIO, true));
         grid.add(new TarjetaModerna("VENTAS DEL DÍA", "$0.00", COLOR_EXITO, false));
@@ -149,16 +149,16 @@ public class CajaView extends JFrame {
     }
 
     private void configurarEstiloTabla() {
-        tabla.setRowHeight(45);
+        tabla.setRowHeight(38); // Fila más compacta
         tabla.setSelectionBackground(new Color(249, 250, 251));
         tabla.setSelectionForeground(COLOR_TEXTO_DARK);
         tabla.setShowVerticalLines(false);
         tabla.setGridColor(COLOR_BORDE);
-        tabla.setFont(new Font("Inter", Font.PLAIN, 13));
+        tabla.setFont(new Font("Inter", Font.PLAIN, 12));
 
         tabla.getTableHeader().setFont(FONT_BOLD);
         tabla.getTableHeader().setBackground(Color.WHITE);
-        tabla.getTableHeader().setPreferredSize(new Dimension(0, 40));
+        tabla.getTableHeader().setPreferredSize(new Dimension(0, 35));
 
         tabla.getColumnModel().getColumn(4).setCellRenderer(new DefaultTableCellRenderer() {
             @Override
@@ -176,7 +176,7 @@ public class CajaView extends JFrame {
     }
 
     private JPanel crearBarraHerramientas() {
-        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 25));
+        JPanel bar = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 15)); // Márgenes compactos
         bar.setBackground(Color.WHITE);
         bar.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, COLOR_BORDE));
 
@@ -208,7 +208,6 @@ public class CajaView extends JFrame {
                     "Corte de Caja", JOptionPane.YES_NO_OPTION);
 
             if (confirm == JOptionPane.YES_OPTION && service != null) {
-                // Registramos el cierre de caja
                 service.sendRequest("POST", ID_CAJA_ACTUAL, TipoMovimiento.CIERRE, 0.0, "Corte de caja efectuado. Efectivo final: $" + efectivoEsperadoActual, null);
                 actualizarDataReal();
                 JOptionPane.showMessageDialog(this, "Corte de caja realizado con éxito. El turno ha concluido.");
@@ -221,14 +220,14 @@ public class CajaView extends JFrame {
         modal.setUndecorated(true);
         modal.setBackground(new Color(0, 0, 0, 0));
 
-        ShadowPanel container = new ShadowPanel(450, 520);
+        ShadowPanel container = new ShadowPanel(400, 460); // Tamaño optimizado para modal
         container.setLayout(new BorderLayout());
-        container.setBorder(new EmptyBorder(30, 35, 30, 35));
+        container.setBorder(new EmptyBorder(20, 25, 20, 25));
 
         JPanel header = new JPanel(new BorderLayout());
         header.setOpaque(false);
         JLabel lblTitulo = new JLabel(titulo.toUpperCase());
-        lblTitulo.setFont(new Font("Inter", Font.BOLD, 18));
+        lblTitulo.setFont(new Font("Inter", Font.BOLD, 16));
         lblTitulo.setForeground(colorTema);
 
         JButton btnCerrar = new JButton("✕");
@@ -246,12 +245,12 @@ public class CajaView extends JFrame {
         gbc.fill = GridBagConstraints.HORIZONTAL;
         gbc.gridx = 0;
         gbc.weightx = 1;
-        gbc.insets = new Insets(10, 0, 5, 0);
+        gbc.insets = new Insets(8, 0, 4, 0);
 
         form.add(new JLabel("MONTO DEL MOVIMIENTO"), gbc);
         JTextField txtMonto = new JTextField();
-        txtMonto.setPreferredSize(new Dimension(0, 40));
-        txtMonto.setFont(new Font("Inter", Font.BOLD, 16));
+        txtMonto.setPreferredSize(new Dimension(0, 36));
+        txtMonto.setFont(new Font("Inter", Font.BOLD, 15));
         form.add(txtMonto, gbc);
 
         form.add(new JLabel("CATEGORÍA"), gbc);
@@ -259,11 +258,11 @@ public class CajaView extends JFrame {
                 ? new TipoMovimiento[]{TipoMovimiento.ENTRADA, TipoMovimiento.APERTURA, TipoMovimiento.INGRESO_EXTRA}
                 : new TipoMovimiento[]{TipoMovimiento.PAGO_PROVEEDOR, TipoMovimiento.RETIRO_GASTO, TipoMovimiento.DEVOLUCION};
         JComboBox<TipoMovimiento> combo = new JComboBox<>(opciones);
-        combo.setPreferredSize(new Dimension(0, 40));
+        combo.setPreferredSize(new Dimension(0, 36));
         form.add(combo, gbc);
 
         form.add(new JLabel("COMENTARIO / OBSERVACIÓN (FOLIO)"), gbc);
-        JTextArea txtNota = new JTextArea(3, 20);
+        JTextArea txtNota = new JTextArea(2, 20);
         txtNota.setLineWrap(true);
         txtNota.setBorder(BorderFactory.createLineBorder(COLOR_BORDE));
         form.add(new JScrollPane(txtNota), gbc);
@@ -321,9 +320,9 @@ public class CajaView extends JFrame {
             Graphics2D g2 = (Graphics2D) g.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
             g2.setColor(new Color(0, 0, 0, 40));
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 30, 30);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
             g2.setColor(Color.WHITE);
-            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 30, 30);
+            g2.fillRoundRect(2, 2, getWidth() - 4, getHeight() - 4, 25, 25);
             g2.dispose();
         }
     }
@@ -331,19 +330,19 @@ public class CajaView extends JFrame {
     class TarjetaModerna extends JPanel {
 
         public TarjetaModerna(String title, String value, Color color, boolean highlight) {
-            setLayout(new BorderLayout(0, 10));
+            setLayout(new BorderLayout(0, 5));
             setBackground(Color.WHITE);
             setBorder(BorderFactory.createCompoundBorder(
                     BorderFactory.createLineBorder(COLOR_BORDE, 1, true),
-                    new EmptyBorder(20, 20, 20, 20)
+                    new EmptyBorder(12, 15, 12, 15) // Relleno compacto
             ));
 
             JLabel t = new JLabel(title);
-            t.setFont(new Font("Inter", Font.BOLD, 12));
+            t.setFont(new Font("Inter", Font.BOLD, 11));
             t.setForeground(COLOR_TEXTO_SOFT);
 
             JLabel v = new JLabel(value);
-            v.setFont(new Font("Inter", Font.BOLD, highlight ? 30 : 24));
+            v.setFont(new Font("Inter", Font.BOLD, highlight ? 24 : 20)); // Tamaños equilibrados
             v.setForeground(color);
 
             add(t, BorderLayout.NORTH);
@@ -368,7 +367,7 @@ public class CajaView extends JFrame {
             setForeground(Color.WHITE);
             setBackground(bg);
             setFont(FONT_BOLD);
-            setPreferredSize(new Dimension(150, 45));
+            setPreferredSize(new Dimension(135, 38)); // Botón compacto y elegante
             setFocusPainted(false);
             setBorderPainted(false);
             setContentAreaFilled(false);
@@ -386,7 +385,7 @@ public class CajaView extends JFrame {
             } else {
                 g2.setColor(getBackground());
             }
-            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 15, 15);
+            g2.fillRoundRect(0, 0, getWidth(), getHeight(), 12, 12);
             super.paintComponent(g2);
             g2.dispose();
         }

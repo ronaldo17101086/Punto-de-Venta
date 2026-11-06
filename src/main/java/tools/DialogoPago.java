@@ -44,9 +44,9 @@ public class DialogoPago extends JDialog {
         this.productos = productos;
         setModal(true);
         setUndecorated(true);
-        setSize(1100, 750);
+        setSize(950, 600); // Reducido para adaptarse perfectamente a pantallas más chicas
         setLocationRelativeTo(parent);
-        setShape(new RoundRectangle2D.Double(0, 0, 1100, 750, 30, 30));
+        setShape(new RoundRectangle2D.Double(0, 0, 950, 600, 25, 25));
         initUI();
     }
 
@@ -62,7 +62,6 @@ public class DialogoPago extends JDialog {
         JTextField txtCredito = camposPago.get(FormaPagoDto.CREDITO);
 
         if (txtCredito != null) {
-            // Habilitamos o deshabilitamos la edición de acuerdo a si el cliente tiene crédito
             txtCredito.setEditable(tieneCreditoValido);
             txtCredito.setText("0");
         }
@@ -84,11 +83,11 @@ public class DialogoPago extends JDialog {
 
         // --- BARRA LATERAL ---
         JPanel sideBar = new JPanel(new BorderLayout());
-        sideBar.setPreferredSize(new Dimension(100, 0));
+        sideBar.setPreferredSize(new Dimension(80, 0)); // Ancho compacto
         sideBar.setBackground(COLOR_LATERAL);
-        JButton btnAtras = new JButton("<html><center><font color='white' size='6'>←</font><br><font color='white'>ATRÁS</font></center></html>");
+        JButton btnAtras = new JButton("<html><center><font color='white' size='5'>←</font><br><font color='white' size='2'>ATRÁS</font></center></html>");
         btnAtras.setContentAreaFilled(false);
-        btnAtras.setBorder(new EmptyBorder(30, 0, 0, 0));
+        btnAtras.setBorder(new EmptyBorder(20, 0, 0, 0));
         btnAtras.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAtras.addActionListener(e -> dispose());
         sideBar.add(btnAtras, BorderLayout.NORTH);
@@ -97,44 +96,42 @@ public class DialogoPago extends JDialog {
         JPanel mainContent = new JPanel(new BorderLayout());
         mainContent.setOpaque(false);
 
-        // Header con indicadores
-        JPanel header = new JPanel(new GridLayout(1, 4, 30, 0));
+        // Header con indicadores optimizados
+        JPanel header = new JPanel(new GridLayout(1, 4, 15, 0));
         header.setBackground(Color.WHITE);
         header.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, COLOR_BORDE),
-                new EmptyBorder(40, 50, 40, 50)));
+                new EmptyBorder(15, 25, 15, 25)));
 
         crearIndicadorEstatico(header, "TOTAL A COBRAR", totalVenta, Color.BLACK);
         lblPagado = crearIndicadorVariable(header, "RECIBIDO", COLOR_PRIMARIO);
         lblFalta = crearIndicadorVariable(header, "PENDIENTE", COLOR_PELIGRO);
         lblCambio = crearIndicadorVariable(header, "CAMBIO", COLOR_ACCENTO);
 
-        // Grid de campos
-        JPanel gridPagos = new JPanel(new GridLayout(4, 2, 20, 20));
+        // Grid de campos compacto
+        JPanel gridPagos = new JPanel(new GridLayout(4, 2, 12, 10));
         gridPagos.setOpaque(false);
-        gridPagos.setBorder(new EmptyBorder(30, 50, 30, 50));
+        gridPagos.setBorder(new EmptyBorder(15, 25, 15, 25));
 
         for (FormaPagoDto forma : FormaPagoDto.values()) {
             JPanel card = crearCardPago(forma);
             gridPagos.add(card);
 
-            // Guardar referencia específica de la tarjeta de crédito
             if (forma == FormaPagoDto.CREDITO) {
                 cardCreditoRef = card;
             }
         }
 
-        // Botón Confirmar
+        // Botón Confirmar ajustado
         btnConfirmar = new JButton("CONFIRMAR Y FINALIZAR VENTA");
         btnConfirmar.setBackground(COLOR_BLOQUEADO);
         btnConfirmar.setForeground(Color.WHITE);
-        btnConfirmar.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        btnConfirmar.setPreferredSize(new Dimension(0, 90));
+        btnConfirmar.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        btnConfirmar.setPreferredSize(new Dimension(0, 65));
         btnConfirmar.setBorder(null);
         btnConfirmar.setEnabled(false);
         btnConfirmar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConfirmar.addActionListener(e -> {
-            // Validación final antes de confirmar: si usa crédito, validar contra límite disponible
             JTextField txtCred = camposPago.get(FormaPagoDto.CREDITO);
             if (txtCred != null) {
                 BigDecimal montoCredito = obtenerNumero(txtCred);
@@ -183,30 +180,29 @@ public class DialogoPago extends JDialog {
     }
 
     private JPanel crearCardPago(FormaPagoDto forma) {
-        JPanel card = new JPanel(new BorderLayout(15, 0));
+        JPanel card = new JPanel(new BorderLayout(10, 0));
         card.setBackground(Color.WHITE);
         card.setBorder(BorderFactory.createCompoundBorder(
                 new LineBorder(COLOR_BORDE, 1, true),
-                new EmptyBorder(15, 20, 15, 20)));
+                new EmptyBorder(8, 12, 8, 12)));
 
         JLabel lblIcono = new JLabel(getIcono(forma));
-        lblIcono.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 25));
+        lblIcono.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 20));
 
         JLabel lblNombre = new JLabel(forma.name().replace("_", " "));
-        lblNombre.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 14));
+        lblNombre.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 12));
         lblNombre.setForeground(Color.GRAY);
 
-        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 5));
+        JPanel pnlLeft = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 2));
         pnlLeft.setOpaque(false);
         pnlLeft.add(lblIcono);
         pnlLeft.add(lblNombre);
 
         JTextField txt = new JTextField("0");
-        txt.setFont(new Font("Segoe UI", Font.BOLD, 28));
+        txt.setFont(new Font("Segoe UI", Font.BOLD, 22)); // Fuente reducida para que luzca proporcionado
         txt.setBorder(null);
         txt.setHorizontalAlignment(JTextField.RIGHT);
 
-        // Validación de teclas: permite números y puntos en todos los campos (incluyendo crédito para pagos mixtos)
         txt.addKeyListener(new KeyAdapter() {
             @Override
             public void keyTyped(KeyEvent e) {
@@ -230,7 +226,6 @@ public class DialogoPago extends JDialog {
             }
         });
 
-        // Al hacer foco, selecciona todo el texto para evitar que se encimen los números (ej: "15.000")
         txt.addFocusListener(new FocusAdapter() {
             @Override
             public void focusGained(FocusEvent e) {
@@ -296,10 +291,10 @@ public class DialogoPago extends JDialog {
         JPanel s = new JPanel(new GridLayout(2, 1));
         s.setOpaque(false);
         JLabel l1 = new JLabel(t);
-        l1.setFont(new Font("Segoe UI", 1, 12));
+        l1.setFont(new Font("Segoe UI", 1, 11));
         l1.setForeground(Color.GRAY);
         JLabel l2 = new JLabel(formatoMoneda.format(v));
-        l2.setFont(new Font("Segoe UI", 1, 38));
+        l2.setFont(new Font("Segoe UI", 1, 26)); // Tamaño optimizado
         l2.setForeground(c);
         s.add(l1);
         s.add(l2);
@@ -310,10 +305,10 @@ public class DialogoPago extends JDialog {
         JPanel s = new JPanel(new GridLayout(2, 1));
         s.setOpaque(false);
         JLabel l1 = new JLabel(t);
-        l1.setFont(new Font("Segoe UI", 1, 12));
+        l1.setFont(new Font("Segoe UI", 1, 11));
         l1.setForeground(Color.GRAY);
         JLabel v = new JLabel("$0.00");
-        v.setFont(new Font("Segoe UI", 1, 30));
+        v.setFont(new Font("Segoe UI", 1, 22)); // Tamaño optimizado
         v.setForeground(c);
         s.add(l1);
         s.add(v);
@@ -342,13 +337,13 @@ public class DialogoPago extends JDialog {
             super(parent);
             setModal(true);
             setUndecorated(true);
-            setSize(500, 700);
+            setSize(450, 600);
             setLocationRelativeTo(parent);
-            setShape(new RoundRectangle2D.Double(0, 0, 500, 700, 40, 40));
+            setShape(new RoundRectangle2D.Double(0, 0, 450, 600, 30, 30));
 
             JPanel main = new JPanel(new BorderLayout());
             main.setBackground(new Color(242, 244, 248));
-            main.setBorder(new EmptyBorder(40, 40, 40, 40));
+            main.setBorder(new EmptyBorder(25, 25, 25, 25));
 
             JPanel checkPanel = new JPanel() {
                 @Override
@@ -356,23 +351,23 @@ public class DialogoPago extends JDialog {
                     Graphics2D g2 = (Graphics2D) g.create();
                     g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                     g2.setColor(new Color(40, 167, 69, 30));
-                    g2.fillOval((getWidth() - 100) / 2, 10, 100, 100);
+                    g2.fillOval((getWidth() - 80) / 2, 5, 80, 80);
                     g2.setColor(new Color(40, 167, 69));
-                    g2.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    int x = (getWidth() - 100) / 2;
+                    g2.setStroke(new BasicStroke(6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    int x = (getWidth() - 80) / 2;
                     Path2D p = new Path2D.Double();
-                    p.moveTo(x + 25, 60);
-                    p.lineTo(x + 45, 80);
-                    p.lineTo(x + 75, 40);
+                    p.moveTo(x + 20, 45);
+                    p.lineTo(x + 35, 60);
+                    p.lineTo(x + 60, 30);
                     g2.draw(p);
                     g2.dispose();
                 }
             };
-            checkPanel.setPreferredSize(new Dimension(120, 120));
+            checkPanel.setPreferredSize(new Dimension(90, 90));
             checkPanel.setOpaque(false);
 
             JLabel lblOk = new JLabel("¡VENTA EXITOSA!", SwingConstants.CENTER);
-            lblOk.setFont(new Font("Segoe UI", Font.BOLD, 32));
+            lblOk.setFont(new Font("Segoe UI", Font.BOLD, 26));
             lblOk.setForeground(new Color(40, 167, 69));
 
             JPanel card = new JPanel();
@@ -380,43 +375,43 @@ public class DialogoPago extends JDialog {
             card.setBackground(Color.WHITE);
             card.setBorder(BorderFactory.createCompoundBorder(
                     new LineBorder(new Color(220, 225, 230), 1, true),
-                    new EmptyBorder(40, 30, 40, 30)));
+                    new EmptyBorder(25, 20, 25, 20)));
 
             JLabel f1 = new JLabel("FOLIO DE VENTA");
             f1.setAlignmentX(0.5f);
             f1.setForeground(Color.LIGHT_GRAY);
             JLabel f2 = new JLabel("#" + folio);
             f2.setAlignmentX(0.5f);
-            f2.setFont(new Font("Segoe UI", 1, 22));
+            f2.setFont(new Font("Segoe UI", 1, 18));
 
             JLabel c1 = new JLabel("CAMBIO A ENTREGAR");
             c1.setAlignmentX(0.5f);
             c1.setForeground(Color.LIGHT_GRAY);
             JLabel c2 = new JLabel(NumberFormat.getCurrencyInstance(new Locale("es", "MX")).format(cambio));
             c2.setAlignmentX(0.5f);
-            c2.setFont(new Font("Segoe UI Black", 1, 65));
+            c2.setFont(new Font("Segoe UI Black", 1, 50));
 
             card.add(f1);
-            card.add(Box.createVerticalStrut(10));
+            card.add(Box.createVerticalStrut(5));
             card.add(f2);
-            card.add(Box.createVerticalStrut(30));
+            card.add(Box.createVerticalStrut(20));
             JSeparator sep = new JSeparator();
-            sep.setMaximumSize(new Dimension(300, 1));
+            sep.setMaximumSize(new Dimension(250, 1));
             card.add(sep);
-            card.add(Box.createVerticalStrut(30));
+            card.add(Box.createVerticalStrut(20));
             card.add(c1);
-            card.add(Box.createVerticalStrut(10));
+            card.add(Box.createVerticalStrut(5));
             card.add(c2);
 
             JButton btn = new JButton("CONTINUAR A SIGUIENTE VENTA");
             btn.setBackground(new Color(30, 35, 40));
             btn.setForeground(Color.WHITE);
-            btn.setFont(new Font("Segoe UI", Font.BOLD, 15));
+            btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
             btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
-            btn.setPreferredSize(new Dimension(0, 70));
+            btn.setPreferredSize(new Dimension(0, 55));
             btn.addActionListener(e -> dispose());
 
-            JPanel top = new JPanel(new BorderLayout(0, 15));
+            JPanel top = new JPanel(new BorderLayout(0, 10));
             top.setOpaque(false);
             top.add(checkPanel, BorderLayout.CENTER);
             top.add(lblOk, BorderLayout.SOUTH);

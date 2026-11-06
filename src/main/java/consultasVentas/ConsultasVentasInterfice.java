@@ -147,15 +147,15 @@ public class ConsultasVentasInterfice extends JPanel {
             }
         };
 
-     JButton btnActualizarVentas = new JButton(iconoRecargar);
-    btnActualizarVentas.setToolTipText("Actualizar ventas");
-    btnActualizarVentas.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; margin:6,8,6,8");
-    btnActualizarVentas.setCursor(new Cursor(Cursor.HAND_CURSOR));
-    btnActualizarVentas.addActionListener(e -> {
-        // Mantenemos los filtros actuales del usuario y solo recargamos la consulta con el texto que esté escrito
-        String textoBusqueda = (txtBuscadorVentas != null) ? txtBuscadorVentas.getText().trim() : "";
-        dispararFiltroVentas();
-    });
+        JButton btnActualizarVentas = new JButton(iconoRecargar);
+        btnActualizarVentas.setToolTipText("Actualizar ventas");
+        btnActualizarVentas.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0; background:#E2E8F0; margin:6,8,6,8");
+        btnActualizarVentas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnActualizarVentas.addActionListener(e -> {
+            // Mantenemos los filtros actuales del usuario y solo recargamos la consulta con el texto que esté escrito
+            String textoBusqueda = (txtBuscadorVentas != null) ? txtBuscadorVentas.getText().trim() : "";
+            dispararFiltroVentas();
+        });
 
         panelIzqAcciones.add(btnFiltroMultiple);
         panelIzqAcciones.add(btnActualizarVentas);
@@ -1032,7 +1032,7 @@ public class ConsultasVentasInterfice extends JPanel {
         dialogo.setVisible(true);
     }
 
-  private void cargarAbonosBD(String filtro) {
+    private void cargarAbonosBD(String filtro) {
         if (dataSource == null) {
             return;
         }

@@ -102,328 +102,362 @@ public class ventas extends JPanel {
         });
     }
 
-    private void initComponentes() {
-        // --- MOTOR DE DISEÑO Y RENDIMIENTO (2026 PRO) ---
-        Color bgMain = new Color(248, 250, 253);
-        Color white = Color.WHITE;
-        Color greenScanner = new Color(34, 197, 94);
-        Color textDark = new Color(15, 23, 42);
-        Color textMuted = new Color(100, 116, 139);
-        Color borderSoft = new Color(230, 235, 245);
-        this.setLayout(new BorderLayout(0, 0));
+        private void initComponentes() {
+            // --- MOTOR DE DISEÑO Y RENDIMIENTO (2026 PRO) ---
+            Color bgMain = new Color(248, 250, 253);
+            Color white = Color.WHITE;
+            Color greenScanner = new Color(34, 197, 94);
+            Color textDark = new Color(15, 23, 42);
+            Color textMuted = new Color(100, 116, 139);
+            Color borderSoft = new Color(230, 235, 245);
+            this.setLayout(new BorderLayout(0, 0));
 
-        int columnasFijas = 4;
-        panelCardsContenedor = new JPanel(new GridLayout(0, columnasFijas, 15, 15));
-        panelCardsContenedor.setBackground(bgMain);
-        panelCardsContenedor.setBorder(new EmptyBorder(20, 10, 20, 10));
+            int columnasFijas = 4;
+            panelCardsContenedor = new JPanel(new GridLayout(0, columnasFijas, 15, 15));
+            panelCardsContenedor.setBackground(bgMain);
+            panelCardsContenedor.setBorder(new EmptyBorder(20, 10, 20, 10));
 
-        // --- LA CORRECCIÓN REAL ---
-        JPanel wrapperCatalogo = new JPanel(new BorderLayout());
+     
+          // --- 1. CONTENEDOR DEL CATÁLOGO Y SCROLL TÁCTIL SEGURO ---
+        JPanel wrapperCatalogo = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
         wrapperCatalogo.setBackground(bgMain);
-        wrapperCatalogo.add(panelCardsContenedor, BorderLayout.NORTH);
+        wrapperCatalogo.add(panelCardsContenedor);
+
         JScrollPane scrollCatalogo = new JScrollPane(wrapperCatalogo);
         scrollCatalogo.setBorder(null);
         scrollCatalogo.getViewport().setBackground(bgMain);
         scrollCatalogo.getVerticalScrollBar().setUnitIncrement(35);
         scrollCatalogo.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
-        scrollCatalogo.addComponentListener(new java.awt.event.ComponentAdapter() {
+        scrollCatalogo.setWheelScrollingEnabled(true);
+
+        // Habilitar soporte táctil fluido nativo para barras de desplazamiento en FlatLaf / Windows
+        scrollCatalogo.getVerticalScrollBar().putClientProperty("JScrollBar.fastScroll", Boolean.TRUE);
+
+        // --- GESTOR TÁCTIL Y DE ARRASTRE FLUIDO ---
+        final Point[] pointHolder = new Point[1];
+        
+        wrapperCatalogo.addMouseListener(new MouseAdapter() {
             @Override
-            public void componentResized(java.awt.event.ComponentEvent e) {
-                panelCardsContenedor.revalidate();
+            public void mousePressed(MouseEvent e) {
+                pointHolder[0] = e.getPoint();
+            }
+            @Override
+            public void mouseReleased(MouseEvent e) {
+                pointHolder[0] = null;
             }
         });
 
-        // --- 2. CABECERA (BUSCADORES) ---
-        JPanel panelCabecera = new JPanel(new GridBagLayout());
-        panelCabecera.setBackground(white);
-        panelCabecera.setPreferredSize(new Dimension(0, 85));
-        panelCabecera.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderSoft));
-        GridBagConstraints gbc = new GridBagConstraints();
-
-        // CORRECCIÓN ICONO: Usamos el carácter de flecha circular directa
-        JButton btnActualizar = new JButton("\u27F3");
-        btnActualizar.setPreferredSize(new Dimension(55, 45));
-        btnActualizar.setFont(new Font("Segoe UI Symbol", Font.BOLD, 22)); // Fuente Symbol es más estable para iconos
-        btnActualizar.putClientProperty("JButton.buttonType", "roundRect");
-        btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnActualizar.addActionListener(e -> {
-            txtBuscador.setText("");
-            cargarProductosCompletos();
-        });
-
-        // 1. Asegúrate de que txtBuscador ya esté instanciado
-        txtBuscador = new tools.PlaceholderTextField("");
-        txtBuscador.setPreferredSize(new Dimension(380, 45));
-        txtBuscador.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-
-        // 2. Botón de Limpieza Minimalista
-        JButton btnClear = new JButton() {
+        wrapperCatalogo.addMouseMotionListener(new MouseMotionAdapter() {
             @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            public void mouseDragged(MouseEvent e) {
+                if (pointHolder[0] != null) {
+                    JViewport viewport = scrollCatalogo.getViewport();
+                    Point currentPoint = e.getPoint();
+                    int deltaY = pointHolder[0].y - currentPoint.y;
 
-                int size = Math.min(getWidth(), getHeight()) - 10;
-                int x = (getWidth() - size) / 2;
-                int y = (getHeight() - size) / 2;
+                    Rectangle viewRect = viewport.getViewRect();
+                    viewRect.y += deltaY;
 
-                // Efecto Hover: Círculo sutil
-                if (getModel().isRollover()) {
-                    g2.setColor(new Color(240, 240, 240)); // Gris muy claro premium
-                    g2.fillOval(x, y, size, size);
-                }
+                    int maxHeight = wrapperCatalogo.getHeight() - viewRect.height;
+                    viewRect.y = Math.max(0, Math.min(viewRect.y, maxHeight));
 
-                // La "X" elegante y delgada
-                g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                g2.setColor(new Color(150, 150, 150)); // Gris oscuro, no negro total para elegancia
-
-                int padding = size / 3;
-                g2.drawLine(x + padding, y + padding, x + size - padding, y + size - padding);
-                g2.drawLine(x + size - padding, y + padding, x + padding, y + size - padding);
-
-                g2.dispose();
-            }
-        };
-
-        // Configuración del botón
-        btnClear.setPreferredSize(new Dimension(35, 35));
-        btnClear.setFocusable(false);
-        btnClear.setBorderPainted(false);
-        btnClear.setContentAreaFilled(false);
-        btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        // Acción de limpieza
-        btnClear.addActionListener(e -> {
-            txtBuscador.setText("");
-            txtBuscador.requestFocusInWindow();
-        });
-
-        // 3. Integración en el TextField
-        txtBuscador.putClientProperty("JTextField.trailingComponent", btnClear);
-        txtBuscador.putClientProperty("JTextField.showClearButton", false); // Desactivamos la X de Windows
-        txtBuscador.putClientProperty("JComponent.roundRect", true);
-        txtBuscador.putClientProperty("JTextField.padding", new Insets(0, 12, 0, 8)); // Espaciado interno
-
-        // --- DEFINICIÓN DE NUEVOS COLORES (MÁS BONITOS) ---
-        Color emeraldBG = new Color(240, 253, 244);     // Fondo menta ultra suave
-        Color emeraldBorder = new Color(34, 197, 94);   // Verde vibrante (tipo WhatsApp/Spotify)
-        Color emeraldText = new Color(21, 128, 61);     // Texto verde bosque oscuro
-
-        txtBuscadorDirecto = new PlaceholderTextField("");
-        txtBuscadorDirecto.setPreferredSize(new Dimension(450, 48));
-        txtBuscadorDirecto.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 15));
-        txtBuscadorDirecto.setForeground(emeraldText);
-        txtBuscadorDirecto.setBackground(emeraldBG);
-        txtBuscadorDirecto.putClientProperty("JTextField.placeholderText", "Ingrese el SKU");
-        txtBuscadorDirecto.putClientProperty("JTextField.leadingIcon", new com.formdev.flatlaf.icons.FlatSearchWithHistoryIcon());
-        txtBuscadorDirecto.putClientProperty("JComponent.roundRect", true);
-        txtBuscadorDirecto.putClientProperty("JTextField.outlineColor", emeraldBorder);
-        txtBuscadorDirecto.putClientProperty("JTextField.focusedBackground", Color.WHITE);
-        txtBuscadorDirecto.putClientProperty("JTextField.showClearButton", true);
-        txtBuscadorDirecto.putClientProperty("JTextField.padding", new Insets(0, 10, 0, 10));
-        txtBuscadorDirecto.addActionListener(e -> buscarYAgregarDirecto());
-
-        // 1. Definimos la acción que abre el pago (reutilizando el clic del botón)
-        Action finalizarVentaAction = new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                if (btnFinalizar.isEnabled()) {
-                    btnFinalizar.doClick();
-                } else {
-                    txtBuscador.putClientProperty("JComponent.outline", "error");
-                    Timer timer = new Timer(500, ex -> txtBuscador.putClientProperty("JComponent.outline", null));
-                    timer.setRepeats(false);
-                    timer.start();
+                    viewport.setViewPosition(new Point(viewRect.x, viewRect.y));
+                    pointHolder[0] = new Point(currentPoint.x, currentPoint.y + deltaY);
                 }
             }
-        };
-
-        // 2. Registramos la tecla ESCAPE a nivel de PANEL
-        this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
-                KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "finalizarVenta"
-        );
-        this.getActionMap().put("finalizarVenta", finalizarVentaAction);
-
-        // Posicionamiento exacto original (0, 1, 2)
-        gbc.insets = new Insets(0, 20, 0, 10);
-        gbc.gridx = 0;
-        panelCabecera.add(btnActualizar, gbc);
-
-        gbc.gridx = 1;
-        gbc.weightx = 1.0;
-        gbc.fill = GridBagConstraints.HORIZONTAL;
-        panelCabecera.add(txtBuscador, gbc);
-
-        gbc.gridx = 2;
-        gbc.weightx = 0.0;
-        gbc.insets = new Insets(0, 40, 0, 20);
-        panelCabecera.add(txtBuscadorDirecto, gbc);
-
-        // --- PANEL DERECHO: BOTONES DE ESPERA + MENÚ ORIGINAL ---
-        JPanel panelAccionesDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
-        panelAccionesDerecha.setBackground(white);
-
-        // Botón pequeño: Poner en espera (⏸)
-        JButton btnPonerEsperaIcon = new JButton("⏸");
-        btnPonerEsperaIcon.setToolTipText("Poner venta en espera");
-        btnPonerEsperaIcon.setPreferredSize(new Dimension(42, 42));
-        btnPonerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
-        btnPonerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnPonerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
-        btnPonerEsperaIcon.addActionListener(e -> ponerVentaActualEnEspera());
-
-        // Botón pequeño: Ver lista de espera (⏳)
-        JButton btnVerEsperaIcon = new JButton("⏳");
-        btnVerEsperaIcon.setToolTipText("Ver ventas en espera");
-        btnVerEsperaIcon.setPreferredSize(new Dimension(42, 42));
-        btnVerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
-        btnVerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnVerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
-        btnVerEsperaIcon.addActionListener(e -> abrirDialogoVentasEnEspera());
-
-        panelAccionesDerecha.add(btnPonerEsperaIcon);
-        panelAccionesDerecha.add(btnVerEsperaIcon);
-
-        // Agregamos el panel derecho limpio en la celda 3 junto con tu menú original
-        gbc.gridx = 3;
-        gbc.weightx = 0.0;
-        gbc.fill = GridBagConstraints.NONE;
-        gbc.insets = new Insets(0, 0, 0, 10);
-
-        // Creamos un panel contenedor temporal para los botones y tu menú de opciones original
-        JPanel panelExtremoDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
-        panelExtremoDerecho.setBackground(white);
-        panelExtremoDerecho.add(panelAccionesDerecha);
-
-        // Llamada a tu método original de los tres puntos
-        configurarMenuOpciones(panelExtremoDerecho, new GridBagConstraints());
-
-        panelCabecera.add(panelExtremoDerecho, gbc);
-
-        // --- 3. PANEL CHECKOUT (INICIALIZACIÓN LÓGICA OCULTA) ---
-        JPanel panelCheckout = new JPanel(new BorderLayout());
-        panelCheckout.setPreferredSize(new Dimension(520, 0));
-        panelCheckout.setBackground(white);
-        panelCheckout.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, borderSoft));
-
-        comboClientes = new JComboBox<>();
-        comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
-        cargarClientesBD(comboClientes);
-
-        txtComentarios = new JTextField();
-
-        btnFinalizar = new JButton("$ 0.00 MXN");
-        btnFinalizar.setBackground(new Color(200, 200, 200));
-        btnFinalizar.setForeground(Color.WHITE);
-        btnFinalizar.setFont(new Font("Segoe UI Black", Font.PLAIN, 26));
-        btnFinalizar.setPreferredSize(new Dimension(0, 70));
-        btnFinalizar.setBorder(null);
-        btnFinalizar.setFocusPainted(false);
-        btnFinalizar.setEnabled(false);
-        btnFinalizar.putClientProperty("JButton.buttonType", "roundRect");
-        btnFinalizar.addActionListener(e -> {
-            finalizarVenta();
         });
-        btnFinalizar.addPropertyChangeListener("text", evt -> {
-            String texto = btnFinalizar.getText().replaceAll("[^0-9.]", "");
-            try {
-                double valor = Double.parseDouble(texto);
-                if (valor > 0) {
-                    btnFinalizar.setEnabled(true);
-                    btnFinalizar.setBackground(new Color(34, 197, 94));
-                    btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
-                } else {
+
+            // --- 2. CABECERA (BUSCADORES) ---
+            JPanel panelCabecera = new JPanel(new GridBagLayout());
+            panelCabecera.setBackground(white);
+            panelCabecera.setPreferredSize(new Dimension(0, 85));
+            panelCabecera.setBorder(BorderFactory.createMatteBorder(0, 0, 1, 0, borderSoft));
+            GridBagConstraints gbc = new GridBagConstraints();
+
+            // CORRECCIÓN ICONO: Usamos el carácter de flecha circular directa
+            JButton btnActualizar = new JButton("\u27F3");
+            btnActualizar.setPreferredSize(new Dimension(55, 45));
+            btnActualizar.setFont(new Font("Segoe UI Symbol", Font.BOLD, 22)); // Fuente Symbol es más estable para iconos
+            btnActualizar.putClientProperty("JButton.buttonType", "roundRect");
+            btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnActualizar.addActionListener(e -> {
+                txtBuscador.setText("");
+                cargarProductosCompletos();
+            });
+
+            // 1. Asegúrate de que txtBuscador ya esté instanciado
+            txtBuscador = new tools.PlaceholderTextField("");
+            txtBuscador.setPreferredSize(new Dimension(380, 45));
+            txtBuscador.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+
+            // 2. Botón de Limpieza Minimalista
+            JButton btnClear = new JButton() {
+                @Override
+                protected void paintComponent(Graphics g) {
+                    Graphics2D g2 = (Graphics2D) g.create();
+                    g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                    int size = Math.min(getWidth(), getHeight()) - 10;
+                    int x = (getWidth() - size) / 2;
+                    int y = (getHeight() - size) / 2;
+
+                    // Efecto Hover: Círculo sutil
+                    if (getModel().isRollover()) {
+                        g2.setColor(new Color(240, 240, 240)); // Gris muy claro premium
+                        g2.fillOval(x, y, size, size);
+                    }
+
+                    // La "X" elegante y delgada
+                    g2.setStroke(new BasicStroke(1.5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                    g2.setColor(new Color(150, 150, 150)); // Gris oscuro, no negro total para elegancia
+
+                    int padding = size / 3;
+                    g2.drawLine(x + padding, y + padding, x + size - padding, y + size - padding);
+                    g2.drawLine(x + size - padding, y + padding, x + padding, y + size - padding);
+
+                    g2.dispose();
+                }
+            };
+
+            // Configuración del botón
+            btnClear.setPreferredSize(new Dimension(35, 35));
+            btnClear.setFocusable(false);
+            btnClear.setBorderPainted(false);
+            btnClear.setContentAreaFilled(false);
+            btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+            // Acción de limpieza
+            btnClear.addActionListener(e -> {
+                txtBuscador.setText("");
+                txtBuscador.requestFocusInWindow();
+            });
+
+            // 3. Integración en el TextField
+            txtBuscador.putClientProperty("JTextField.trailingComponent", btnClear);
+            txtBuscador.putClientProperty("JTextField.showClearButton", false); // Desactivamos la X de Windows
+            txtBuscador.putClientProperty("JComponent.roundRect", true);
+            txtBuscador.putClientProperty("JTextField.padding", new Insets(0, 12, 0, 8)); // Espaciado interno
+
+            // --- DEFINICIÓN DE NUEVOS COLORES (MÁS BONITOS) ---
+            Color emeraldBG = new Color(240, 253, 244);     // Fondo menta ultra suave
+            Color emeraldBorder = new Color(34, 197, 94);   // Verde vibrante (tipo WhatsApp/Spotify)
+            Color emeraldText = new Color(21, 128, 61);     // Texto verde bosque oscuro
+
+            txtBuscadorDirecto = new PlaceholderTextField("");
+            txtBuscadorDirecto.setPreferredSize(new Dimension(450, 48));
+            txtBuscadorDirecto.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 15));
+            txtBuscadorDirecto.setForeground(emeraldText);
+            txtBuscadorDirecto.setBackground(emeraldBG);
+            txtBuscadorDirecto.putClientProperty("JTextField.placeholderText", "Ingrese el SKU");
+            txtBuscadorDirecto.putClientProperty("JTextField.leadingIcon", new com.formdev.flatlaf.icons.FlatSearchWithHistoryIcon());
+            txtBuscadorDirecto.putClientProperty("JComponent.roundRect", true);
+            txtBuscadorDirecto.putClientProperty("JTextField.outlineColor", emeraldBorder);
+            txtBuscadorDirecto.putClientProperty("JTextField.focusedBackground", Color.WHITE);
+            txtBuscadorDirecto.putClientProperty("JTextField.showClearButton", true);
+            txtBuscadorDirecto.putClientProperty("JTextField.padding", new Insets(0, 10, 0, 10));
+            txtBuscadorDirecto.addActionListener(e -> buscarYAgregarDirecto());
+
+            // 1. Definimos la acción que abre el pago (reutilizando el clic del botón)
+            Action finalizarVentaAction = new AbstractAction() {
+                @Override
+                public void actionPerformed(ActionEvent e) {
+                    if (btnFinalizar.isEnabled()) {
+                        btnFinalizar.doClick();
+                    } else {
+                        txtBuscador.putClientProperty("JComponent.outline", "error");
+                        Timer timer = new Timer(500, ex -> txtBuscador.putClientProperty("JComponent.outline", null));
+                        timer.setRepeats(false);
+                        timer.start();
+                    }
+                }
+            };
+
+            // 2. Registramos la tecla ESCAPE a nivel de PANEL
+            this.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW).put(
+                    KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0), "finalizarVenta"
+            );
+            this.getActionMap().put("finalizarVenta", finalizarVentaAction);
+
+            // Posicionamiento exacto original (0, 1, 2)
+            gbc.insets = new Insets(0, 20, 0, 10);
+            gbc.gridx = 0;
+            panelCabecera.add(btnActualizar, gbc);
+
+            gbc.gridx = 1;
+            gbc.weightx = 1.0;
+            gbc.fill = GridBagConstraints.HORIZONTAL;
+            panelCabecera.add(txtBuscador, gbc);
+
+            gbc.gridx = 2;
+            gbc.weightx = 0.0;
+            gbc.insets = new Insets(0, 40, 0, 20);
+            panelCabecera.add(txtBuscadorDirecto, gbc);
+
+            // --- PANEL DERECHO: BOTONES DE ESPERA + MENÚ ORIGINAL ---
+            JPanel panelAccionesDerecha = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            panelAccionesDerecha.setBackground(white);
+
+            // Botón pequeño: Poner en espera (⏸)
+            JButton btnPonerEsperaIcon = new JButton("⏸");
+            btnPonerEsperaIcon.setToolTipText("Poner venta en espera");
+            btnPonerEsperaIcon.setPreferredSize(new Dimension(42, 42));
+            btnPonerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
+            btnPonerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnPonerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
+            btnPonerEsperaIcon.addActionListener(e -> ponerVentaActualEnEspera());
+
+            // Botón pequeño: Ver lista de espera (⏳)
+            JButton btnVerEsperaIcon = new JButton("⏳");
+            btnVerEsperaIcon.setToolTipText("Ver ventas en espera");
+            btnVerEsperaIcon.setPreferredSize(new Dimension(42, 42));
+            btnVerEsperaIcon.setFont(new Font("Segoe UI Symbol", Font.PLAIN, 15));
+            btnVerEsperaIcon.setCursor(new Cursor(Cursor.HAND_CURSOR));
+            btnVerEsperaIcon.putClientProperty("JButton.buttonType", "roundRect");
+            btnVerEsperaIcon.addActionListener(e -> abrirDialogoVentasEnEspera());
+
+            panelAccionesDerecha.add(btnPonerEsperaIcon);
+            panelAccionesDerecha.add(btnVerEsperaIcon);
+
+            // Agregamos el panel derecho limpio en la celda 3 junto con tu menú original
+            gbc.gridx = 3;
+            gbc.weightx = 0.0;
+            gbc.fill = GridBagConstraints.NONE;
+            gbc.insets = new Insets(0, 0, 0, 10);
+
+            // Creamos un panel contenedor temporal para los botones y tu menú de opciones original
+            JPanel panelExtremoDerecho = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
+            panelExtremoDerecho.setBackground(white);
+            panelExtremoDerecho.add(panelAccionesDerecha);
+
+            // Llamada a tu método original de los tres puntos
+            configurarMenuOpciones(panelExtremoDerecho, new GridBagConstraints());
+
+            panelCabecera.add(panelExtremoDerecho, gbc);
+
+            // --- 3. PANEL CHECKOUT (INICIALIZACIÓN LÓGICA OCULTA) ---
+            JPanel panelCheckout = new JPanel(new BorderLayout());
+            panelCheckout.setPreferredSize(new Dimension(430, 0)); // Aquí cambias el ancho fijo
+            panelCheckout.setBackground(white);
+            panelCheckout.setBorder(BorderFactory.createMatteBorder(0, 1, 0, 0, borderSoft));
+
+            comboClientes = new JComboBox<>();
+            comboClientes.addItem(new clientInterface.ItemClienteCombo(null, "Público General"));
+            cargarClientesBD(comboClientes);
+
+            txtComentarios = new JTextField();
+
+            btnFinalizar = new JButton("$ 0.00 MXN");
+            btnFinalizar.setBackground(new Color(200, 200, 200));
+            btnFinalizar.setForeground(Color.WHITE);
+            btnFinalizar.setFont(new Font("Segoe UI Black", Font.PLAIN, 26));
+            btnFinalizar.setPreferredSize(new Dimension(0, 70));
+            btnFinalizar.setBorder(null);
+            btnFinalizar.setFocusPainted(false);
+            btnFinalizar.setEnabled(false);
+            btnFinalizar.putClientProperty("JButton.buttonType", "roundRect");
+            btnFinalizar.addActionListener(e -> {
+                finalizarVenta();
+            });
+            btnFinalizar.addPropertyChangeListener("text", evt -> {
+                String texto = btnFinalizar.getText().replaceAll("[^0-9.]", "");
+                try {
+                    double valor = Double.parseDouble(texto);
+                    if (valor > 0) {
+                        btnFinalizar.setEnabled(true);
+                        btnFinalizar.setBackground(new Color(34, 197, 94));
+                        btnFinalizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+                    } else {
+                        btnFinalizar.setEnabled(false);
+                        btnFinalizar.setBackground(new Color(200, 200, 200));
+                        btnFinalizar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
+                    }
+                } catch (Exception ex) {
                     btnFinalizar.setEnabled(false);
-                    btnFinalizar.setBackground(new Color(200, 200, 200));
-                    btnFinalizar.setCursor(new Cursor(Cursor.DEFAULT_CURSOR));
                 }
-            } catch (Exception ex) {
-                btnFinalizar.setEnabled(false);
-            }
-        });
+            });
 
-        panelCarritoContenedor = new JPanel();
-        panelCarritoContenedor.setLayout(new BoxLayout(panelCarritoContenedor, BoxLayout.Y_AXIS));
-        panelCarritoContenedor.setBackground(white);
+            panelCarritoContenedor = new JPanel();
+            panelCarritoContenedor.setLayout(new BoxLayout(panelCarritoContenedor, BoxLayout.Y_AXIS));
+            panelCarritoContenedor.setBackground(white);
 
-        // Creamos un wrapper para alinear los elementos arriba y evitar tirones de redibujo
-        JPanel wrapperCarrito = new JPanel(new BorderLayout());
-        wrapperCarrito.setBackground(white);
-        wrapperCarrito.add(panelCarritoContenedor, BorderLayout.NORTH);
+            // Creamos un wrapper para alinear los elementos arriba y evitar tirones de redibujo
+            JPanel wrapperCarrito = new JPanel(new BorderLayout());
+            wrapperCarrito.setBackground(white);
+            wrapperCarrito.add(panelCarritoContenedor, BorderLayout.NORTH);
 
-        JScrollPane scrollCarrito = new JScrollPane(wrapperCarrito);
-        scrollCarrito.setBorder(null);
-        scrollCarrito.getViewport().setBackground(white);
-        // Añadimos velocidad al scroll del carrito para que no se sienta pesado
-        scrollCarrito.getVerticalScrollBar().setUnitIncrement(25);
-        scrollCarrito.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+            JScrollPane scrollCarrito = new JScrollPane(wrapperCarrito);
+            scrollCarrito.setBorder(null);
+            scrollCarrito.getViewport().setBackground(white);
+            // Añadimos velocidad al scroll del carrito para que no se sienta pesado
+            scrollCarrito.getVerticalScrollBar().setUnitIncrement(25);
+            scrollCarrito.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
 
-        // --- 4. PIE DE PAGO ---
-        JPanel pPieVenta = new JPanel(new GridBagLayout());
-        pPieVenta.setBackground(white);
-        pPieVenta.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(235, 238, 242)),
-                BorderFactory.createEmptyBorder(20, 40, 20, 40)
-        ));
+            // --- 4. PIE DE PAGO ---
+            JPanel pPieVenta = new JPanel(new GridBagLayout());
+            pPieVenta.setBackground(white);
+            pPieVenta.setBorder(BorderFactory.createCompoundBorder(
+                    BorderFactory.createMatteBorder(2, 0, 0, 0, new Color(235, 238, 242)),
+                    BorderFactory.createEmptyBorder(20, 40, 20, 40)
+            ));
 
-        GridBagConstraints g = new GridBagConstraints();
-        g.fill = GridBagConstraints.HORIZONTAL;
-        g.weightx = 1.0;
+            GridBagConstraints g = new GridBagConstraints();
+            g.fill = GridBagConstraints.HORIZONTAL;
+            g.weightx = 1.0;
 
-        lblSubtotal = new JLabel("$ 0.00");
-        lblSubtotal.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 19));
-        lblSubtotal.setHorizontalAlignment(SwingConstants.RIGHT);
+            lblSubtotal = new JLabel("$ 0.00");
+            lblSubtotal.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 19));
+            lblSubtotal.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        lblIVA = new JLabel("$ 0.00");
-        lblIVA.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 19));
-        lblIVA.setHorizontalAlignment(SwingConstants.RIGHT);
+            lblIVA = new JLabel("$ 0.00");
+            lblIVA.setFont(new Font("Segoe UI Semibold", Font.PLAIN, 19));
+            lblIVA.setHorizontalAlignment(SwingConstants.RIGHT);
 
-        JLabel tSub = new JLabel("Subtotal Neto:");
-        tSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tSub.setForeground(textMuted);
+            JLabel tSub = new JLabel("Subtotal Neto:");
+            tSub.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            tSub.setForeground(textMuted);
 
-        JLabel tIva = new JLabel("Impuestos (16%):");
-        tIva.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        tIva.setForeground(textMuted);
+            JLabel tIva = new JLabel("Impuestos (16%):");
+            tIva.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+            tIva.setForeground(textMuted);
 
-        g.gridy = 0;
-        pPieVenta.add(tSub, g);
-        pPieVenta.add(lblSubtotal, g);
-        g.gridy = 1;
-        g.insets = new Insets(10, 0, 15, 0);
-        pPieVenta.add(tIva, g);
-        pPieVenta.add(lblIVA, g);
+            g.gridy = 0;
+            pPieVenta.add(tSub, g);
+            pPieVenta.add(lblSubtotal, g);
+            g.gridy = 1;
+            g.insets = new Insets(10, 0, 15, 0);
+            pPieVenta.add(tIva, g);
+            pPieVenta.add(lblIVA, g);
 
-        panelCheckout.add(scrollCarrito, BorderLayout.CENTER);
-        panelCheckout.add(pPieVenta, BorderLayout.SOUTH);
-        panelCheckout.add(btnFinalizar, BorderLayout.PAGE_END);
+            panelCheckout.add(scrollCarrito, BorderLayout.CENTER);
+            panelCheckout.add(pPieVenta, BorderLayout.SOUTH);
+            panelCheckout.add(btnFinalizar, BorderLayout.PAGE_END);
 
-        // --- ENSAMBLAJE FINAL ---
-        this.add(panelCabecera, BorderLayout.NORTH);
-        this.add(scrollCatalogo, BorderLayout.CENTER);
-        this.add(panelCheckout, BorderLayout.EAST);
+            // --- ENSAMBLAJE FINAL ---
+            this.add(panelCabecera, BorderLayout.NORTH);
+            this.add(scrollCatalogo, BorderLayout.CENTER);
+            this.add(panelCheckout, BorderLayout.EAST);
 
-        txtBuscador.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                update();
-            }
+            txtBuscador.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
+                public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                    update();
+                }
 
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                update();
-            }
+                public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                    update();
+                }
 
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                update();
-            }
+                public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                    update();
+                }
 
-            private void update() {
-                SwingUtilities.invokeLater(() -> filtrarCatalogo(txtBuscador.getText()));
-            }
-        });
-    }
+                private void update() {
+                    SwingUtilities.invokeLater(() -> filtrarCatalogo(txtBuscador.getText()));
+                }
+            });
+        }
 // --- MÉTODOS DE DIÁLOGO FLOTANTE ---
 
-private void abrirDialogoCliente() {
+    private void abrirDialogoCliente() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -541,9 +575,17 @@ private void abrirDialogoCliente() {
 
         // Escucha en tiempo real para el buscador
         txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
         });
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);
@@ -565,7 +607,7 @@ private void abrirDialogoCliente() {
                 if (idObj instanceof Long idClienteReal) {
                     for (ClienteDTO c : listaClientesOriginales) {
                         if (c != null && c.getId().equals(idClienteReal)) {
-                            
+
                             // ==========================================================
                             // 1. VALIDACIÓN DE DEUDA FINANCIERA
                             // ==========================================================
@@ -586,7 +628,7 @@ private void abrirDialogoCliente() {
                             try {
                                 // Consultamos directamente los detalles pendientes de este cliente desde el servicio
                                 List<ventaServicio.DetalleEnvaseDTO> listaDetalleEnvases = ventaServicio.obtenerDetalleEnvasesCliente(c.getId());
-                                
+
                                 if (listaDetalleEnvases != null && !listaDetalleEnvases.isEmpty()) {
                                     for (ventaServicio.DetalleEnvaseDTO det : listaDetalleEnvases) {
                                         BigDecimal cantidad = det.getCantidadPendiente() != null ? det.getCantidadPendiente() : BigDecimal.ZERO;
@@ -614,10 +656,10 @@ private void abrirDialogoCliente() {
                                 panelContenido.setBorder(new EmptyBorder(22, 22, 18, 22));
 
                                 JLabel lblMensaje = new JLabel(
-                                    "<html><body style='color: #0F172A; font-family: Segoe UI;'>"
-                                    + "<b style='font-size: 14px; color: #DC2626;'>⚠️ ¡Atención! Pendientes Activos del Cliente</b><br>"
-                                    + "<p style='margin-top: 4px; color: #475569; font-size: 12px;'>El cliente <b>" + c.getNombre() + "</b> registra adeudos o envases sin retornar.</p>"
-                                    + "</body></html>"
+                                        "<html><body style='color: #0F172A; font-family: Segoe UI;'>"
+                                        + "<b style='font-size: 14px; color: #DC2626;'>⚠️ ¡Atención! Pendientes Activos del Cliente</b><br>"
+                                        + "<p style='margin-top: 4px; color: #475569; font-size: 12px;'>El cliente <b>" + c.getNombre() + "</b> registra adeudos o envases sin retornar.</p>"
+                                        + "</body></html>"
                                 );
 
                                 JPanel panelTarjetasCentro = new JPanel(new GridLayout(tieneDeuda && tieneEnvases ? 2 : 1, 1, 0, 8));
@@ -628,8 +670,8 @@ private void abrirDialogoCliente() {
                                     JPanel panelDeudaCard = new JPanel(new BorderLayout(4, 4));
                                     panelDeudaCard.setBackground(new Color(254, 242, 242));
                                     panelDeudaCard.setBorder(BorderFactory.createCompoundBorder(
-                                        BorderFactory.createLineBorder(new Color(254, 202, 202), 1, true),
-                                        new EmptyBorder(10, 14, 10, 14)
+                                            BorderFactory.createLineBorder(new Color(254, 202, 202), 1, true),
+                                            new EmptyBorder(10, 14, 10, 14)
                                     ));
                                     panelDeudaCard.putClientProperty(FlatClientProperties.STYLE, "arc:10");
 
@@ -651,8 +693,8 @@ private void abrirDialogoCliente() {
                                     JPanel panelEnvasesCard = new JPanel(new BorderLayout(4, 4));
                                     panelEnvasesCard.setBackground(new Color(255, 251, 235));
                                     panelEnvasesCard.setBorder(BorderFactory.createCompoundBorder(
-                                        BorderFactory.createLineBorder(new Color(253, 230, 138), 1, true),
-                                        new EmptyBorder(10, 14, 10, 14)
+                                            BorderFactory.createLineBorder(new Color(253, 230, 138), 1, true),
+                                            new EmptyBorder(10, 14, 10, 14)
                                     ));
                                     panelEnvasesCard.putClientProperty(FlatClientProperties.STYLE, "arc:10");
 
@@ -2268,7 +2310,7 @@ private void abrirDialogoCliente() {
         ImageIcon iconoCargado = null;
 
         try {
-            // 1. Intentar buscar en disco duro (Ruta directa o carpetas relativas del equipo)
+            // 1. Intentar buscar en disco duro (Ruta directa o carpetas del sistema/proyecto)
             File archivo = null;
             if (ruta != null && !ruta.trim().isEmpty()) {
                 String rutaLimpia = ruta.trim().replace("\"", "");
@@ -2278,14 +2320,20 @@ private void abrirDialogoCliente() {
                 }
             }
 
-            // Si no está por ruta directa, buscar por SKU/nombre en carpetas relativas portables
+            // Si no está por ruta directa, buscar por SKU/nombre en carpetas relativas y del sistema
             if (archivo == null && t != null && !t.trim().isEmpty()) {
                 String nombreBuscado = new File(ruta != null && !ruta.isEmpty() ? ruta : t).getName();
                 String[] extensiones = {".png", ".jpg", ".jpeg", ".webp", ".jfif", ".PNG", ".JPG", ".JPEG"};
 
-                // Usar siempre directorios relativos al directorio de ejecución actual (funciona en cualquier PC)
+                String userHome = System.getProperty("user.home");
                 File directorioActual = new File(System.getProperty("user.dir"));
+
+                // Directorios posibles incluyendo la carpeta de imágenes del sistema y del proyecto
                 File[] carpetasPosibles = {
+                    new File(userHome, "Pictures" + File.separator + "imagenes"),
+                    new File(userHome, "Imágenes" + File.separator + "imagenes"),
+                    new File(userHome, "Pictures"),
+                    new File(userHome, "Imágenes"),
                     new File(directorioActual, "imagenes"),
                     new File(directorioActual, "src/main/resources/images"),
                     new File("imagenes")
@@ -2315,8 +2363,7 @@ private void abrirDialogoCliente() {
                 }
             }
 
-            // 2. PLAN B PORTABLE (CLASSPATH): Si en disco no existe (ej. otra PC sin la carpeta externa),
-            // buscamos dentro de los recursos compilados del JAR (/images/SKU.png)
+            // 2. PLAN B PORTABLE (CLASSPATH): Si en disco no existe, buscamos en los recursos compilados
             if (iconoCargado == null && t != null && !t.trim().isEmpty()) {
                 String nombreBuscado = new File(t).getName();
                 String[] extensiones = {".png", ".jpg", ".jpeg", ".webp"};
@@ -2331,7 +2378,7 @@ private void abrirDialogoCliente() {
                 }
             }
 
-            // 3. Escalado de alta calidad si se logró cargar la imagen por cualquier vía
+            // 3. Escalado de alta calidad si se logró cargar la imagen
             if (iconoCargado != null && iconoCargado.getIconWidth() > 0) {
                 Image imgOriginal = iconoCargado.getImage();
                 BufferedImage imgEscalada = new BufferedImage(w, h, BufferedImage.TYPE_INT_ARGB);
@@ -2351,7 +2398,7 @@ private void abrirDialogoCliente() {
             System.err.println("Error procesando imagen: " + e.getMessage());
         }
 
-        // Si de plano no existe en ningún lado, regresa tu placeholder vectorial limpio
+        // Si de plano no existe en ningún lado, regresa el placeholder vectorial
         return generarImagenPlaceholder(w, h, t);
     }
 

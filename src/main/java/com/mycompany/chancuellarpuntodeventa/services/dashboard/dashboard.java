@@ -34,6 +34,7 @@ public class dashboard extends JFrame {
     private JPanel sideMenu;
     private JPanel contentPanel;
     private CardLayout cardLayout;
+    private boolean menuExpandido = true; // Controla si el menú está abierto o contraído
 
     // Colores de Paleta originales
     private final Color COLOR_PRIMARIO = new Color(28, 35, 41);
@@ -55,7 +56,7 @@ public class dashboard extends JFrame {
         setTitle("Chancuellar - Gestión de Punto de Venta");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setExtendedState(JFrame.MAXIMIZED_BOTH);
-        setMinimumSize(new Dimension(1280, 720));
+        setMinimumSize(new Dimension(1024, 720));
         setLayout(new BorderLayout());
 
         // ===== BARRA SUPERIOR =====
@@ -63,16 +64,42 @@ public class dashboard extends JFrame {
         topBar.setPreferredSize(new Dimension(0, 45));
         topBar.setBackground(COLOR_BARRA_SUP);
 
+        // Panel izquierdo en la barra superior (Contiene el botón de menú con icono vectorial)
+        JPanel topLeftBar = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 6));
+        topLeftBar.setOpaque(false);
+        topLeftBar.setPreferredSize(new Dimension(220, 0));
+
+        JButton btnToggleMenu = new JButton(" Menú", crearIconoHamburguesa());
+        btnToggleMenu.setFocusPainted(false);
+        btnToggleMenu.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnToggleMenu.setBackground(new Color(55, 65, 81));
+        btnToggleMenu.setForeground(Color.WHITE);
+        btnToggleMenu.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        btnToggleMenu.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:0");
+
+        // ACCIÓN PARA CONTRAER / EXPANDIR EL MENÚ LATERAL COMPLETO
+        btnToggleMenu.addActionListener(e -> {
+            menuExpandido = !menuExpandido;
+            if (menuExpandido) {
+                sideMenu.setPreferredSize(new Dimension(210, 0));
+                btnToggleMenu.setText(" Ocultar");
+            } else {
+                sideMenu.setPreferredSize(new Dimension(0, 0)); // Colapsa el menú y libera todo el espacio
+                btnToggleMenu.setText(" Menú");
+            }
+            sideMenu.revalidate();
+            sideMenu.repaint();
+        });
+
+        topLeftBar.add(btnToggleMenu);
+        topBar.add(topLeftBar, BorderLayout.WEST);
+
         JLabel lblTitle = new JLabel("Punto de Venta CHANCUELLAR", SwingConstants.CENTER);
         lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 16));
         lblTitle.setForeground(Color.WHITE);
         topBar.add(lblTitle, BorderLayout.CENTER);
 
-        JPanel leftSpacer = new JPanel();
-        leftSpacer.setOpaque(false);
-        leftSpacer.setPreferredSize(new Dimension(220, 0));
-        topBar.add(leftSpacer, BorderLayout.WEST);
-
+        // Panel derecho en la barra superior (Cerrar sesión)
         JPanel rightPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 5));
         rightPanel.setOpaque(false);
         rightPanel.setPreferredSize(new Dimension(220, 0));
@@ -93,14 +120,14 @@ public class dashboard extends JFrame {
         JPanel mainContainer = new JPanel(new BorderLayout());
         add(mainContainer, BorderLayout.CENTER);
 
-        // ===== MENÚ LATERAL =====
+        // ===== MENÚ LATERAL COMPLETO =====
         sideMenu = new JPanel();
-        sideMenu.setPreferredSize(new Dimension(210, 0)); // Ampliado un poco para alojar bien el icono y texto
+        sideMenu.setPreferredSize(new Dimension(210, 0));
         sideMenu.setBackground(COLOR_PRIMARIO);
         sideMenu.setLayout(new BoxLayout(sideMenu, BoxLayout.Y_AXIS));
         sideMenu.setBorder(BorderFactory.createEmptyBorder(10, 5, 10, 5));
 
-        // Añadimos los botones con sus respectivos iconos vectoriales dibujados por código
+        // Añadimos los encabezados y botones originales
         addMenuHeader("OPERACIONES");
         addMenuButton(" Ventas", "ventas", crearIconoCarrito());
         addMenuButton(" Productos", "productos", crearIconoProductos());
@@ -120,7 +147,36 @@ public class dashboard extends JFrame {
         contentPanel.add(ventasPanel, "ventas");
         contentPanel.add(productosPanel, "productos");
         contentPanel.add(clientesPanel, "clientes");
-        contentPanel.add(consultasPanel, "consultas"); 
+        contentPanel.add(consultasPanel, "consultas");
+    }
+
+    private Icon crearIconoHamburguesa() {
+        return new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(Color.WHITE);
+                g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                // Tres líneas horizontales modernas
+                g2.drawLine(x + 2, y + 5, x + 16, y + 5);
+                g2.drawLine(x + 2, y + 9, x + 16, y + 9);
+                g2.drawLine(x + 2, y + 13, x + 16, y + 13);
+
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
+        };
     }
 
     private void addMenuHeader(String text) {
@@ -140,7 +196,7 @@ public class dashboard extends JFrame {
         btn.setAlignmentX(Component.CENTER_ALIGNMENT);
         btn.setFont(new Font("Segoe UI", Font.BOLD, 13));
         btn.setHorizontalAlignment(SwingConstants.LEFT);
-        btn.setIconTextGap(12); // Espacio limpio entre el icono y el texto
+        btn.setIconTextGap(12);
         btn.setBorder(BorderFactory.createEmptyBorder(0, 15, 0, 0));
         btn.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
@@ -174,16 +230,23 @@ public class dashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(160, 175, 195));
                 g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                
-                // Carrito de compras vectorial
+
                 g2.drawRect(x + 1, y + 4, 14, 10);
                 g2.drawLine(x + 4, y + 17, x + 6, y + 17);
                 g2.drawLine(x + 12, y + 17, x + 14, y + 17);
                 g2.drawLine(x + 3, y + 1, x + 5, y + 4);
                 g2.dispose();
             }
-            @Override public int getIconWidth() { return 18; }
-            @Override public int getIconHeight() { return 18; }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
         };
     }
 
@@ -195,15 +258,22 @@ public class dashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(160, 175, 195));
                 g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                
-                // Caja / Paquete vectorial
+
                 g2.drawRect(x + 1, y + 5, 16, 12);
                 g2.drawLine(x + 1, y + 9, x + 17, y + 9);
                 g2.drawLine(x + 9, y + 9, x + 9, y + 17);
                 g2.dispose();
             }
-            @Override public int getIconWidth() { return 18; }
-            @Override public int getIconHeight() { return 18; }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
         };
     }
 
@@ -215,14 +285,21 @@ public class dashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(160, 175, 195));
                 g2.setStroke(new BasicStroke(1.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                
-                // Lupa vectorial
+
                 g2.drawOval(x + 1, y + 1, 10, 10);
                 g2.drawLine(x + 10, y + 10, x + 16, y + 16);
                 g2.dispose();
             }
-            @Override public int getIconWidth() { return 18; }
-            @Override public int getIconHeight() { return 18; }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
         };
     }
 
@@ -234,14 +311,21 @@ public class dashboard extends JFrame {
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(160, 175, 195));
                 g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                
-                // Dos siluetas de personas vectoriales
+
                 g2.drawOval(x + 5, y + 1, 5, 5);
                 g2.drawArc(x + 1, y + 9, 13, 7, 0, 180);
                 g2.dispose();
             }
-            @Override public int getIconWidth() { return 18; }
-            @Override public int getIconHeight() { return 18; }
+
+            @Override
+            public int getIconWidth() {
+                return 18;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 18;
+            }
         };
     }
 
