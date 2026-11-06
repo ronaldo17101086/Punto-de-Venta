@@ -1265,10 +1265,12 @@ public class ConsultasVentasInterfice extends JPanel {
     }
 
     private void mostrarDetalleVenta(JFrame parent, Long ventaId, String folio, String cliente, String total) {
-        // --- 1. OBTENER EL STATUS ACTUAL Y EL MONTO DE LA VENTA DESDE LA BD ---
+        // --- 1. OBTENER EL STATUS ACTUAL, MONTO Y CLIENTE_ID DESDE LA BD ---
         String statusVenta = "ACTIVO";
         BigDecimal montoTotalVenta = BigDecimal.ZERO;
-        String sqlStatus = "SELECT status, total FROM ventas WHERE id = ?";
+        Long clienteIdRelacionado = null;
+
+        String sqlStatus = "SELECT status, total, cliente_id FROM ventas WHERE id = ?";
 
         try (Connection conn = dataSource.getConnection(); PreparedStatement pstmt = conn.prepareStatement(sqlStatus)) {
             pstmt.setLong(1, ventaId);
@@ -1276,6 +1278,7 @@ public class ConsultasVentasInterfice extends JPanel {
                 if (rs.next()) {
                     statusVenta = rs.getString("status") != null ? rs.getString("status") : "ACTIVO";
                     montoTotalVenta = rs.getBigDecimal("total") != null ? rs.getBigDecimal("total") : BigDecimal.ZERO;
+                    clienteIdRelacionado = rs.getObject("cliente_id") != null ? rs.getLong("cliente_id") : null;
                 }
             }
         } catch (SQLException e) {
@@ -1316,6 +1319,7 @@ public class ConsultasVentasInterfice extends JPanel {
         // Variables auxiliares finales/efectivamente finales para la expresión lambda
         final BigDecimal montoFinal = montoTotalVenta;
         final String folioFinal = folio;
+        final Long idClienteFinal = clienteIdRelacionado;
 
         btnCancelarVenta.addActionListener(e -> {
             // --- DIÁLOGO DE CONFIRMACIÓN MODERNO Y AJUSTADO ---
@@ -1335,7 +1339,7 @@ public class ConsultasVentasInterfice extends JPanel {
             lblIcono.setVerticalAlignment(JLabel.TOP);
 
             JLabel lblMensaje = new JLabel("<html><div style='color: #0F172A; font-size: 13px; font-weight: bold; margin-bottom: 6px;'>¿Estás seguro de cancelar la venta con folio " + folioFinal + "?</div>"
-                    + "<div style='color: #64748B; font-size: 11px; line-height: 1.4;'>Esta acción actualizará el estatus a <b>CANCELADO</b>, cancelará sus abonos relacionados y registrará automáticamente la devolución en la caja.</div></html>");
+                    + "<div style='color: #64748B; font-size: 11px; line-height: 1.4;'>Esta acción actualizará el estatus a <b>CANCELADO</b>, cancelará sus abonos relacionados, recalculará la deuda del cliente y registrará la devolución en la caja.</div></html>");
 
             panelContenido.add(lblIcono, BorderLayout.WEST);
             panelContenido.add(lblMensaje, BorderLayout.CENTER);
@@ -1372,21 +1376,36 @@ public class ConsultasVentasInterfice extends JPanel {
             // --- EJECUCIÓN SI SE CONFIRMÓ ---
             if (confirmado[0]) {
                 try {
-                    // 1. Actualizar estatus a 'CANCELADO' en la venta y en sus abonos enlazados en transacción
                     String sqlUpdateVenta = "UPDATE ventas SET status = 'CANCELADO' WHERE id = ?";
                     String sqlUpdateAbonos = "UPDATE abonos SET status = 'CANCELADO' WHERE venta_id = ?";
+
+                    // SENTENCIA CLAVE: Recalcula la deuda del cliente considerando SOLO ventas y abonos ACTIVOS
+                    String sqlRecalcularDeudaCliente = "UPDATE clientes SET deuda_actual = "
+                            + "(COALESCE((SELECT SUM(v.total) FROM ventas v WHERE v.cliente_id = ? AND v.status != 'CANCELADO'), 0) - "
+                            + " COALESCE((SELECT SUM(a.monto) FROM abonos a WHERE a.cliente_id = ? AND a.status != 'CANCELADO'), 0)) "
+                            + "WHERE id = ?";
 
                     try (Connection conn = dataSource.getConnection()) {
                         conn.setAutoCommit(false);
                         try (PreparedStatement pstmtVenta = conn.prepareStatement(sqlUpdateVenta); PreparedStatement pstmtAbonos = conn.prepareStatement(sqlUpdateAbonos)) {
 
-                            // Cancelar venta
+                            // 1. Cancelar venta
                             pstmtVenta.setLong(1, ventaId);
                             pstmtVenta.executeUpdate();
 
-                            // Cancelar abonos vinculados a esta venta en automático
+                            // 2. Cancelar abonos asociados
                             pstmtAbonos.setLong(1, ventaId);
                             pstmtAbonos.executeUpdate();
+
+                            // 3. Recalcular y corregir la deuda del cliente en la BD a $0 (o lo que reste de sus otras ventas activas)
+                            if (idClienteFinal != null) {
+                                try (PreparedStatement pstmtDeuda = conn.prepareStatement(sqlRecalcularDeudaCliente)) {
+                                    pstmtDeuda.setLong(1, idClienteFinal);
+                                    pstmtDeuda.setLong(2, idClienteFinal);
+                                    pstmtDeuda.setLong(3, idClienteFinal);
+                                    pstmtDeuda.executeUpdate();
+                                }
+                            }
 
                             conn.commit();
                         } catch (SQLException ex) {
@@ -1395,7 +1414,7 @@ public class ConsultasVentasInterfice extends JPanel {
                         }
                     }
 
-                    // 2. Registrar el impacto en la caja por devolución de la venta
+                    // 4. Registrar la devolución del dinero en la caja general
                     try {
                         MovimientoCajaDto mov = new MovimientoCajaDto();
                         mov.setTipo(TipoMovimiento.DEVOLUCION);
@@ -1408,9 +1427,9 @@ public class ConsultasVentasInterfice extends JPanel {
                         System.err.println("[ADVERTENCIA] No se pudo registrar la devolución en la caja: " + exCaja.getMessage());
                     }
 
-                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta y abonos asociados cancelados, devolución registrada exitosamente.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
+                    JOptionPane.showMessageDialog(dialogoDetalle, "Venta y abonos cancelados. La deuda del cliente ha sido actualizada a $0.00.", "Éxito", JOptionPane.INFORMATION_MESSAGE);
                     dialogoDetalle.dispose();
-                    dispararFiltroVentas(); // Refresca la tabla principal de consultas de ventas
+                    dispararFiltroVentas(); // Refresca la vista principal de ventas
 
                 } catch (Exception ex) {
                     JOptionPane.showMessageDialog(dialogoDetalle, "Error al cancelar la venta: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
@@ -1431,7 +1450,7 @@ public class ConsultasVentasInterfice extends JPanel {
         panelInfoCliente.setBackground(Color.WHITE);
         panelInfoCliente.setBorder(new EmptyBorder(15, 20, 15, 20));
 
-        // Definir color del status dinámicamente (Verde si ACTIVO, Rojo si CANCELADO)
+        // Definir color del status dinámicamente
         String colorStatus = yaCancelada ? "#DC2626" : "#16A34A";
 
         JLabel lblDatosCliente = new JLabel("<html><b>Cliente:</b> " + cliente
@@ -1520,5 +1539,4 @@ public class ConsultasVentasInterfice extends JPanel {
 
         dialogoDetalle.setVisible(true);
     }
-
 }

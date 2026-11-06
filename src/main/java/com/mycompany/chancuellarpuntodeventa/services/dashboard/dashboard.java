@@ -352,14 +352,15 @@ public class dashboard extends JFrame {
         btnCancelar.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#F0F2F5; borderWidth:0; font:bold 12 ciudadanos");
         btnCancelar.addActionListener(e -> dialog.dispose());
 
-        JButton btnConfirmar = new JButton("Sí, Cerrar");
+       JButton btnConfirmar = new JButton("Sí, Cerrar");
         btnConfirmar.setPreferredSize(new Dimension(120, 38));
         btnConfirmar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnConfirmar.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#E53E3E; foreground:#FFFFFF; borderWidth:0; font:bold 12 sans");
         btnConfirmar.addActionListener(e -> {
             dialog.dispose();
             this.dispose();
-            context.getBean(LoginInterface.class).setVisible(true);
+            // Llama al método que reinicia y vuelve a mostrar el Login correctamente
+            context.getBean(LoginInterface.class).reiniciarLogin();
         });
 
         panelBotones.add(btnCancelar);

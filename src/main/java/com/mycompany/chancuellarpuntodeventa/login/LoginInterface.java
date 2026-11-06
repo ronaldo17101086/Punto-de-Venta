@@ -7,14 +7,14 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.stereotype.Component;
 import javax.swing.*;
 import java.awt.*;
+import java.awt.geom.Arc2D;
 
 @Component
 public class LoginInterface extends JFrame {
 
     @Autowired
     private ApplicationContext context;
-    private JTextField usernameField;
-    private JPasswordField passwordField;
+    private JButton iniciarButton; // Lo hacemos global de la clase para poder rehabilitarlo
 
     public LoginInterface() {
         setTitle("Punto de Venta Chancuellar");
@@ -26,6 +26,14 @@ public class LoginInterface extends JFrame {
 
         initLeftPanel();
         initRightPanel();
+    }
+
+    // Método para resetear el botón cuando se cierra sesión y se regresa aquí
+    public void reiniciarLogin() {
+        if (iniciarButton != null) {
+            iniciarButton.setEnabled(true);
+        }
+        setVisible(true);
     }
 
     private void initLeftPanel() {
@@ -53,12 +61,10 @@ public class LoginInterface extends JFrame {
         gbc.gridx = 0;
         gbc.anchor = GridBagConstraints.CENTER;
 
-        // Contenedor principal del formulario con un ancho controlado (para que no se estire feo)
         JPanel formContainer = new JPanel(new GridBagLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
-                // Opcional: Si quieres un fondo de tarjeta muy sutil con bordes redondeados
                 Graphics2D g2 = (Graphics2D) g.create();
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
                 g2.setColor(new Color(252, 253, 255));
@@ -80,67 +86,176 @@ public class LoginInterface extends JFrame {
         JLabel mainTitle = new JLabel("<html><div style='text-align: center;'>Punto de Venta<br><span style='color: #005AB4; font-size: 24px;'>Chancuellar</span></div></html>", SwingConstants.CENTER);
         mainTitle.setFont(new Font("Serif", Font.BOLD, 32));
         fcGbc.gridy = 0;
-        fcGbc.insets = new Insets(0, 0, 30, 0);
+        fcGbc.insets = new Insets(0, 0, 40, 0);
         formContainer.add(mainTitle, fcGbc);
 
-        // Usuario
-        JLabel userLabel = new JLabel("Usuario");
-        userLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        userLabel.setForeground(new Color(110, 120, 130));
+        // Botón Iniciar
+        iniciarButton = new JButton("INICIAR");
+        iniciarButton.setBackground(new Color(0, 90, 180));
+        iniciarButton.setForeground(Color.WHITE);
+        iniciarButton.setFont(new Font("SansSerif", Font.BOLD, 16));
+        iniciarButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        iniciarButton.putClientProperty(FlatClientProperties.STYLE, "arc:14; borderWidth:0; focusWidth:0");
+        iniciarButton.setPreferredSize(new Dimension(320, 50));
+
+        iniciarButton.addActionListener(e -> {
+            iniciarButton.setEnabled(false);
+            iniciarCargaYMedirTiempoTotal();
+        });
+
         fcGbc.gridy = 1;
-        fcGbc.insets = new Insets(0, 0, 5, 0);
-        formContainer.add(userLabel, fcGbc);
+        fcGbc.insets = new Insets(0, 0, 0, 0);
+        formContainer.add(iniciarButton, fcGbc);
 
-        usernameField = new JTextField();
-        usernameField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Ingrese su usuario");
-        usernameField.putClientProperty(FlatClientProperties.STYLE, "arc:12; margin:5,10,5,10");
-        usernameField.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        usernameField.setPreferredSize(new Dimension(320, 42));
-        fcGbc.gridy = 2;
-        fcGbc.insets = new Insets(0, 0, 18, 0);
-        formContainer.add(usernameField, fcGbc);
+        rightPanel.add(formContainer, gbc);
+        add(rightPanel);
+    }
 
-        // Contraseña
-        JLabel passLabel = new JLabel("Contraseña");
-        passLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
-        passLabel.setForeground(new Color(110, 120, 130));
-        fcGbc.gridy = 3;
-        fcGbc.insets = new Insets(0, 0, 5, 0);
-        formContainer.add(passLabel, fcGbc);
+    private void iniciarCargaYMedirTiempoTotal() {
+        JDialog dialogoCarga = new JDialog(this, "", true);
+        dialogoCarga.setUndecorated(true);
+        dialogoCarga.setBackground(new Color(0, 0, 0, 0));
+        dialogoCarga.setSize(420, 310);
+        dialogoCarga.setLocationRelativeTo(this);
+        dialogoCarga.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        dialogoCarga.setLayout(new BorderLayout());
 
-        passwordField = new JPasswordField();
-        passwordField.putClientProperty(FlatClientProperties.STYLE, "showRevealButton:true; arc:12; margin:5,10,5,10");
-        passwordField.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Ingrese su contraseña");
-        passwordField.setFont(new Font("SansSerif", Font.PLAIN, 15));
-        passwordField.setPreferredSize(new Dimension(320, 42));
-        fcGbc.gridy = 4;
-        fcGbc.insets = new Insets(0, 0, 25, 0);
-        formContainer.add(passwordField, fcGbc);
+        TransparentLoaderPanel loaderPanel = new TransparentLoaderPanel();
+        dialogoCarga.add(loaderPanel, BorderLayout.CENTER);
 
-        // Botón Ingresar con estilo moderno
-        JButton loginButton = new JButton("INGRESAR");
-        loginButton.setBackground(new Color(0, 90, 180));
-        loginButton.setForeground(Color.WHITE);
-        loginButton.setFont(new Font("SansSerif", Font.BOLD, 15));
-        loginButton.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        loginButton.putClientProperty(FlatClientProperties.STYLE, "arc:14; borderWidth:0; focusWidth:0");
-        loginButton.setPreferredSize(new Dimension(320, 46));
+        final dashboard[] dashHolder = new dashboard[1];
+        final boolean[] procesoTerminado = {false};
+        final long tiempoInicio = System.currentTimeMillis();
 
-        loginButton.addActionListener(e -> {
-            if (usernameField.getText().equals("admin") && new String(passwordField.getPassword()).equals("admin")) {
-                this.dispose();
-                context.getBean(dashboard.class).setVisible(true);
+        // Hilo en segundo plano para inicializar el dashboard y sus componentes pesados
+        Thread hiloCargaTotal = new Thread(() -> {
+            try {
+                dashHolder[0] = context.getBean(dashboard.class);
+                procesoTerminado[0] = true;
+            } catch (Exception ex) {
+                SwingUtilities.invokeLater(() -> {
+                    dialogoCarga.dispose();
+                    iniciarButton.setEnabled(true);
+                    JOptionPane.showMessageDialog(this, "Error crítico al cargar el sistema: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+                });
+            }
+        });
+        hiloCargaTotal.start();
+
+        // Timer de UI sincronizado milisegundo a milisegundo
+        Timer timerUI = new Timer(30, null);
+        timerUI.addActionListener(e -> {
+            long tiempoTranscurrido = System.currentTimeMillis() - tiempoInicio;
+            double segundosActuales = tiempoTranscurrido / 1000.0;
+
+            if (procesoTerminado[0]) {
+                timerUI.stop();
+                loaderPanel.setPorcentaje(100);
+                loaderPanel.setMensajeEstado(String.format("¡Listo en %.1f segundos!", segundosActuales));
+
+                // Pausa visual para mostrar el tiempo final antes de mostrar el dashboard
+                Timer pauseTimer = new Timer(700, evt -> {
+                    dialogoCarga.dispose();
+                    this.setVisible(false); // Ocultamos el login en lugar de destruirlo bruscamente
+                    if (dashHolder[0] != null) {
+                        dashHolder[0].setVisible(true);
+                    }
+                });
+                pauseTimer.setRepeats(false);
+                pauseTimer.start();
             } else {
-                JOptionPane.showMessageDialog(this, "Acceso denegado", "Error", JOptionPane.ERROR_MESSAGE);
+                int estimado = (int) Math.min(95, (tiempoTranscurrido / 100.0));
+                if (estimado <= loaderPanel.getPorcentaje()) {
+                    estimado = loaderPanel.getPorcentaje() + 1;
+                    if (estimado > 95) estimado = 95;
+                }
+                loaderPanel.setPorcentaje(estimado);
+                loaderPanel.setMensajeEstado(String.format("Cargando base de datos... (%.1fs)", segundosActuales));
             }
         });
 
-        fcGbc.gridy = 5;
-        fcGbc.insets = new Insets(0, 0, 0, 0);
-        formContainer.add(loginButton, fcGbc);
+        timerUI.start();
+        dialogoCarga.setVisible(true);
+    }
 
-        // Añadimos la tarjeta al panel derecho centrada perfectamente
-        rightPanel.add(formContainer, gbc);
-        add(rightPanel);
+    // Panel visual con diseño Glassmorphism y anillo circular neón transparente
+    private static class TransparentLoaderPanel extends JPanel {
+        private int porcentaje = 0;
+        private int anguloRotacion = 0;
+        private String mensajeEstado = "Iniciando Sistema...";
+        private Timer timerSpin;
+
+        public TransparentLoaderPanel() {
+            setOpaque(false);
+            timerSpin = new Timer(15, e -> {
+                anguloRotacion = (anguloRotacion + 6) % 360;
+                repaint();
+            });
+            timerSpin.start();
+        }
+
+        public void setPorcentaje(int p) {
+            this.porcentaje = Math.min(100, p);
+            repaint();
+            if (this.porcentaje >= 100 && timerSpin.isRunning()) {
+                timerSpin.stop();
+            }
+        }
+
+        public int getPorcentaje() {
+            return this.porcentaje;
+        }
+
+        public void setMensajeEstado(String msg) {
+            this.mensajeEstado = msg;
+            repaint();
+        }
+
+        @Override
+        protected void paintComponent(Graphics g) {
+            super.paintComponent(g);
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int w = getWidth();
+            int h = getHeight();
+
+            // Fondo flotante translúcido (Glassmorphism oscuro elegante)
+            g2.setColor(new Color(15, 23, 42, 220));
+            g2.fillRoundRect(20, 20, w - 40, h - 40, 24, 24);
+
+            g2.setColor(new Color(255, 255, 255, 45));
+            g2.setStroke(new BasicStroke(1.5f));
+            g2.drawRoundRect(20, 20, w - 40, h - 40, 24, 24);
+
+            // Spinner Circular Central
+            int size = 110;
+            int x = (w - size) / 2;
+            int y = (h - size) / 2 - 15;
+
+            g2.setStroke(new BasicStroke(6, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+            g2.setColor(new Color(255, 255, 255, 30));
+            g2.drawOval(x, y, size, size);
+
+            g2.setColor(new Color(56, 189, 248));
+            int arcAngle = - (int) ((porcentaje / 100.0) * 360);
+            g2.draw(new Arc2D.Double(x, y, size, size, anguloRotacion, arcAngle, Arc2D.OPEN));
+
+            g2.setFont(new Font("SansSerif", Font.BOLD, 22));
+            g2.setColor(Color.WHITE);
+            String textoPorcentaje = porcentaje + "%";
+            FontMetrics fm = g2.getFontMetrics();
+            int tx = (w - fm.stringWidth(textoPorcentaje)) / 2;
+            int ty = y + (size / 2) + 8;
+            g2.drawString(textoPorcentaje, tx, ty);
+
+            g2.setFont(new Font("SansSerif", Font.PLAIN, 13));
+            g2.setColor(new Color(148, 163, 184));
+            FontMetrics fm2 = g2.getFontMetrics();
+            int tsx = (w - fm2.stringWidth(mensajeEstado)) / 2;
+            g2.drawString(mensajeEstado, tsx, y + size + 28);
+
+            g2.dispose();
+        }
     }
 }

@@ -53,19 +53,19 @@ public class ItemProductoCarrito extends JPanel {
 
         setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
-                BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                BorderFactory.createEmptyBorder(8, 8, 8, 8)
         ));
 
-        // FORZAMOS TAMAÑO UNIFORME: Evita que el scroll horizontal aparezca
-        setMinimumSize(new Dimension(450, 90));
-        setPreferredSize(new Dimension(460, 90));
-        setMaximumSize(new Dimension(500, 90));
+        // CORRECCIÓN DE ANCHO: Ajustado a 415px para que encaje perfectamente dentro del panel del carrito (430px) sin recortarse
+        setMinimumSize(new Dimension(380, 90));
+        setPreferredSize(new Dimension(415, 90));
+        setMaximumSize(new Dimension(430, 90));
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.fill = GridBagConstraints.BOTH;
 
         // 1. COLUMNA BOTONES GESTIÓN (IZQUIERDA)
-        JPanel pGestion = new JPanel(new FlowLayout(FlowLayout.LEFT, 5, 0));
+        JPanel pGestion = new JPanel(new FlowLayout(FlowLayout.LEFT, 2, 0));
         pGestion.setOpaque(false);
 
         JButton btnEliminar = new JButton(crearIconoBasura());
@@ -82,35 +82,34 @@ public class ItemProductoCarrito extends JPanel {
         add(pGestion, gbc);
 
         // 2. COLUMNA IMAGEN
-        JLabel lblImg = new JLabel(cargarImagen(p.getImagePath(), 50, 50, p.getName()));
+        JLabel lblImg = new JLabel(cargarImagen(p.getImagePath(), 45, 45, p.getName()));
         gbc.gridx = 1;
-        gbc.insets = new Insets(0, 5, 0, 10);
+        gbc.insets = new Insets(0, 4, 0, 6);
         add(lblImg, gbc);
 
-        // 3. COLUMNA INFO (NOMBRE MULTILÍNEA PREMIUM)
-        // Usamos GridLayout para apilar Nombre y Precio Unitario
+        // 3. COLUMNA INFO (NOMBRE MULTILÍNEA AJUSTADO)
         JPanel pInfo = new JPanel(new GridLayout(2, 1, 0, 2));
         pInfo.setOpaque(false);
 
-        // TRUCO PREMIUM: HTML con ancho fijo para obligar al salto de línea
-        String nombreFormateado = "<html><body style='width: 140px;'>" + p.getName() + "</body></html>";
+        // Ancho optimizado a 110px para balancear el espacio con los controles y el precio
+        String nombreFormateado = "<html><body style='width: 110px;'>" + p.getName() + "</body></html>";
         JLabel lblNombre = new JLabel(nombreFormateado);
-        lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 12));
 
         JLabel lblPrecioU = new JLabel("Unit: $" + p.getPrice());
-        lblPrecioU.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        lblPrecioU.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         lblPrecioU.setForeground(new Color(100, 116, 139));
 
         pInfo.add(lblNombre);
         pInfo.add(lblPrecioU);
 
         gbc.gridx = 2;
-        gbc.weightx = 1.0; // Este absorbe el espacio pero el HTML lo contiene
-        gbc.insets = new Insets(0, 0, 0, 5);
+        gbc.weightx = 1.0;
+        gbc.insets = new Insets(0, 0, 0, 4);
         add(pInfo, gbc);
 
         // 4. COLUMNA CONTROLES (BOTONES + Y -)
-        JPanel pControles = new JPanel(new FlowLayout(FlowLayout.RIGHT, 3, 0));
+        JPanel pControles = new JPanel(new FlowLayout(FlowLayout.RIGHT, 2, 0));
         pControles.setOpaque(false);
 
         JButton btnMenos = new JButton("-");
@@ -119,9 +118,8 @@ public class ItemProductoCarrito extends JPanel {
         estilizarBotonMasMenos(btnMas);
 
         txtCant = new JTextField("1");
-        txtCant.setPreferredSize(new Dimension(55, 28));
+        txtCant.setPreferredSize(new Dimension(45, 26));
         txtCant.setHorizontalAlignment(JTextField.CENTER);
-        // Estilo extra para el buscador
         txtCant.putClientProperty("JComponent.roundRect", true);
 
         pControles.add(btnMenos);
@@ -135,16 +133,16 @@ public class ItemProductoCarrito extends JPanel {
 
         // 5. COLUMNA IMPORTE (DERECHA EXTREMA)
         lblImporte = new JLabel("$0.00");
-        lblImporte.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        lblImporte.setFont(new Font("Segoe UI", Font.BOLD, 14));
         lblImporte.setForeground(new Color(79, 70, 229));
-        lblImporte.setPreferredSize(new Dimension(85, 25));
+        lblImporte.setPreferredSize(new Dimension(75, 25));
         lblImporte.setHorizontalAlignment(SwingConstants.RIGHT);
 
         gbc.gridx = 4;
-        gbc.insets = new Insets(0, 5, 0, 5);
+        gbc.insets = new Insets(0, 4, 0, 2);
         add(lblImporte, gbc);
 
-        // --- LÓGICA DE FUNCIONAMIENTO (MANTENIDA EXACTAMENTE IGUAL) ---
+        // --- LÓGICA DE FUNCIONAMIENTO ---
         btnEliminar.addActionListener(e -> {
             panelCarritoContenedor.remove(this);
             panelCarritoContenedor.revalidate();
@@ -168,17 +166,9 @@ public class ItemProductoCarrito extends JPanel {
         });
 
         txtCant.getDocument().addDocumentListener(new DocumentListener() {
-            public void insertUpdate(DocumentEvent e) {
-                act();
-            }
-
-            public void removeUpdate(DocumentEvent e) {
-                act();
-            }
-
-            public void changedUpdate(DocumentEvent e) {
-                act();
-            }
+            public void insertUpdate(DocumentEvent e) { act(); }
+            public void removeUpdate(DocumentEvent e) { act(); }
+            public void changedUpdate(DocumentEvent e) { act(); }
 
             public void act() {
                 SwingUtilities.invokeLater(() -> {
@@ -198,8 +188,8 @@ public class ItemProductoCarrito extends JPanel {
             public void focusGained(FocusEvent e) {
                 setBackground(new Color(245, 247, 251));
                 setBorder(BorderFactory.createCompoundBorder(
-                        BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(79, 70, 229)), // Borde azul al seleccionar
-                        BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                        BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(79, 70, 229)),
+                        BorderFactory.createEmptyBorder(8, 8, 8, 8)
                 ));
             }
 
@@ -207,13 +197,12 @@ public class ItemProductoCarrito extends JPanel {
                 setBackground(Color.WHITE);
                 setBorder(BorderFactory.createCompoundBorder(
                         BorderFactory.createMatteBorder(0, 0, 1, 0, new Color(240, 240, 240)),
-                        BorderFactory.createEmptyBorder(8, 10, 8, 10)
+                        BorderFactory.createEmptyBorder(8, 8, 8, 8)
                 ));
             }
         });
     }
 
-    // Métodos auxiliares mantenidos
     public void estilizarBotonIcono(JButton b) {
         b.setFocusable(false);
         b.setBorderPainted(false);
@@ -222,16 +211,12 @@ public class ItemProductoCarrito extends JPanel {
     }
 
     public void estilizarBotonMasMenos(JButton b) {
-        b.setPreferredSize(new Dimension(30, 30)); // Un poquito más grandes
+        b.setPreferredSize(new Dimension(26, 26));
         b.setFocusable(false);
-        b.setFont(new Font("Segoe UI", Font.BOLD, 16)); // Símbolos más marcados
+        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
         b.setCursor(new Cursor(Cursor.HAND_CURSOR));
-
-        // Colores suaves para que se noten sobre el blanco
         b.setBackground(new Color(242, 244, 247));
-        b.setForeground(new Color(51, 65, 85)); // Gris oscuro profesional
-
-        // Borde redondeado suave (característica de FlatLaf)
+        b.setForeground(new Color(51, 65, 85));
         b.putClientProperty("JButton.buttonType", "roundRect");
         b.setBorder(BorderFactory.createLineBorder(new Color(226, 232, 240)));
     }
@@ -272,23 +257,23 @@ public class ItemProductoCarrito extends JPanel {
     }
 
     public Icon crearIconoEditar() {
-        BufferedImage bi = new BufferedImage(18, 18, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage bi = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bi.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setColor(new Color(0, 123, 255));
-        g.rotate(Math.toRadians(45), 9, 9);
-        g.fillRect(7, 3, 4, 11);
+        g.rotate(Math.toRadians(45), 8, 8);
+        g.fillRect(6, 2, 4, 12);
         g.dispose();
         return new ImageIcon(bi);
     }
 
     public Icon crearIconoBasura() {
-        BufferedImage bi = new BufferedImage(18, 18, BufferedImage.TYPE_INT_ARGB);
+        BufferedImage bi = new BufferedImage(16, 16, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = bi.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setColor(new Color(239, 68, 68));
-        g.fillRect(5, 6, 8, 9);
-        g.fillRect(3, 4, 12, 2);
+        g.fillRect(4, 5, 8, 8);
+        g.fillRect(2, 3, 12, 2);
         g.dispose();
         return new ImageIcon(bi);
     }

@@ -18,6 +18,7 @@ import javax.swing.JFileChooser;
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionListener;
+import java.awt.geom.Arc2D;
 import java.awt.image.BufferedImage;
 
 // 4. Utilidades de Java e IO
@@ -92,134 +93,129 @@ public class productInterface extends JPanel {
         }
     }
 
-    private void importarDesdeExcel() {
-        JFileChooser fileChooser = new JFileChooser();
-        fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
-        fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
+  private void importarDesdeExcel() {
+    JFileChooser fileChooser = new JFileChooser();
+    fileChooser.setDialogTitle("Seleccionar catálogo de productos (Excel)");
+    fileChooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Archivos Excel (*.xlsx, *.xls)", "xlsx", "xls"));
 
-        final JPanel panelActual = this;
-        int seleccion = fileChooser.showOpenDialog(panelActual);
+    final JPanel panelActual = this;
+    int seleccion = fileChooser.showOpenDialog(panelActual);
 
-        if (seleccion == JFileChooser.APPROVE_OPTION) {
-            File archivo = fileChooser.getSelectedFile();
+    if (seleccion == JFileChooser.APPROVE_OPTION) {
+        File archivo = fileChooser.getSelectedFile();
 
-            Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
-            JDialog dialogoProgreso = new JDialog(parentFrame, "Sincronizando Catálogo e Imágenes", true);
-            dialogoProgreso.setSize(380, 130);
-            dialogoProgreso.setLocationRelativeTo(panelActual);
-            dialogoProgreso.setLayout(new BorderLayout());
-            dialogoProgreso.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        Frame parentFrame = (Frame) SwingUtilities.getWindowAncestor(panelActual);
+        
+        // Diálogo flotante sin bordes con transparencia nativa
+        JDialog dialogoProgreso = new JDialog(parentFrame, "", true);
+        dialogoProgreso.setUndecorated(true);
+        dialogoProgreso.setBackground(new Color(0, 0, 0, 0)); // Fondo 100% transparente
+        dialogoProgreso.setSize(420, 310);
+        dialogoProgreso.setLocationRelativeTo(panelActual);
+        dialogoProgreso.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
+        dialogoProgreso.setLayout(new BorderLayout());
 
-            JPanel panelContenido = new JPanel(new BorderLayout(10, 10));
-            panelContenido.setBorder(BorderFactory.createEmptyBorder(15, 15, 15, 15));
+        // Componente visual personalizado del loader circular neón
+        TransparentLoaderPanel loaderPanel = new TransparentLoaderPanel();
+        dialogoProgreso.add(loaderPanel, BorderLayout.CENTER);
 
-            JLabel lblEstado = new JLabel("Importando productos y vinculando imágenes...", JLabel.CENTER);
-            lblEstado.setFont(new Font("Segoe UI", Font.PLAIN, 12));
+        File carpetaImagenes = new File(System.getProperty("user.home"), "Pictures/imagenes");
 
-            JProgressBar barraProgreso = new JProgressBar(0, 100);
-            barraProgreso.setStringPainted(true);
-            barraProgreso.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
+            @Override
+            protected int[] doInBackground() throws Exception {
+                int nuevos = 0;
+                int actualizados = 0;
 
-            panelContenido.add(lblEstado, BorderLayout.NORTH);
-            panelContenido.add(barraProgreso, BorderLayout.CENTER);
-            dialogoProgreso.add(panelContenido);
+                try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
 
-            File carpetaImagenes = new File(System.getProperty("user.home"), "Pictures/imagenes");
+                    Sheet sheet = workbook.getSheetAt(0);
+                    int totalFilas = sheet.getLastRowNum();
 
-            SwingWorker<int[], Integer> worker = new SwingWorker<int[], Integer>() {
-                @Override
-                protected int[] doInBackground() throws Exception {
-                    int nuevos = 0;
-                    int actualizados = 0;
-
-                    try (FileInputStream fis = new FileInputStream(archivo); Workbook workbook = new XSSFWorkbook(fis)) {
-
-                        Sheet sheet = workbook.getSheetAt(0);
-                        int totalFilas = sheet.getLastRowNum();
-
-                        if (totalFilas <= 0) {
-                            return new int[]{0, 0};
-                        }
-
-                        DataFormatter formatter = new DataFormatter();
-
-                        for (int i = 1; i <= totalFilas; i++) {
-                            Row fila = sheet.getRow(i);
-                            if (fila != null) {
-                                Cell celdaSku = fila.getCell(0);
-                                String skuExcel = "";
-
-                                if (celdaSku != null) {
-                                    // Formatea la celda exactamente como texto legible
-                                    skuExcel = formatter.formatCellValue(celdaSku).trim();
-
-                                    // Limpieza preventiva por si Excel añade decimales o rastros anteriores
-                                    if (skuExcel.endsWith(".0")) {
-                                        skuExcel = skuExcel.substring(0, skuExcel.length() - 2);
-                                    }
-                                    skuExcel = skuExcel.replace("+1", "").trim();
-                                }
-
-                                String nombreExcel = formatter.formatCellValue(fila.getCell(1)).trim();
-                                String precioExcel = formatter.formatCellValue(fila.getCell(2)).trim();
-                                String granelExcel = formatter.formatCellValue(fila.getCell(3)).trim();
-
-                                if (skuExcel != null && !skuExcel.isEmpty()) {
-                                    ProductoDTO p = productoRepository.findBySku(skuExcel);
-
-                                    if (p != null) {
-                                        actualizados++;
-                                    } else {
-                                        p = new ProductoDTO();
-                                        p.setSku(skuExcel);
-                                        nuevos++;
-                                    }
-
-                                    // Forzamos el SKU limpio y exacto proveniente del Excel
-                                    p.setSku(skuExcel);
-                                    p.setName(nombreExcel);
-
-                                    try {
-                                        String limpio = precioExcel.replace(",", "").trim();
-                                        p.setPrice(limpio.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(limpio));
-                                    } catch (Exception e) {
-                                        p.setPrice(java.math.BigDecimal.ZERO);
-                                    }
-
-                                    boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
-                                    p.setGranel(esGranel);
-
-                                    // Vinculación de imagen exacta con el SKU limpio (ej: 289.png)
-                                    String rutaRelativa = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
-
-                                    if (rutaRelativa != null) {
-                                        p.setImagePath(rutaRelativa);
-                                        System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaRelativa);
-                                    } else {
-                                        p.setImagePath(null);
-                                    }
-
-                                    productoRepository.save(p);
-                                }
-                            }
-
-                            int porcentaje = (int) ((double) i / totalFilas * 100);
-                            publish(porcentaje);
-                        }
+                    if (totalFilas <= 0) {
+                        return new int[]{0, 0};
                     }
 
-                    return new int[]{nuevos, actualizados};
+                    DataFormatter formatter = new DataFormatter();
+
+                    for (int i = 1; i <= totalFilas; i++) {
+                        Row fila = sheet.getRow(i);
+                        if (fila != null) {
+                            Cell celdaSku = fila.getCell(0);
+                            String skuExcel = "";
+
+                            if (celdaSku != null) {
+                                skuExcel = formatter.formatCellValue(celdaSku).trim();
+
+                                if (skuExcel.endsWith(".0")) {
+                                    skuExcel = skuExcel.substring(0, skuExcel.length() - 2);
+                                }
+                                skuExcel = skuExcel.replace("+1", "").trim();
+                            }
+
+                            String nombreExcel = formatter.formatCellValue(fila.getCell(1)).trim();
+                            String precioExcel = formatter.formatCellValue(fila.getCell(2)).trim();
+                            String granelExcel = formatter.formatCellValue(fila.getCell(3)).trim();
+
+                            if (skuExcel != null && !skuExcel.isEmpty()) {
+                                ProductoDTO p = productoRepository.findBySku(skuExcel);
+
+                                if (p != null) {
+                                    actualizados++;
+                                } else {
+                                    p = new ProductoDTO();
+                                    p.setSku(skuExcel);
+                                    nuevos++;
+                                }
+
+                                p.setSku(skuExcel);
+                                p.setName(nombreExcel);
+
+                                try {
+                                    String limpio = precioExcel.replace(",", "").trim();
+                                    p.setPrice(limpio.isEmpty() ? java.math.BigDecimal.ZERO : new java.math.BigDecimal(limpio));
+                                } catch (Exception e) {
+                                    p.setPrice(java.math.BigDecimal.ZERO);
+                                }
+
+                                boolean esGranel = (granelExcel != null && granelExcel.trim().equalsIgnoreCase("s"));
+                                p.setGranel(esGranel);
+
+                                String rutaRelativa = buscarImagenMasivaPorSku(carpetaImagenes, skuExcel);
+
+                                if (rutaRelativa != null) {
+                                    p.setImagePath(rutaRelativa);
+                                    System.out.println("[IMAGEN VINCULADA] SKU: " + skuExcel + " -> " + rutaRelativa);
+                                } else {
+                                    p.setImagePath(null);
+                                }
+
+                                productoRepository.save(p);
+                            }
+                        }
+
+                        int porcentaje = (int) ((double) i / totalFilas * 100);
+                        publish(porcentaje);
+                    }
                 }
 
-                @Override
-                protected void process(java.util.List<Integer> chunks) {
-                    int ultimoPorcentaje = chunks.get(chunks.size() - 1);
-                    barraProgreso.setValue(ultimoPorcentaje);
-                    lblEstado.setText("Procesando... " + ultimoPorcentaje + "%");
-                }
+                return new int[]{nuevos, actualizados};
+            }
 
-                @Override
-                protected void done() {
+            @Override
+            protected void process(java.util.List<Integer> chunks) {
+                int ultimoPorcentaje = chunks.get(chunks.size() - 1);
+                loaderPanel.setPorcentaje(ultimoPorcentaje);
+                loaderPanel.setMensajeEstado("Sincronizando productos... " + ultimoPorcentaje + "%");
+            }
+
+            @Override
+            protected void done() {
+                loaderPanel.setPorcentaje(100);
+                loaderPanel.setMensajeEstado("¡Sincronización completada!");
+
+                // Pequeña pausa visual de 500ms para mostrar el 100% completado
+                Timer pauseTimer = new Timer(500, evt -> {
                     dialogoProgreso.dispose();
 
                     try {
@@ -242,13 +238,99 @@ public class productInterface extends JPanel {
                         );
                         e.printStackTrace();
                     }
-                }
-            };
+                });
+                pauseTimer.setRepeats(false);
+                pauseTimer.start();
+            }
+        };
 
-            worker.execute();
-            dialogoProgreso.setVisible(true);
+        worker.execute();
+        dialogoProgreso.setVisible(true);
+    }
+}
+
+// =========================================================================
+// PANEL GRÁFICO DEL LOADER CIRCULAR TRANSPARENTE (GLASSMORPHISM NEÓN)
+// =========================================================================
+private static class TransparentLoaderPanel extends JPanel {
+    private int porcentaje = 0;
+    private int anguloRotacion = 0;
+    private String mensajeEstado = "Importando catálogo...";
+    private Timer timerSpin;
+
+    public TransparentLoaderPanel() {
+        setOpaque(false);
+        timerSpin = new Timer(15, e -> {
+            anguloRotacion = (anguloRotacion + 6) % 360;
+            repaint();
+        });
+        timerSpin.start();
+    }
+
+    public void setPorcentaje(int p) {
+        this.porcentaje = Math.min(100, p);
+        repaint();
+        if (this.porcentaje >= 100 && timerSpin.isRunning()) {
+            timerSpin.stop();
         }
     }
+
+    public void setMensajeEstado(String msg) {
+        this.mensajeEstado = msg;
+        repaint();
+    }
+
+    @Override
+    protected void paintComponent(Graphics g) {
+        super.paintComponent(g);
+        Graphics2D g2 = (Graphics2D) g.create();
+        g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+        int w = getWidth();
+        int h = getHeight();
+
+        // 1. Fondo flotante translúcido (Glassmorphism oscuro elegante)
+        g2.setColor(new Color(15, 23, 42, 220));
+        g2.fillRoundRect(20, 20, w - 40, h - 40, 24, 24);
+
+        g2.setColor(new Color(255, 255, 255, 45));
+        g2.setStroke(new BasicStroke(1.5f));
+        g2.drawRoundRect(20, 20, w - 40, h - 40, 24, 24);
+
+        // 2. Spinner Circular Central
+        int size = 110;
+        int x = (w - size) / 2;
+        int y = (h - size) / 2 - 15;
+
+        // Pista de fondo translúcida
+        g2.setStroke(new BasicStroke(6, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(255, 255, 255, 30));
+        g2.drawOval(x, y, size, size);
+
+        // Arco activo neón brillante
+        g2.setColor(new Color(56, 189, 248));
+        int arcAngle = - (int) ((porcentaje / 100.0) * 360);
+//        g2.draw(new Arc2D.Double(x, y, size, size, anguloRotacion, arcAngle, Arc2D.OPEN));
+
+        // 3. Texto del Porcentaje en el centro
+        g2.setFont(new Font("SansSerif", Font.BOLD, 22));
+        g2.setColor(Color.WHITE);
+        String textoPorcentaje = porcentaje + "%";
+        FontMetrics fm = g2.getFontMetrics();
+        int tx = (w - fm.stringWidth(textoPorcentaje)) / 2;
+        int ty = y + (size / 2) + 8;
+        g2.drawString(textoPorcentaje, tx, ty);
+
+        // 4. Texto dinámico del estado
+        g2.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        g2.setColor(new Color(148, 163, 184));
+        FontMetrics fm2 = g2.getFontMetrics();
+        int tsx = (w - fm2.stringWidth(mensajeEstado)) / 2;
+        g2.drawString(mensajeEstado, tsx, y + size + 28);
+
+        g2.dispose();
+    }
+}
 // Método auxiliar portable: Busca en la carpeta de imágenes oficial del usuario en el sistema
 
     private String buscarImagenMasivaPorSku(File carpetaDefault, String sku) {

@@ -36,47 +36,49 @@ public class clientInterface extends JPanel {
     }
 
     @jakarta.annotation.PostConstruct
-    public void init() {
+  public void init() {
         setLayout(new BorderLayout(0, 15));
         setBackground(new Color(235, 238, 242));
         setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
 
         // ===== ENCABEZADO Y TÍTULO =====
-        JPanel topPanel = new JPanel(new BorderLayout());
+        JPanel topPanel = new JPanel(new GridBagLayout());
         topPanel.setOpaque(false);
+        GridBagConstraints gbc = new GridBagConstraints();
 
-        JLabel lblTitulo = new JLabel(" Clientes y Créditos");
+        JLabel lblTitulo = new JLabel("Clientes");
         lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 22));
         lblTitulo.setForeground(new Color(28, 35, 49));
-        topPanel.add(lblTitulo, BorderLayout.WEST);
 
-        // ===== PANEL DE ACCIONES Y BÚSQUEDA =====
-        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 0));
-        actionPanel.setOpaque(false);
+        gbc.gridx = 0;
+        gbc.weightx = 0.0;
+        gbc.anchor = GridBagConstraints.WEST;
+        topPanel.add(lblTitulo, gbc);
 
-        // ===== BUSCADOR =====
+        // ===== BUSCADOR (Flexible) =====
         txtBuscar = new JTextField();
         txtBuscar.setFont(new Font("Segoe UI Emoji", Font.PLAIN, 14));
         txtBuscar.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "🔍 Buscar cliente por nombre o teléfono...");
         txtBuscar.putClientProperty(FlatClientProperties.STYLE, "arc: 18; margin: 4, 12, 4, 12");
         txtBuscar.putClientProperty(FlatClientProperties.TEXT_FIELD_SHOW_CLEAR_BUTTON, true);
-        txtBuscar.setPreferredSize(new Dimension(300, 38));
+        txtBuscar.setPreferredSize(new Dimension(280, 38));
 
         txtBuscar.addActionListener(e -> filtrarClientesTabla());
         txtBuscar.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarClientesTabla();
-            }
-
-            public void removeUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarClientesTabla();
-            }
-
-            public void changedUpdate(javax.swing.event.DocumentEvent e) {
-                filtrarClientesTabla();
-            }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
+            public void removeUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
+            public void changedUpdate(javax.swing.event.DocumentEvent e) { filtrarClientesTabla(); }
         });
-        actionPanel.add(txtBuscar);
+
+        gbc.gridx = 1;
+        gbc.weightx = 1.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.insets = new Insets(0, 20, 0, 15);
+        topPanel.add(txtBuscar, gbc);
+
+        // ===== PANEL DE ACCIONES (BOTONES COMPACTOS Y ALINEADOS) =====
+        JPanel actionPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+        actionPanel.setOpaque(false);
 
         // ===== BOTÓN ACTUALIZAR =====
         JButton btnActualizar = new JButton("🔄 Actualizar");
@@ -85,7 +87,7 @@ public class clientInterface extends JPanel {
         btnActualizar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnActualizar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnActualizar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
-        btnActualizar.setPreferredSize(new Dimension(120, 38)); // Altura unificada
+        btnActualizar.setPreferredSize(new Dimension(110, 38));
         btnActualizar.addActionListener(e -> cargarDatosTabla());
         actionPanel.add(btnActualizar);
 
@@ -96,7 +98,7 @@ public class clientInterface extends JPanel {
         btnAbono.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnAbono.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAbono.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
-        btnAbono.setPreferredSize(new Dimension(175, 38)); // Altura unificada
+        btnAbono.setPreferredSize(new Dimension(160, 38));
         btnAbono.addActionListener(e -> abrirModalAbono());
         actionPanel.add(btnAbono);
 
@@ -107,7 +109,7 @@ public class clientInterface extends JPanel {
         btnEditar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnEditar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnEditar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
-        btnEditar.setPreferredSize(new Dimension(100, 38)); // Altura unificada
+        btnEditar.setPreferredSize(new Dimension(95, 38));
         btnEditar.addActionListener(e -> abrirModalEditarCliente());
         actionPanel.add(btnEditar);
 
@@ -118,7 +120,7 @@ public class clientInterface extends JPanel {
         btnEliminar.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnEliminar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnEliminar.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
-        btnEliminar.setPreferredSize(new Dimension(110, 38)); // Altura unificada
+        btnEliminar.setPreferredSize(new Dimension(100, 38));
         btnEliminar.addActionListener(e -> eliminarClienteSeleccionado());
         actionPanel.add(btnEliminar);
 
@@ -129,11 +131,16 @@ public class clientInterface extends JPanel {
         btnNuevo.setFont(new Font("Segoe UI Emoji", Font.BOLD, 12));
         btnNuevo.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnNuevo.putClientProperty(FlatClientProperties.STYLE, "arc:12; borderWidth:0");
-        btnNuevo.setPreferredSize(new Dimension(145, 38)); // Altura unificada
+        btnNuevo.setPreferredSize(new Dimension(135, 38));
         btnNuevo.addActionListener(e -> abrirModalNuevoCliente());
         actionPanel.add(btnNuevo);
 
-        topPanel.add(actionPanel, BorderLayout.EAST);
+        gbc.gridx = 2;
+        gbc.weightx = 0.0;
+        gbc.fill = GridBagConstraints.NONE;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        topPanel.add(actionPanel, gbc);
+
         add(topPanel, BorderLayout.NORTH);
 
         // ===== PANEL CENTRAL (TARJETAS DE RESUMEN + TABLA) =====
@@ -172,13 +179,9 @@ public class clientInterface extends JPanel {
             }
         };
 
-        // ===== TABLA DE CLIENTES =====
-        // ... (tu código actual de definición de tabla) ...
         tableClientes = new JTable(tableModel);
         tableClientes.setRowHeight(35);
-        // ... (tus estilos actuales) ...
 
-        // --- AGREGA ESTE BLOQUE AQUÍ ---
         tableClientes.addMouseListener(new java.awt.event.MouseAdapter() {
             @Override
             public void mouseClicked(java.awt.event.MouseEvent e) {
@@ -192,10 +195,8 @@ public class clientInterface extends JPanel {
                 }
             }
         });
-        // ---------------------------------
 
         JScrollPane scrollPane = new JScrollPane(tableClientes);
-        // ...
         scrollPane.putClientProperty(FlatClientProperties.STYLE, "arc:10");
         centerPanel.add(scrollPane, BorderLayout.CENTER);
 
@@ -666,7 +667,7 @@ public class clientInterface extends JPanel {
         }
     }
 
-private void abrirModalAbono() {
+    private void abrirModalAbono() {
         // 1. Obtener todos los clientes de la BD previamente
         List<ClienteDTO> listaClientesOriginales = new ArrayList<>();
         if (clienteServicio != null) {
@@ -729,6 +730,7 @@ private void abrirModalAbono() {
 
         // Clase auxiliar para manejar el combo box de ventas del cliente seleccionado
         class ItemVentaCombo {
+
             private Long ventaId;
             private String folio;
             private BigDecimal total;
@@ -739,8 +741,13 @@ private void abrirModalAbono() {
                 this.total = total;
             }
 
-            public Long getVentaId() { return ventaId; }
-            public String getFolio() { return folio; }
+            public Long getVentaId() {
+                return ventaId;
+            }
+
+            public String getFolio() {
+                return folio;
+            }
 
             @Override
             public String toString() {
@@ -752,18 +759,20 @@ private void abrirModalAbono() {
         cmbVentasCliente.setFont(new Font("Segoe UI", Font.PLAIN, 13));
 
         // Función para cargar las ventas del cliente seleccionado en la base de datos
-    // Función para cargar las ventas del cliente seleccionado en la base de datos
+        // Función para cargar las ventas del cliente seleccionado en la base de datos
         Runnable cargarVentasDelClienteSeleccionado = () -> {
             cmbVentasCliente.removeAllItems();
             int filaSel = tablaClientes.getSelectedRow();
-            if (filaSel == -1) return;
+            if (filaSel == -1) {
+                return;
+            }
 
             Long clienteId = (Long) modeloTabla.getValueAt(filaSel, 0);
 
             // AQUÍ: Usa tu método o variable de conexión existente (por ejemplo: ConexionBD.obtenerConexion() o dataSource.getConnection())
             try (Connection conn = Conexion.Conexion.conectar(); // <-- Cambia esto por tu método de conexión si es estático o diferente
-                 PreparedStatement pstmt = conn.prepareStatement("SELECT id, uuid_venta, total FROM ventas WHERE cliente_id = ? ORDER BY id DESC LIMIT 50")) {
-                
+                     PreparedStatement pstmt = conn.prepareStatement("SELECT id, uuid_venta, total FROM ventas WHERE cliente_id = ? ORDER BY id DESC LIMIT 50")) {
+
                 pstmt.setLong(1, clienteId);
                 try (ResultSet rs = pstmt.executeQuery()) {
                     while (rs.next()) {
@@ -814,9 +823,17 @@ private void abrirModalAbono() {
         actualizarTabla.run();
 
         txtFiltro.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { actualizarTabla.run(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                actualizarTabla.run();
+            }
         });
 
         javax.swing.JScrollPane scrollPane = new javax.swing.JScrollPane(tablaClientes);

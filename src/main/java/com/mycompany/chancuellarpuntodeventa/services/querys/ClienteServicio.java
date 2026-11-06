@@ -141,7 +141,7 @@ public class ClienteServicio {
                 System.err.println("[ADVERTENCIA] No se pudo registrar el abono en la caja: " + e.getMessage());
             }
 
-            // 3. Actualizar la deuda actual del cliente en la base de datos
+            // 3. Actualizar la deuda actual del cliente en la base de datos restando el abono
             BigDecimal nuevaDeuda = deudaActual.subtract(montoAbono);
             if (nuevaDeuda.compareTo(BigDecimal.ZERO) < 0) {
                 nuevaDeuda = BigDecimal.ZERO;
@@ -182,11 +182,12 @@ public class ClienteServicio {
     }
 
     private int calcularEnvasesCliente(Long clienteId) {
+        // Se agrega v.status != 'CANCELADO' para ignorar ventas canceladas
         String sqlComprados = "SELECT COALESCE(SUM(vp.cantidad), 0) "
                 + "FROM ventas v "
                 + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
                 + "JOIN productos p ON vp.producto_id = p.id "
-                + "WHERE v.cliente_id = ? AND (v.es_credito = 1 OR v.es_credito IS TRUE) AND "
+                + "WHERE v.cliente_id = ? AND v.status != 'CANCELADO' AND (v.es_credito = 1 OR v.es_credito IS TRUE) AND "
                 + "LOWER(p.name) LIKE '%prestado%'";
 
         String sqlDevueltos = "SELECT COALESCE(SUM(cantidad), 0) FROM envases_devoluciones WHERE cliente_id = ?";
@@ -218,12 +219,12 @@ public class ClienteServicio {
     }
 
     private void obtenerDetalleEnvasesCliente(ClienteDTO cliente) {
-        // Consulta general de productos de ventas a crédito del cliente sin restricciones estrictas de nombres
+        // Se agrega v.status != 'CANCELADO' para ignorar ventas canceladas en el desglose
         String sqlComprados = "SELECT p.id AS producto_id, p.name AS producto, SUM(vp.cantidad) AS cantidad "
                 + "FROM ventas v "
                 + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
                 + "JOIN productos p ON vp.producto_id = p.id "
-                + "WHERE v.cliente_id = ? "
+                + "WHERE v.cliente_id = ? AND v.status != 'CANCELADO' "
                 + "GROUP BY p.id, p.name";
 
         String sqlDevueltos = "SELECT producto_id, SUM(cantidad) AS devueltos FROM envases_devoluciones WHERE cliente_id = ? GROUP BY producto_id";
@@ -337,13 +338,13 @@ public class ClienteServicio {
     public Map<Long, String> obtenerProductosPrestadosCliente(Long clienteId) {
         Map<Long, String> productosMap = new java.util.LinkedHashMap<>();
 
-        // Consulta directa y segura de los productos en ventas del cliente restando sus devoluciones
+        // Consulta directa excluyendo ventas con status CANCELADO
         String sql = "SELECT p.id, p.name FROM productos p "
                 + "JOIN ("
                 + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
                 + "    FROM ventas v "
                 + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
-                + "    WHERE v.cliente_id = ? "
+                + "    WHERE v.cliente_id = ? AND v.status != 'CANCELADO' "
                 + "    GROUP BY vp.producto_id"
                 + ") prestados ON p.id = prestados.producto_id "
                 + "LEFT JOIN ("
@@ -381,7 +382,7 @@ public class ClienteServicio {
                 int prestadasProducto = 0;
                 String sqlPrestadas = "SELECT COALESCE(SUM(vp.cantidad), 0) FROM ventas v "
                         + "JOIN venta_productos vp ON v.id = vp.registro_venta_id "
-                        + "WHERE v.cliente_id = ? AND vp.producto_id = ?";
+                        + "WHERE v.cliente_id = ? AND v.status != 'CANCELADO' AND vp.producto_id = ?";
                 try (PreparedStatement ps = conn.prepareStatement(sqlPrestadas)) {
                     ps.setLong(1, clienteId);
                     ps.setLong(2, productoId);
@@ -461,8 +462,7 @@ public class ClienteServicio {
                 }
                 clienteRepository.actualizarDeudaPorId(clienteId, nuevaDeuda);
 
-                // --- CONDICIÓN NUEVA: Si el cliente liquida TODA la deuda monetaria (queda en $0.00), 
-                // liberamos automáticamente los envases pendientes que tenga ---
+                // --- CONDICIÓN: Si el cliente liquida TODA la deuda monetaria (queda en $0.00), liberamos los envases pendientes ---
                 if (nuevaDeuda.compareTo(BigDecimal.ZERO) == 0) {
                     String sqlPendientes = "SELECT p.id AS producto_id, p.price, "
                             + "(COALESCE(prestados.total_prestado, 0) - COALESCE(devueltos.total_devuelto, 0)) AS pendiente "
@@ -471,7 +471,7 @@ public class ClienteServicio {
                             + "    SELECT vp.producto_id, SUM(vp.cantidad) as total_prestado "
                             + "    FROM ventas v "
                             + "    JOIN venta_productos vp ON v.id = vp.registro_venta_id "
-                            + "    WHERE v.cliente_id = ? GROUP BY vp.producto_id"
+                            + "    WHERE v.cliente_id = ? AND v.status != 'CANCELADO' GROUP BY vp.producto_id"
                             + ") prestados ON p.id = prestados.producto_id "
                             + "LEFT JOIN ("
                             + "    SELECT ed.producto_id, SUM(ed.cantidad) as total_devuelto "
