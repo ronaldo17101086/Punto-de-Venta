@@ -137,10 +137,14 @@ public class ConsultasVentasInterfice extends JPanel {
             }
 
             @Override
-            public int getIconWidth() { return 16; }
+            public int getIconWidth() {
+                return 16;
+            }
 
             @Override
-            public int getIconHeight() { return 16; }
+            public int getIconHeight() {
+                return 16;
+            }
         };
 
         JButton btnActualizarVentas = new JButton(iconoRecargar);
@@ -181,13 +185,13 @@ public class ConsultasVentasInterfice extends JPanel {
         JPanel panelDer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 0));
         panelDer.setOpaque(false);
 
-        // Botón selector de fechas con Rango (Inicio y Fin)
+        // Botón selector de fechas con Rango (Inicio y Fin) conectado al Calendario Híbrido
         btnSelectorFecha = new JButton("<html><center><font color='#94A3B8' size='2'>Período de consulta</font><br><b>Todo el Historial</b></center></html>");
         btnSelectorFecha.setFont(new Font("Segoe UI", Font.PLAIN, 12));
         btnSelectorFecha.setHorizontalAlignment(SwingConstants.LEFT);
         btnSelectorFecha.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#F8FAFC; borderWidth:1; borderColor:#CBD5E1; margin:2,10,2,10");
         btnSelectorFecha.setCursor(new Cursor(Cursor.HAND_CURSOR));
-        btnSelectorFecha.addActionListener(e -> mostrarSelectorRangoFechas((JFrame) SwingUtilities.getWindowAncestor(panel)));
+        btnSelectorFecha.addActionListener(e -> mostrarSelectorRangoFechasHibrido((JFrame) SwingUtilities.getWindowAncestor(panel)));
 
         panelDer.add(btnSelectorFecha);
 
@@ -267,8 +271,8 @@ public class ConsultasVentasInterfice extends JPanel {
                 String montoStr = value != null ? value.toString().replace("$", "").replace("-", "").trim() : "0.00";
 
                 if (cancelado) {
-                    setText("-$" + montoStr); 
-                    setForeground(new Color(220, 38, 38)); 
+                    setText("-$" + montoStr);
+                    setForeground(new Color(220, 38, 38));
                 } else {
                     setText("$" + montoStr);
                     setForeground(isSelected ? table.getSelectionForeground() : new Color(15, 23, 42));
@@ -340,61 +344,46 @@ public class ConsultasVentasInterfice extends JPanel {
         return panel;
     }
 
-    // =========================================================================
-    // DIÁLOGO MODERNO DE SELECCIÓN DE RANGO DE FECHAS (INICIO Y FIN)
-    // =========================================================================
-    private void mostrarSelectorRangoFechas(JFrame parent) {
-        JDialog dialog = new JDialog(parent, "Seleccionar Período de Fechas", true);
-        dialog.setSize(420, 360);
+    private void mostrarSelectorRangoFechasHibrido(JFrame parent) {
+        JDialog dialog = new JDialog(parent, "Seleccionar Rango de Período", true);
+        dialog.setSize(680, 440);
         dialog.setLocationRelativeTo(parent);
         dialog.setLayout(new BorderLayout());
-        dialog.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#CBD5E1,14,14");
+        dialog.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#CBD5E1,16,16");
 
+        // Cabecera superior
         JPanel header = new JPanel(new BorderLayout());
         header.setBackground(new Color(15, 23, 42));
-        header.setBorder(BorderFactory.createEmptyBorder(12, 16, 12, 16));
-        JLabel title = new JLabel("📅 Filtrar por Rango de Fechas");
-        title.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        header.setBorder(BorderFactory.createEmptyBorder(14, 20, 14, 20));
+        JLabel title = new JLabel("📅 Seleccionar Rango de Fechas para Consulta");
+        title.setFont(new Font("Segoe UI", Font.BOLD, 15));
         title.setForeground(Color.WHITE);
         header.add(title, BorderLayout.WEST);
         dialog.add(header, BorderLayout.NORTH);
 
-        JPanel body = new JPanel(new GridBagLayout());
-        body.setBackground(Color.WHITE);
-        body.setBorder(BorderFactory.createEmptyBorder(20, 24, 20, 24));
-        GridBagConstraints g = new GridBagConstraints();
-        g.fill = GridBagConstraints.HORIZONTAL;
-        g.weightx = 1.0;
-        g.gridx = 0;
-        g.gridy = 0;
+        // Panel central que contiene los dos calendarios híbridos (Inicio y Fin)
+        JPanel bodyCalendarios = new JPanel(new GridLayout(1, 2, 15, 0));
+        bodyCalendarios.setBackground(new Color(248, 250, 252));
+        bodyCalendarios.setBorder(BorderFactory.createEmptyBorder(16, 20, 16, 20));
 
-        // Fecha Inicio
-        body.add(new JLabel("<html><b>Fecha de Inicio (YYYY-MM-DD):</b></html>"), g);
-        g.gridy++;
-        g.insets = new Insets(6, 0, 16, 0);
-        JTextField txtFechaInicio = new JTextField(fechaInicioFiltro != null ? fechaInicioFiltro.toString() : java.time.LocalDate.now().minusDays(30).toString());
-        txtFechaInicio.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:6,10,6,10");
-        body.add(txtFechaInicio, g);
+        final LocalDate[] tempInicio = {fechaInicioFiltro != null ? fechaInicioFiltro : LocalDate.now().minusDays(30)};
+        final LocalDate[] tempFin = {fechaFinFiltro != null ? fechaFinFiltro : LocalDate.now()};
 
-        // Fecha Fin
-        g.gridy++;
-        g.insets = new Insets(0, 0, 6, 0);
-        body.add(new JLabel("<html><b>Fecha de Fin (YYYY-MM-DD):</b></html>"), g);
-        g.gridy++;
-        g.insets = new Insets(6, 0, 10, 0);
-        JTextField txtFechaFin = new JTextField(fechaFinFiltro != null ? fechaFinFiltro.toString() : java.time.LocalDate.now().toString());
-        txtFechaFin.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:6,10,6,10");
-        body.add(txtFechaFin, g);
+        JPanel cardInicio = construirPanelCalendarioHibrido("Fecha de Inicio", tempInicio[0], fecha -> tempInicio[0] = fecha);
+        JPanel cardFin = construirPanelCalendarioHibrido("Fecha de Fin", tempFin[0], fecha -> tempFin[0] = fecha);
 
-        dialog.add(body, BorderLayout.CENTER);
+        bodyCalendarios.add(cardInicio);
+        bodyCalendarios.add(cardFin);
+        dialog.add(bodyCalendarios, BorderLayout.CENTER);
 
-        // Footer / Botones
-        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 12));
-        footer.setBackground(new Color(248, 250, 252));
+        // Barra inferior de acciones
+        JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 12, 14));
+        footer.setBackground(Color.WHITE);
         footer.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(226, 232, 240)));
 
-        JButton btnLimpiar = new JButton("Ver Todo");
-        btnLimpiar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#E2E8F0; foreground:#334155; borderWidth:0");
+        JButton btnLimpiar = new JButton("Ver Todo el Historial");
+        btnLimpiar.putClientProperty(FlatClientProperties.STYLE, "arc:10; background:#E2E8F0; foreground:#334155; borderWidth:0; margin:6,14,6,14");
+        btnLimpiar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnLimpiar.addActionListener(e -> {
             fechaInicioFiltro = null;
             fechaFinFiltro = null;
@@ -403,24 +392,21 @@ public class ConsultasVentasInterfice extends JPanel {
             dispararFiltroVentas();
         });
 
-        JButton btnAplicar = new JButton("Aplicar Rango");
-        btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:8; background:#0284C7; foreground:#FFFFFF; borderWidth:0");
+        JButton btnAplicar = new JButton("Aplicar Filtro");
+        btnAplicar.putClientProperty(FlatClientProperties.STYLE, "arc:10; background:#0284C7; foreground:#FFFFFF; borderWidth:0; margin:6,16,6,16");
+        btnAplicar.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnAplicar.addActionListener(e -> {
-            try {
-                fechaInicioFiltro = java.time.LocalDate.parse(txtFechaInicio.getText().trim());
-                fechaFinFiltro = java.time.LocalDate.parse(txtFechaFin.getText().trim());
-
-                if (fechaInicioFiltro.isAfter(fechaFinFiltro)) {
-                    JOptionPane.showMessageDialog(dialog, "La fecha de inicio no puede ser posterior a la fecha fin.", "Error de Rango", JOptionPane.WARNING_MESSAGE);
-                    return;
-                }
-
-                btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Del " + fechaInicioFiltro + " al</font><br><b>" + fechaFinFiltro + "</b></center></html>");
-                dialog.dispose();
-                dispararFiltroVentas();
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(dialog, "Formato de fecha inválido. Utilice el formato YYYY-MM-DD.", "Error de Formato", JOptionPane.ERROR_MESSAGE);
+            if (tempInicio[0].isAfter(tempFin[0])) {
+                JOptionPane.showMessageDialog(dialog, "La fecha de inicio no puede ser posterior a la fecha fin.", "Rango inválido", JOptionPane.WARNING_MESSAGE);
+                return;
             }
+
+            fechaInicioFiltro = tempInicio[0];
+            fechaFinFiltro = tempFin[0];
+
+            btnSelectorFecha.setText("<html><center><font color='#94A3B8' size='2'>Del " + fechaInicioFiltro + " al</font><br><b>" + fechaFinFiltro + "</b></center></html>");
+            dialog.dispose();
+            dispararFiltroVentas();
         });
 
         footer.add(btnLimpiar);
@@ -435,7 +421,7 @@ public class ConsultasVentasInterfice extends JPanel {
         panel.setBackground(new Color(245, 247, 250));
         panel.setBorder(new EmptyBorder(20, 20, 20, 20));
 
-        // --- PANEL SUPERIOR (Idéntico al de Ventas) ---
+        // --- PANEL SUPERIOR ---
         JPanel panelFiltros = new JPanel(new BorderLayout(12, 0));
         panelFiltros.setBackground(Color.WHITE);
         panelFiltros.putClientProperty(FlatClientProperties.STYLE, "arc:12; border:10,12,10,12,#E5E9F0,1,12");
@@ -487,7 +473,7 @@ public class ConsultasVentasInterfice extends JPanel {
         btnActualizarAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#CBD5E1; background:#F8FAFC; margin:4,8,4,8");
         btnActualizarAbonos.setCursor(new Cursor(Cursor.HAND_CURSOR));
 
-        // REGLA: El botón actualizar refresca conservando los filtros activos del usuario
+        // Refresca conservando el texto de búsqueda y el rango de fechas actual
         btnActualizarAbonos.addActionListener(e -> {
             cargarAbonosBD(txtBuscadorAbonos.getText().trim());
         });
@@ -497,7 +483,7 @@ public class ConsultasVentasInterfice extends JPanel {
         panelBotonesAccion.add(btnFiltrosAbonos);
         panelBotonesAccion.add(btnActualizarAbonos);
 
-        // Buscador central (ocupa todo el espacio intermedio disponible con placeholder idéntico)
+        // Buscador central
         txtBuscadorAbonos = new JTextField();
         txtBuscadorAbonos.putClientProperty(FlatClientProperties.PLACEHOLDER_TEXT, "Buscar por Folio o Cliente...");
         txtBuscadorAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; margin:4,10,4,10");
@@ -513,7 +499,7 @@ public class ConsultasVentasInterfice extends JPanel {
         panelIzquierdaFiltros.add(txtBuscadorAbonos, BorderLayout.CENTER);
         panelFiltros.add(panelIzquierdaFiltros, BorderLayout.CENTER);
 
-        // --- PANEL DERECHO (Selector de Fechas idéntico al de Ventas) ---
+        // --- PANEL DERECHO (Selector de Fechas con el Calendario Híbrido) ---
         JPanel panelDerechaFiltros = new JPanel(new FlowLayout(FlowLayout.RIGHT, 5, 0));
         panelDerechaFiltros.setOpaque(false);
 
@@ -521,6 +507,8 @@ public class ConsultasVentasInterfice extends JPanel {
         btnSelectorFechaAbonos.setFont(new Font("Segoe UI", Font.PLAIN, 11));
         btnSelectorFechaAbonos.putClientProperty(FlatClientProperties.STYLE, "arc:8; borderWidth:1; borderColor:#CBD5E1; background:#FFFFFF; margin:2,10,2,10");
         btnSelectorFechaAbonos.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        // Conectado al diálogo que utiliza el calendario híbrido de inicio y fin
         btnSelectorFechaAbonos.addActionListener(e -> mostrarSelectorCalendarioAbonos((JFrame) SwingUtilities.getWindowAncestor(panel)));
 
         panelDerechaFiltros.add(btnSelectorFechaAbonos);
@@ -580,7 +568,7 @@ public class ConsultasVentasInterfice extends JPanel {
 
                 if (cancelado) {
                     setText("-$" + montoStr);
-                    setForeground(new Color(220, 38, 38)); // Rojo alerta
+                    setForeground(new Color(220, 38, 38));
                 } else {
                     setText("$" + montoStr);
                     setForeground(isSelected ? table.getSelectionForeground() : new Color(15, 23, 42));

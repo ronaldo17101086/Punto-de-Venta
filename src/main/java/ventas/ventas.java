@@ -868,87 +868,96 @@ public class ventas extends JPanel {
         }
     }
 
-    private void buscarYAgregarDirecto() {
-        String query = txtBuscadorDirecto.getText().trim().toLowerCase();
+   private void buscarYAgregarDirecto() {
+    String query = txtBuscadorDirecto.getText().trim().toLowerCase();
 
-        if (query.isEmpty()) {
-            return;
+    if (query.isEmpty()) {
+        return;
+    }
+
+    ProductoDTO mejorCandidato = null;
+    double mayorPuntaje = 0.0;
+
+    for (ProductoDTO p : listaProductos) {
+        String sku = p.getSku() != null ? p.getSku().toLowerCase() : "";
+        String nombre = p.getName() != null ? p.getName().toLowerCase() : "";
+
+        // 1. Coincidencia exacta de SKU (Prioridad absoluta para códigos de barras)
+        if (sku.equals(query)) {
+            mejorCandidato = p;
+            mayorPuntaje = 100.0;
+            break;
         }
 
-        ProductoDTO mejorCandidato = null;
-        double mayorPuntaje = 0.0;
+        double puntajeActual = 0.0;
 
-        for (ProductoDTO p : listaProductos) {
-            String sku = p.getSku() != null ? p.getSku().toLowerCase() : "";
-            String nombre = p.getName() != null ? p.getName().toLowerCase() : "";
-
-            // 1. Coincidencia exacta de SKU (Prioridad absoluta para escáneres de códigos de barras)
-            if (sku.equals(query)) {
-                mejorCandidato = p;
-                mayorPuntaje = 100.0;
-                break;
+        // 2. Coincidencia exacta de nombre
+        if (nombre.equals(query)) {
+            puntajeActual = 95.0;
+        } 
+        // 3. Coincidencia parcial (Contiene la frase o letras)
+        else if (nombre.contains(query)) {
+            puntajeActual = 85.0;
+            if (nombre.startsWith(query)) {
+                puntajeActual = 90.0;
             }
+        } 
+        // 4. Búsqueda avanzada tolerante a faltas de ortografía extremas (Ej: "sigarros" -> "cigarros")
+        else {
+            String[] palabrasQuery = query.split("\\s+");
+            String[] palabrasNombre = nombre.split("\\s+");
+            double puntajeTotalPalabras = 0.0;
+            int palabrasEvaluadas = 0;
 
-            double puntajeActual = 0.0;
+            for (String qWord : palabrasQuery) {
+                if (qWord.length() < 1) continue; // Permitir evaluar incluso desde una letra
+                palabrasEvaluadas++;
+                double mejorSimilitudPalabra = 0.0;
 
-            // 2. Coincidencia exacta de nombre
-            if (nombre.equals(query)) {
-                puntajeActual = 95.0;
-            } // 3. Coincidencia parcial (Contiene la palabra o frase, ideal para cuando no completan la palabra)
-            else if (nombre.contains(query)) {
-                puntajeActual = 80.0;
-                // Si el texto buscado está al inicio del nombre, le damos un extra de relevancia
-                if (nombre.startsWith(query)) {
-                    puntajeActual = 88.0;
-                }
-            } // 4. Búsqueda por palabras individuales (Filtro por si escriben desordenado o con faltas leves)
-            else {
-                String[] palabrasQuery = query.split("\\s+");
-                String[] palabrasNombre = nombre.split("\\s+");
-                int palabrasCoincidentes = 0;
-
-                for (String qWord : palabrasQuery) {
-                    if (qWord.length() < 2) {
-                        continue; // Ignorar letras sueltas
-                    }
-                    for (String nWord : palabrasNombre) {
-                        // Si la palabra es muy similar o contiene la raíz (tolerancia a errores ortográficos básicos)
-                        if (nWord.contains(qWord) || calcularSimilitud(qWord, nWord) >= 0.75) {
-                            palabrasCoincidentes++;
-                            break;
+                for (String nWord : palabrasNombre) {
+                    // Calculamos la similitud de Levenshtein entre la palabra buscada y las del producto
+                    double similitud = calcularSimilitud(qWord, nWord);
+                    
+                    // Si contiene la subcadena o la similitud es alta (ej. 60% o más, detecta "sigarro" vs "cigarros")
+                    if (nWord.contains(qWord) || qWord.contains(nWord) || similitud >= 0.60) {
+                        double currentScore = similitud * 100.0;
+                        if (currentScore > mejorSimilitudPalabra) {
+                            mejorSimilitudPalabra = currentScore;
                         }
                     }
                 }
-
-                if (palabrasCoincidentes > 0) {
-                    puntajeActual = 50.0 + (palabrasCoincidentes * 10.0);
-                }
+                puntajeTotalPalabras += mejorSimilitudPalabra;
             }
 
-            // Nos quedamos con el producto que obtenga el puntaje más alto de coincidencia
-            if (puntajeActual > mayorPuntaje) {
-                mayorPuntaje = puntajeActual;
-                mejorCandidato = p;
+            if (palabrasEvaluadas > 0) {
+                puntajeActual = puntajeTotalPalabras / palabrasEvaluadas;
             }
         }
 
-        // Umbral mínimo de aceptación (puntaje mayor a 45 para evitar falsos positivos)
-        if (mejorCandidato != null && mayorPuntaje >= 45.0) {
-            // Usamos alSeleccionarProducto para respetar la lógica de granel o cantidad
-            alSeleccionarProducto(mejorCandidato);
-
-            // Limpieza y enfoque para el próximo escaneo/búsqueda
-            txtBuscadorDirecto.setText("");
-            txtBuscadorDirecto.requestFocusInWindow();
-        } else {
-            // Feedback visual si de plano no hay coincidencia cercana
-            JOptionPane.showMessageDialog(this,
-                    "No se encontró ningún producto parecido a: " + query,
-                    "Producto no encontrado",
-                    JOptionPane.ERROR_MESSAGE);
-            txtBuscadorDirecto.selectAll();
+        // Nos quedamos con el producto que obtenga el puntaje más alto
+        if (puntajeActual > mayorPuntaje) {
+            mayorPuntaje = puntajeActual;
+            mejorCandidato = p;
         }
     }
+
+    // Umbral de aceptación flexible (mayor a 55.0 para atrapar errores ortográficos pero evitar basura)
+    if (mejorCandidato != null && mayorPuntaje >= 55.0) {
+        // Usamos alSeleccionarProducto para respetar la lógica de granel o cantidad
+        alSeleccionarProducto(mejorCandidato);
+
+        // Limpieza y enfoque para el próximo escaneo
+        txtBuscadorDirecto.setText("");
+        txtBuscadorDirecto.requestFocusInWindow();
+    } else {
+        // Feedback visual si no hay ninguna coincidencia razonable
+        JOptionPane.showMessageDialog(this,
+                "No se encontró ningún producto parecido a: " + query,
+                "Producto no encontrado",
+                JOptionPane.ERROR_MESSAGE);
+        txtBuscadorDirecto.selectAll();
+    }
+}
 
 // Método auxiliar integrado para calcular similitud de palabras (Tolerancia a faltas de ortografía)
     private double calcularSimilitud(String s1, String s2) {
@@ -2327,14 +2336,36 @@ public class ventas extends JPanel {
         panelCardsContenedor.repaint();
     }
 
-    private void filtrarCatalogo(String t) {
+  private void filtrarCatalogo(String t) {
+        String query = t != null ? t.trim().toLowerCase() : "";
         List<ProductoDTO> filtrados = new ArrayList<>();
-        for (ProductoDTO p : listaProductos) {
-            if (p.getName().toLowerCase().contains(t.toLowerCase())) {
-                filtrados.add(p);
+
+        if (query.isEmpty()) {
+            filtrados.addAll(listaProductos);
+        } else {
+            // Normalizamos la búsqueda para corregir faltas comunes al vuelo (ej: cambiar 's' inicial por 'c')
+            String queryNormalizada = query;
+            if (query.startsWith("sigar")) {
+                queryNormalizada = query.replace("sigar", "cigar");
+            } else if (query.startsWith("sig")) {
+                queryNormalizada = query.replace("sig", "cig");
+            }
+
+            for (ProductoDTO p : listaProductos) {
+                String sku = p.getSku() != null ? p.getSku().toLowerCase() : "";
+                String nombre = p.getName() != null ? p.getName().toLowerCase() : "";
+
+                // Verificamos si coincide de forma directa o utilizando la palabra normalizada (cigarro)
+                if (sku.contains(query) || nombre.contains(query) || nombre.contains(queryNormalizada)) {
+                    filtrados.add(p);
+                }
             }
         }
+
+        // Ordenamiento rápido alfabético
         Collections.sort(filtrados, Comparator.comparing(p -> p.getName()));
+        
+        // Renderizamos las tarjetas de manera eficiente
         renderizarCards(filtrados);
     }
 
