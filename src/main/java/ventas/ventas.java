@@ -60,10 +60,8 @@ public class ventas extends JPanel {
     private final int COLUMNAS = 4;
     private final Color COLOR_SELECCION = new Color(232, 244, 253);
 
-    // Lista en caché para guardar las ventas en espera durante la sesión
     private List<VentaEnEspera> ventasEnEsperaList = new ArrayList<>();
 
-// Referencias a tus variables globales actuales (ajusta los nombres según tu código)
     private List<Object> itemsCarritoGlobal = new ArrayList<>(); // Tu carrito de compras actual
     private Object clienteSeleccionadoGlobal = null;             // El cliente seleccionado actualmente
     private BigDecimal totalGlobal = BigDecimal.ZERO;            // El total actual de la venta
@@ -102,7 +100,7 @@ public class ventas extends JPanel {
         });
     }
 
-private void initComponentes() {
+    private void initComponentes() {
         // --- MOTOR DE DISEÑO Y RENDIMIENTO (2026 PRO) ---
         Color bgMain = new Color(248, 250, 253);
         Color white = Color.WHITE;
@@ -203,7 +201,7 @@ private void initComponentes() {
 
                 // Fondo dinámico al pasar el cursor (Hover) para que se note accesible
                 if (getModel().isRollover()) {
-                    g2.setColor(new Color(226, 232, 240)); 
+                    g2.setColor(new Color(226, 232, 240));
                     g2.fillRoundRect(x, y, size, size, 8, 8);
                 } else if (getModel().isPressed()) {
                     g2.setColor(new Color(203, 213, 225));
@@ -229,7 +227,7 @@ private void initComponentes() {
         btnClear.setContentAreaFilled(false);
         btnClear.setCursor(new Cursor(Cursor.HAND_CURSOR));
         btnClear.setToolTipText("Limpiar búsqueda");
-        
+
         btnClear.addActionListener(e -> {
             txtBuscador.setText("");
             txtBuscador.requestFocusInWindow();
@@ -237,7 +235,7 @@ private void initComponentes() {
 
         // 3. Integración en el TextField con buen margen interno
         txtBuscador.putClientProperty("JTextField.trailingComponent", btnClear);
-        txtBuscador.putClientProperty("JTextField.showClearButton", false); 
+        txtBuscador.putClientProperty("JTextField.showClearButton", false);
         txtBuscador.putClientProperty("JComponent.roundRect", true);
         txtBuscador.putClientProperty("JTextField.padding", new Insets(0, 12, 0, 10));
 
@@ -363,7 +361,7 @@ private void initComponentes() {
         btnFinalizar.setEnabled(false);
         btnFinalizar.putClientProperty("JButton.buttonType", "roundRect");
         btnFinalizar.addActionListener(e -> finalizarVenta());
-        
+
         btnFinalizar.addPropertyChangeListener("text", evt -> {
             String texto = btnFinalizar.getText().replaceAll("[^0-9.]", "");
             try {
@@ -442,9 +440,17 @@ private void initComponentes() {
         this.add(panelCheckout, BorderLayout.EAST);
 
         txtBuscador.getDocument().addDocumentListener(new javax.swing.event.DocumentListener() {
-            public void insertUpdate(javax.swing.event.DocumentEvent e) { update(); }
-            public void removeUpdate(javax.swing.event.DocumentEvent e) { update(); }
-            public void changedUpdate(javax.swing.event.DocumentEvent e) { update(); }
+            public void insertUpdate(javax.swing.event.DocumentEvent e) {
+                update();
+            }
+
+            public void removeUpdate(javax.swing.event.DocumentEvent e) {
+                update();
+            }
+
+            public void changedUpdate(javax.swing.event.DocumentEvent e) {
+                update();
+            }
 
             private void update() {
                 SwingUtilities.invokeLater(() -> filtrarCatalogo(txtBuscador.getText()));
@@ -785,7 +791,6 @@ private void initComponentes() {
         dialog.setVisible(true);
     }
 
-// --- MÉTODO DE DIÁLOGO FLOTANTE DE COMENTARIOS MEJORADO ---
     private void abrirDialogoComentario() {
         // 1. Creamos y configuramos el diálogo con mayor tamaño (480x320) para dar comodidad
         JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "Comentarios de Venta", true);
@@ -870,32 +875,120 @@ private void initComponentes() {
             return;
         }
 
-        ProductoDTO encontrado = null;
+        ProductoDTO mejorCandidato = null;
+        double mayorPuntaje = 0.0;
 
-        // 1. Buscamos en la lista maestra por SKU o por Nombre exacto
         for (ProductoDTO p : listaProductos) {
-            if (p.getSku().toLowerCase().equals(query) || p.getName().toLowerCase().equals(query)) {
-                encontrado = p;
+            String sku = p.getSku() != null ? p.getSku().toLowerCase() : "";
+            String nombre = p.getName() != null ? p.getName().toLowerCase() : "";
+
+            // 1. Coincidencia exacta de SKU (Prioridad absoluta para escáneres de códigos de barras)
+            if (sku.equals(query)) {
+                mejorCandidato = p;
+                mayorPuntaje = 100.0;
                 break;
+            }
+
+            double puntajeActual = 0.0;
+
+            // 2. Coincidencia exacta de nombre
+            if (nombre.equals(query)) {
+                puntajeActual = 95.0;
+            } // 3. Coincidencia parcial (Contiene la palabra o frase, ideal para cuando no completan la palabra)
+            else if (nombre.contains(query)) {
+                puntajeActual = 80.0;
+                // Si el texto buscado está al inicio del nombre, le damos un extra de relevancia
+                if (nombre.startsWith(query)) {
+                    puntajeActual = 88.0;
+                }
+            } // 4. Búsqueda por palabras individuales (Filtro por si escriben desordenado o con faltas leves)
+            else {
+                String[] palabrasQuery = query.split("\\s+");
+                String[] palabrasNombre = nombre.split("\\s+");
+                int palabrasCoincidentes = 0;
+
+                for (String qWord : palabrasQuery) {
+                    if (qWord.length() < 2) {
+                        continue; // Ignorar letras sueltas
+                    }
+                    for (String nWord : palabrasNombre) {
+                        // Si la palabra es muy similar o contiene la raíz (tolerancia a errores ortográficos básicos)
+                        if (nWord.contains(qWord) || calcularSimilitud(qWord, nWord) >= 0.75) {
+                            palabrasCoincidentes++;
+                            break;
+                        }
+                    }
+                }
+
+                if (palabrasCoincidentes > 0) {
+                    puntajeActual = 50.0 + (palabrasCoincidentes * 10.0);
+                }
+            }
+
+            // Nos quedamos con el producto que obtenga el puntaje más alto de coincidencia
+            if (puntajeActual > mayorPuntaje) {
+                mayorPuntaje = puntajeActual;
+                mejorCandidato = p;
             }
         }
 
-        if (encontrado != null) {
-            // 2. CORRECCIÓN: Usamos alSeleccionarProducto para que si es a granel, 
-            // abra el modal de monto en dinero en lugar de agregar 1 unidad automáticamente.
-            alSeleccionarProducto(encontrado);
+        // Umbral mínimo de aceptación (puntaje mayor a 45 para evitar falsos positivos)
+        if (mejorCandidato != null && mayorPuntaje >= 45.0) {
+            // Usamos alSeleccionarProducto para respetar la lógica de granel o cantidad
+            alSeleccionarProducto(mejorCandidato);
 
-            // 3. Limpieza y enfoque para el siguiente escaneo
+            // Limpieza y enfoque para el próximo escaneo/búsqueda
             txtBuscadorDirecto.setText("");
             txtBuscadorDirecto.requestFocusInWindow();
         } else {
-            // 4. Feedback si el SKU no existe
+            // Feedback visual si de plano no hay coincidencia cercana
             JOptionPane.showMessageDialog(this,
-                    "No se encontró ningún producto con el nombre o SKU: " + query,
+                    "No se encontró ningún producto parecido a: " + query,
                     "Producto no encontrado",
                     JOptionPane.ERROR_MESSAGE);
             txtBuscadorDirecto.selectAll();
         }
+    }
+
+// Método auxiliar integrado para calcular similitud de palabras (Tolerancia a faltas de ortografía)
+    private double calcularSimilitud(String s1, String s2) {
+        int longer = s1.length();
+        int shorter = s2.length();
+        if (longer < shorter) {
+            longer = s2.length();
+            shorter = s1.length();
+        }
+        if (longer == 0) {
+            return 1.0;
+        }
+        return (longer - editarDistancia(s1, shorter == s1.length() ? s2 : s1)) / (double) longer;
+    }
+
+    private int editarDistancia(String s1, String s2) {
+        s1 = s1.toLowerCase();
+        s2 = s2.toLowerCase();
+        int[] costs = new int[s2.length() + 1];
+        for (int i = 0; i <= s1.length(); i++) {
+            int lastValue = i;
+            for (int j = 0; j <= s2.length(); j++) {
+                if (i == 0) {
+                    costs[j] = j;
+                } else {
+                    if (j > 0) {
+                        int newValue = costs[j - 1];
+                        if (s1.charAt(i - 1) != s2.charAt(j - 1)) {
+                            newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+                        }
+                        costs[j - 1] = lastValue;
+                        lastValue = newValue;
+                    }
+                }
+            }
+            if (i > 0) {
+                costs[s2.length()] = lastValue;
+            }
+        }
+        return costs[s2.length()];
     }
 
     private void configurarMenuOpciones(JPanel panelCabecera, GridBagConstraints gbc) {
@@ -958,6 +1051,39 @@ private void initComponentes() {
         // Tipografía limpia y legible
         Font fontMenu = new Font("Segoe UI", Font.PLAIN, 14);
 
+        // --- NUEVA OPCIÓN: Producto Rápido ---
+        // --- NUEVA OPCIÓN: Producto Rápido con Icono Vectorial Nativo ---
+        JMenuItem itemProductoRapido = new JMenuItem("Producto Rápido", new Icon() {
+            @Override
+            public void paintIcon(Component c, Graphics g, int x, int y) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Color amarillo/ámbar brillante para el rayo
+                g2.setColor(new Color(234, 179, 8));
+
+                // Coordenadas del icono vectorial de rayo (16x16 píxeles)
+                int[] xPoints = {x + 9, x + 3, x + 8, x + 6, x + 13, x + 7, x + 10};
+                int[] yPoints = {y + 1, y + 8, y + 8, y + 15, y + 7, y + 7, y + 1};
+                g2.fillPolygon(xPoints, yPoints, 7);
+
+                g2.dispose();
+            }
+
+            @Override
+            public int getIconWidth() {
+                return 16;
+            }
+
+            @Override
+            public int getIconHeight() {
+                return 16;
+            }
+        });
+
+        estilizarItemModoClaro(itemProductoRapido, fontMenu);
+        itemProductoRapido.addActionListener(e -> abrirDialogoProductoRapido());
+
         // --- OPCIÓN 1: Seleccionar Cliente ---
         JMenuItem itemCliente = new JMenuItem("Seleccionar Cliente", new com.formdev.flatlaf.icons.FlatSearchIcon());
         estilizarItemModoClaro(itemCliente, fontMenu);
@@ -975,7 +1101,7 @@ private void initComponentes() {
 
         // --- OPCIÓN: Gestión de Envases Prestados ---
         JMenuItem itemEnvasesPrestados = new JMenuItem("Prestados", new com.formdev.flatlaf.icons.FlatFileViewFloppyDriveIcon());
-        estilizarItemModoClaro(itemEnvasesPrestados, fontMenu); // Descomenta si usas este método en tu menú
+        estilizarItemModoClaro(itemEnvasesPrestados, fontMenu);
         itemEnvasesPrestados.addActionListener(e -> abrirDialogoGestionEnvasesPrestados());
 
         // --- OPCIÓN 4: Control de Caja ---
@@ -990,7 +1116,9 @@ private void initComponentes() {
             }
         });
 
-        // Ensamblaje ordenado con separador estético
+        // Ensamblaje ordenado
+        menu.add(itemProductoRapido);
+        menu.addSeparator();
         menu.add(itemCliente);
         menu.add(itemComentario);
         menu.add(itemImportes);
@@ -1010,7 +1138,329 @@ private void initComponentes() {
         panelCabecera.add(btnMas, gbc);
     }
 
-    // Método auxiliar para darles espaciado y un diseño limpio a las opciones
+    private void abrirDialogoProductoRapido() {
+        JDialog dialogo = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), "", true);
+        dialogo.setSize(520, 580);
+        dialogo.setLocationRelativeTo(this);
+        dialogo.setLayout(new BorderLayout());
+        dialogo.setUndecorated(true);
+        dialogo.getRootPane().putClientProperty(FlatClientProperties.STYLE, "border:1,1,1,1,#475569,20,20");
+
+        // --- ENCABEZADO SUPERIOR CON RAYO 100% PROPORCIONAL ---
+        JPanel panelSuperior = new JPanel(new BorderLayout()) {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+                // Coordenadas ajustadas para un rayo pequeño, elegante y simétrico
+                g2.setColor(new Color(250, 204, 21)); // Amarillo neón suave
+                int[] xPoints = {20, 15, 19, 17, 23, 18, 21};
+                int[] yPoints = {19, 23, 23, 27, 22, 22, 19};
+                g2.fillPolygon(xPoints, yPoints, 7);
+
+                g2.dispose();
+            }
+        };
+        panelSuperior.setBackground(new Color(11, 17, 32)); // Azul medianoche ultra profundo
+        panelSuperior.setBorder(BorderFactory.createEmptyBorder(18, 36, 18, 20));
+
+        JLabel lblTitulo = new JLabel("Producto Rapido");
+        lblTitulo.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        lblTitulo.setForeground(new Color(248, 250, 252));
+        panelSuperior.add(lblTitulo, BorderLayout.WEST);
+
+        // Botón de cierre con icono vectorial de "X" dibujado por código
+        JButton btnCerrarX = new JButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                super.paintComponent(g);
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setStroke(new BasicStroke(2.0f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+
+                if (getModel().isRollover()) {
+                    g2.setColor(Color.WHITE);
+                } else {
+                    g2.setColor(new Color(148, 163, 184));
+                }
+
+                int w = getWidth();
+                int h = getHeight();
+                g2.drawLine(7, 7, w - 7, h - 7);
+                g2.drawLine(w - 7, 7, 7, h - 7);
+                g2.dispose();
+            }
+        };
+        btnCerrarX.setPreferredSize(new Dimension(32, 32));
+        btnCerrarX.setBorderPainted(false);
+        btnCerrarX.setContentAreaFilled(false);
+        btnCerrarX.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCerrarX.addActionListener(e -> dialogo.dispose());
+        panelSuperior.add(btnCerrarX, BorderLayout.EAST);
+
+        dialogo.add(panelSuperior, BorderLayout.NORTH);
+
+        // --- PANEL CENTRAL CON ESTÉTICA DE TARJETAS FLOTANTES ---
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        formPanel.setBackground(new Color(241, 245, 249)); // Fondo gris futurista suave
+        formPanel.setBorder(BorderFactory.createEmptyBorder(24, 32, 20, 32));
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        gbc.weightx = 1.0;
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+
+        // 1. Nombre de producto
+        JLabel lblNombre = new JLabel("Nombre del producto *");
+        lblNombre.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblNombre.setForeground(new Color(71, 85, 105));
+        formPanel.add(lblNombre, gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(6, 0, 18, 0);
+        JTextField txtNombre = new JTextField();
+        txtNombre.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtNombre.putClientProperty(FlatClientProperties.STYLE, "arc:14; margin:8,12,8,12; borderColor:#CBD5E1; focusedBorderColor:#0284C7; background:#FFFFFF");
+        formPanel.add(txtNombre, gbc);
+
+        // 2. Cantidad Inicial con botones de control rápido (− y +)
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 6, 0);
+        JLabel lblCantidad = new JLabel("Cantidad inicial *");
+        lblCantidad.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblCantidad.setForeground(new Color(71, 85, 105));
+        formPanel.add(lblCantidad, gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(6, 0, 18, 0);
+
+        JPanel panelCantidadContenedor = new JPanel(new BorderLayout(10, 0));
+        panelCantidadContenedor.setBackground(Color.WHITE);
+        panelCantidadContenedor.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(203, 213, 225), 1, true),
+                BorderFactory.createEmptyBorder(4, 8, 4, 8)
+        ));
+        panelCantidadContenedor.putClientProperty(FlatClientProperties.STYLE, "arc:14");
+
+        JTextField txtCantidad = new JTextField("1");
+        txtCantidad.setFont(new Font("Segoe UI", Font.BOLD, 15));
+        txtCantidad.setHorizontalAlignment(JTextField.LEFT);
+        txtCantidad.setBorder(null);
+        txtCantidad.setOpaque(false);
+
+        txtCantidad.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                SwingUtilities.invokeLater(txtCantidad::selectAll);
+            }
+        });
+
+        JPanel panelBotonesCantidad = new JPanel(new FlowLayout(FlowLayout.RIGHT, 6, 0));
+        panelBotonesCantidad.setOpaque(false);
+
+        JButton btnMenos = new JButton("−");
+        btnMenos.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btnMenos.setForeground(new Color(71, 85, 105));
+        btnMenos.setPreferredSize(new Dimension(32, 32));
+        btnMenos.putClientProperty(FlatClientProperties.STYLE, "arc:10; background:#F1F5F9; borderWidth:0");
+        btnMenos.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnMenos.setFocusPainted(false);
+
+        JButton btnMas = new JButton("+");
+        btnMas.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btnMas.setForeground(new Color(71, 85, 105));
+        btnMas.setPreferredSize(new Dimension(32, 32));
+        btnMas.putClientProperty(FlatClientProperties.STYLE, "arc:10; background:#F1F5F9; borderWidth:0");
+        btnMas.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnMas.setFocusPainted(false);
+
+        btnMenos.addActionListener(e -> {
+            try {
+                double val = Double.parseDouble(txtCantidad.getText().trim());
+                if (val > 1) {
+                    if (val == (int) val) {
+                        txtCantidad.setText(String.valueOf((int) val - 1));
+                    } else {
+                        txtCantidad.setText(String.format("%.2f", val - 1));
+                    }
+                }
+            } catch (Exception ex) {
+                txtCantidad.setText("1");
+            }
+        });
+
+        btnMas.addActionListener(e -> {
+            try {
+                double val = Double.parseDouble(txtCantidad.getText().trim());
+                if (val == (int) val) {
+                    txtCantidad.setText(String.valueOf((int) val + 1));
+                } else {
+                    txtCantidad.setText(String.format("%.2f", val + 1));
+                }
+            } catch (Exception ex) {
+                txtCantidad.setText("1");
+            }
+        });
+
+        panelBotonesCantidad.add(btnMenos);
+        panelBotonesCantidad.add(btnMas);
+
+        panelCantidadContenedor.add(txtCantidad, BorderLayout.CENTER);
+        panelCantidadContenedor.add(panelBotonesCantidad, BorderLayout.EAST);
+        formPanel.add(panelCantidadContenedor, gbc);
+
+        // 3. Precio Unitario (Con selección automática total al hacer foco)
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 6, 0);
+        JLabel lblPrecio = new JLabel("Precio unitario ($ MXN) *");
+        lblPrecio.setFont(new Font("Segoe UI", Font.BOLD, 12));
+        lblPrecio.setForeground(new Color(71, 85, 105));
+        formPanel.add(lblPrecio, gbc);
+
+        gbc.gridy++;
+        gbc.insets = new Insets(6, 0, 22, 0);
+        JTextField txtPrecio = new JTextField("0.00");
+        txtPrecio.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        txtPrecio.putClientProperty(FlatClientProperties.STYLE, "arc:14; margin:8,12,8,12; borderColor:#CBD5E1; focusedBorderColor:#0284C7; background:#FFFFFF");
+
+        txtPrecio.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent evt) {
+                SwingUtilities.invokeLater(txtPrecio::selectAll);
+            }
+        });
+
+        formPanel.add(txtPrecio, gbc);
+
+        // 4. Panel Estilizado "A granel" con Switch deslizante (is_granel)
+        gbc.gridy++;
+        gbc.insets = new Insets(0, 0, 0, 0);
+        JPanel panelGranelContainer = new JPanel(new BorderLayout());
+        panelGranelContainer.setBackground(Color.WHITE);
+        panelGranelContainer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(new Color(203, 213, 225), 1, true),
+                BorderFactory.createEmptyBorder(12, 16, 12, 16)
+        ));
+        panelGranelContainer.putClientProperty(FlatClientProperties.STYLE, "arc:14");
+
+        JLabel lblGranelText = new JLabel("<html><b>Venta a granel / decimales</b><br><font color='#64748B' size='2'>Permite fraccionar unidades (is_granel)</font></html>");
+        lblGranelText.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        lblGranelText.setForeground(new Color(30, 41, 59));
+        panelGranelContainer.add(lblGranelText, BorderLayout.WEST);
+
+        JToggleButton toggleGranel = new JToggleButton() {
+            @Override
+            protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g.create();
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                int w = getWidth();
+                int h = getHeight();
+
+                if (isSelected()) {
+                    g2.setColor(new Color(2, 132, 199)); // Azul cian neón activo
+                    g2.fillRoundRect(0, 0, w, h, h, h);
+                    g2.setColor(Color.WHITE);
+                    g2.fillOval(w - h + 3, 3, h - 6, h - 6);
+                } else {
+                    g2.setColor(new Color(203, 213, 225)); // Apagado elegante
+                    g2.fillRoundRect(0, 0, w, h, h, h);
+                    g2.setColor(Color.WHITE);
+                    g2.fillOval(3, 3, h - 6, h - 6);
+                }
+                g2.dispose();
+            }
+        };
+        toggleGranel.setPreferredSize(new Dimension(48, 26));
+        toggleGranel.setBorderPainted(false);
+        toggleGranel.setContentAreaFilled(false);
+        toggleGranel.setFocusPainted(false);
+        toggleGranel.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        panelGranelContainer.add(toggleGranel, BorderLayout.EAST);
+        formPanel.add(panelGranelContainer, gbc);
+
+        dialogo.add(formPanel, BorderLayout.CENTER);
+
+        // --- PIE DE PÁGINA (BOTONES DE ACCIÓN MODERNOS) ---
+        JPanel panelInferior = new JPanel(new FlowLayout(FlowLayout.RIGHT, 15, 15));
+        panelInferior.setBackground(new Color(226, 232, 240));
+        panelInferior.setBorder(BorderFactory.createMatteBorder(1, 0, 0, 0, new Color(203, 213, 225)));
+
+        JButton btnCancelar = new JButton("Cancelar");
+        btnCancelar.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnCancelar.setPreferredSize(new Dimension(110, 42));
+        btnCancelar.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#CBD5E1; foreground:#334155; borderWidth:0");
+        btnCancelar.setCursor(new Cursor(Cursor.HAND_CURSOR));
+        btnCancelar.addActionListener(e -> dialogo.dispose());
+
+        JButton btnGuardarListo = new JButton("Guardar y Agregar");
+        btnGuardarListo.setFont(new Font("Segoe UI", Font.BOLD, 13));
+        btnGuardarListo.setPreferredSize(new Dimension(165, 42));
+        btnGuardarListo.putClientProperty(FlatClientProperties.STYLE, "arc:12; background:#0284C7; foreground:#FFFFFF; borderWidth:0");
+        btnGuardarListo.setCursor(new Cursor(Cursor.HAND_CURSOR));
+
+        panelInferior.add(btnCancelar);
+        panelInferior.add(btnGuardarListo);
+        dialogo.add(panelInferior, BorderLayout.SOUTH);
+
+        // --- ACCIÓN Y VALIDACIONES COMPLETAS AL GUARDAR ---
+        btnGuardarListo.addActionListener(e -> {
+            String nombre = txtNombre.getText().trim();
+            String precioStr = txtPrecio.getText().trim().replace("$", "").replace(",", "");
+            String cantidadStr = txtCantidad.getText().trim();
+
+            if (nombre.isEmpty()) {
+                JOptionPane.showMessageDialog(dialogo, "El nombre del producto es obligatorio.", "Campo requerido", JOptionPane.WARNING_MESSAGE);
+                txtNombre.requestFocus();
+                return;
+            }
+
+            try {
+                BigDecimal precio = new BigDecimal(precioStr);
+                BigDecimal cantidad = new BigDecimal(cantidadStr);
+
+                if (precio.compareTo(BigDecimal.ZERO) < 0) {
+                    JOptionPane.showMessageDialog(dialogo, "El precio no puede ser negativo.", "Error de validación", JOptionPane.ERROR_MESSAGE);
+                    txtPrecio.requestFocus();
+                    return;
+                }
+
+                if (cantidad.compareTo(BigDecimal.ZERO) <= 0) {
+                    JOptionPane.showMessageDialog(dialogo, "La cantidad inicial debe ser mayor a cero.", "Error de validación", JOptionPane.ERROR_MESSAGE);
+                    txtCantidad.requestFocus();
+                    return;
+                }
+
+                boolean esGranel = toggleGranel.isSelected();
+
+                String skuGenerado = "RAP-" + (System.currentTimeMillis() % 1000000);
+
+                ProductoDTO p = new ProductoDTO();
+                p.setSku(skuGenerado);
+                p.setName(nombre);
+                p.setPrice(precio);
+                p.setCantidad(cantidad);
+                p.setGranel(esGranel);
+                p.setImagePath(null);
+
+                productoRepository.save(p);
+                agregarAlCarrito(p, cantidad);
+
+                dialogo.dispose();
+
+            } catch (NumberFormatException ex) {
+                JOptionPane.showMessageDialog(dialogo, "Verifica que el precio y la cantidad contengan formato numérico válido.", "Formato incorrecto", JOptionPane.ERROR_MESSAGE);
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(dialogo, "Error crítico al registrar el producto: " + ex.getMessage(), "Error del sistema", JOptionPane.ERROR_MESSAGE);
+                ex.printStackTrace();
+            }
+        });
+
+        dialogo.setVisible(true);
+    }
+
     private void estilizarItemModoClaro(JMenuItem item, Font font) {
         item.setFont(font);
         item.setForeground(new Color(30, 41, 59)); // Texto oscuro de alta legibilidad
@@ -1927,7 +2377,6 @@ private void initComponentes() {
         mostrarNotificacion(p, importeParaNotificar);
     }
 
-    // 1. Modifica el método para que reciba el importe calculado
     private void mostrarNotificacion(ProductoDTO p, BigDecimal importeReal) {
         Window win = SwingUtilities.getWindowAncestor(this);
         if (win != null) {
@@ -2156,7 +2605,6 @@ private void initComponentes() {
         }
     }
 
-    /* ========== TARJETA CATÁLOGO MODIFICADA ========== */
     class CardProducto extends JPanel {
 
         private void finalizarVenta() {
